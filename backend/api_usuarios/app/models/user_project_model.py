@@ -18,7 +18,7 @@ class UserProject(Base):
     )
 
     id_project = Column(
-        String,
+        String(20),
         ForeignKey("projects.id_project", ondelete="CASCADE"),
         nullable=False
     )
