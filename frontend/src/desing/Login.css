@@ -1,0 +1,315 @@
+/* ============================================
+   LOGIN SCREEN
+   ============================================ */
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  position: relative;
+}
+
+.login-page__bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+
+.login-page__overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(10, 10, 10, 0.85);
+}
+
+.login-card-wrapper {
+  width: 100%;
+  max-width: 448px; /* max-w-md */
+  margin: 0 auto;
+  position: relative;
+  z-index: 10;
+  transition: max-width 0.2s ease;
+}
+
+.login-card-wrapper--wide {
+  max-width: 672px; /* max-w-2xl */
+}
+
+/* Logo */
+
+.login-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 32px;
+}
+
+.login-logo__img {
+  width: 140px;
+  height: 140px;
+  object-fit: contain;
+}
+
+/* Card */
+
+.login-card {
+  background: #1a1a1a;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  border: 1px solid #2a2a2a;
+}
+
+/* Tabs */
+
+.login-tabs {
+  display: flex;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.login-tab {
+  flex: 1;
+  padding: 16px 24px;
+  border: none;
+  cursor: pointer;
+  background: #1a1a1a;
+  color: #6b6b6b;
+  font-size: 15px;
+  transition: all 0.2s ease;
+}
+
+.login-tab:hover {
+  background: #2a2a2a;
+}
+
+.login-tab--active,
+.login-tab--active:hover {
+  background: #0b4f8a;
+  color: #fff;
+}
+
+/* Content */
+
+.login-content {
+  padding: 32px;
+}
+
+.login-error {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 8px;
+  color: #f87171;
+  font-size: 14px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Fields */
+
+.field__label {
+  display: block;
+  margin-bottom: 8px;
+  color: #fafafa;
+}
+
+.field__input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  background: #0a0a0a;
+  color: #fafafa;
+  font-size: 15px;
+  font-family: inherit;
+}
+
+.field__input::placeholder {
+  color: #6b6b6b;
+}
+
+.field__input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #0b4f8a;
+}
+
+.field__input--icon {
+  padding-right: 48px;
+}
+
+.field--password {
+  position: relative;
+}
+
+.field__toggle {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b6b6b;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s ease;
+}
+
+.field__toggle:hover {
+  color: #fafafa;
+}
+
+/* Primary button */
+
+.btn-primary {
+  width: 100%;
+  background: #0b4f8a;
+  color: #fff;
+  padding: 12px 0;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #094170;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Forgot password */
+
+.login-forgot {
+  padding-top: 8px;
+  display: flex;
+  justify-content: center;
+}
+
+.login-forgot__btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b6b6b;
+  font-size: 14px;
+  transition: color 0.2s ease;
+}
+
+.login-forgot__btn:hover {
+  color: #0b4f8a;
+}
+
+.login-forgot__icon {
+  transition: color 0.2s ease;
+}
+
+.login-forgot__btn:hover .login-forgot__icon {
+  color: #0b4f8a;
+}
+
+/* Register form sections */
+
+.form-section-title {
+  color: #0b4f8a;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .form-grid,
+  .password-requirements__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.divider {
+  border-top: 1px solid #2a2a2a;
+}
+
+/* Password requirements */
+
+.password-requirements {
+  padding: 16px;
+  background: #0a0a0a;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+}
+
+.password-requirements__title {
+  color: #6b6b6b;
+  font-size: 12px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.password-requirements__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+
+.requirement {
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #6b6b6b;
+  margin: 0;
+}
+
+.requirement--valid {
+  color: #4ade80;
+}
+
+/* Terms */
+
+.terms {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.terms__checkbox {
+  margin-top: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid #2a2a2a;
+  background: #0a0a0a;
+  accent-color: #0b4f8a;
+}
+
+.terms__label {
+  color: #6b6b6b;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.terms__link {
+  color: #0b4f8a;
+  cursor: pointer;
+}
+
+.terms__link:hover {
+  text-decoration: underline;
+}
