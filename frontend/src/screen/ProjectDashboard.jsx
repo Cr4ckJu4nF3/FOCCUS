@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Menu, User, Bell, LogOut } from "lucide-react";
-import logo from "../assets/Logo_Negativo.png";
+import logo from "../assets/FoccusNB_White.png";
 import API_URL from "../api";
+import "../desing/ProjectDashboard.css";
 
 const modules = [
   { name: "Guión", color: "#0B4F8A" },
@@ -77,53 +78,53 @@ export default function ProjectDashboardScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A]">
+    <div className="pds-page">
       {/* Header */}
-      <header className="bg-[#1A1A1A] border-b border-[#2A2A2A] px-8 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <img src={logo} alt="Logo" className="h-15" />
+      <header className="pds-header">
+        <div className="pds-header-inner">
+          <div className="pds-header-left">
+            <img src={logo} alt="Logo" className="pds-logo" />
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="pds-header-right">
             {/* Nombre y rol */}
-            <div className="text-right hidden md:block">
-              <p className="text-[#FAFAFA] text-sm font-medium">{nombre} {apellido}</p>
-              <p className={`text-xs font-semibold ${esAdmin ? "text-[#7B5FCF]" : "text-[#0B4F8A]"}`}>
+            <div className="pds-user-info">
+              <p className="pds-user-name">{nombre} {apellido}</p>
+              <p className={`pds-user-role ${esAdmin ? "pds-user-role--admin" : "pds-user-role--user"}`}>
                 {rolLabel}
               </p>
             </div>
 
             {/* Profile Menu */}
-            <div className="relative" ref={profileRef}>
+            <div className="pds-profile-wrapper" ref={profileRef}>
               <button
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                className="w-10 h-10 rounded-full bg-[#0B4F8A] flex items-center justify-center hover:bg-[#094170] transition-colors"
+                className="pds-profile-button"
               >
-                <User className="w-5 h-5 text-white" />
+                <User className="pds-profile-icon" />
               </button>
 
               {isProfileMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg shadow-lg py-2 z-50">
+                <div className="pds-profile-dropdown">
                   {/* Nombre en móvil */}
-                  <div className="px-4 py-2 border-b border-[#2A2A2A] md:hidden">
-                    <p className="text-[#FAFAFA] text-sm font-medium">{nombre} {apellido}</p>
-                    <p className={`text-xs font-semibold ${esAdmin ? "text-[#7B5FCF]" : "text-[#0B4F8A]"}`}>
+                  <div className="pds-profile-dropdown-header">
+                    <p className="pds-profile-dropdown-name">{nombre} {apellido}</p>
+                    <p className={`pds-profile-dropdown-role ${esAdmin ? "pds-user-role--admin" : "pds-user-role--user"}`}>
                       {rolLabel}
                     </p>
                   </div>
                   <button
                     onClick={() => { navigate("/perfil"); setIsProfileMenuOpen(false); }}
-                    className="w-full px-4 py-2 text-left text-[#FAFAFA] hover:bg-[#2A2A2A] transition-colors flex items-center gap-3"
+                    className="pds-profile-dropdown-item pds-profile-dropdown-item--default"
                   >
-                    <User className="w-4 h-4" />
+                    <User className="pds-icon-sm" />
                     Perfil
                   </button>
                   <button
                     onClick={handleLogout}
-                    className="w-full px-4 py-2 text-left text-red-500 hover:bg-[#2A2A2A] transition-colors flex items-center gap-3"
+                    className="pds-profile-dropdown-item pds-profile-dropdown-item--danger"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogOut className="pds-icon-sm" />
                     Salir
                   </button>
                 </div>
@@ -134,34 +135,32 @@ export default function ProjectDashboardScreen() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-8 py-8">
+      <main className="pds-main">
         {/* Project Name and Menu Button */}
-        <div className="mb-8" ref={menuRef}>
-          <h1 className="text-[#FAFAFA] mb-4">{projectName}</h1>
-          <div className="inline-block">
+        <div className="pds-project-header" ref={menuRef}>
+          <h1 className="pds-project-title">{projectName}</h1>
+          <div className="pds-menu-toggle-wrapper">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg hover:bg-[#2A2A2A] transition-colors"
+              className="pds-menu-toggle"
             >
-              <Menu className="w-5 h-5 text-[#FAFAFA]" />
-              <span className="text-[#FAFAFA]">Menú</span>
+              <Menu className="pds-menu-toggle-icon" />
+              <span className="pds-menu-toggle-label">Menú</span>
             </button>
           </div>
         </div>
 
         {/* Content Area */}
-        <div className="flex gap-8">
+        <div className="pds-content">
           {/* Menu Sidebar */}
           {isMenuOpen && (
-            <div ref={menuRef} className="w-64 bg-[#1A1A1A] border border-[#2A2A2A] rounded-lg shadow-lg py-2 h-fit flex-shrink-0">
+            <div ref={menuRef} className="pds-sidebar">
               {menuOptions.map((option) => (
                 <button
                   key={option}
                   onClick={() => handleMenuOption(option)}
-                  className={`w-full px-4 py-3 text-left transition-colors ${
-                    option === "Roles"
-                      ? "text-[#7B5FCF] hover:bg-[#7B5FCF]/10 font-semibold"
-                      : "text-[#FAFAFA] hover:bg-[#2A2A2A]"
+                  className={`pds-sidebar-item ${
+                    option === "Roles" ? "pds-sidebar-item--roles" : "pds-sidebar-item--default"
                   }`}
                 >
                   {option}
@@ -171,32 +170,30 @@ export default function ProjectDashboardScreen() {
           )}
 
           {/* Modules Grid */}
-          <div className={`flex-1 grid gap-6 transition-all ${
-            isMenuOpen
-              ? "grid-cols-1 md:grid-cols-2"
-              : "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
+          <div className={`pds-modules-grid ${
+            isMenuOpen ? "pds-modules-grid--collapsed" : "pds-modules-grid--expanded"
           }`}>
             {modules.map((module) => (
               <div
                 key={module.name}
-                className={`bg-[#1A1A1A] rounded-2xl shadow-lg border border-[#2A2A2A] flex flex-col items-center justify-center transition-all ${
-                  isMenuOpen ? "p-6 min-h-[220px]" : "p-12 min-h-[320px]"
+                className={`pds-module-card ${
+                  isMenuOpen ? "pds-module-card--compact" : "pds-module-card--full"
                 }`}
               >
                 <div
-                  className={`rounded-full flex items-center justify-center transition-all ${
-                    isMenuOpen ? "w-16 h-16 mb-4" : "w-24 h-24 mb-8"
+                  className={`pds-module-icon-wrapper ${
+                    isMenuOpen ? "pds-module-icon-wrapper--compact" : "pds-module-icon-wrapper--full"
                   }`}
                   style={{ backgroundColor: module.color }}
                 >
-                  <span className={`text-white ${isMenuOpen ? "text-2xl" : "text-4xl"}`}>📋</span>
+                  <span className={`pds-module-emoji ${isMenuOpen ? "pds-module-emoji--compact" : "pds-module-emoji--full"}`}>📋</span>
                 </div>
-                <h3 className={`text-[#FAFAFA] text-center mb-4 ${
-                  isMenuOpen ? "text-base" : "text-xl"
+                <h3 className={`pds-module-title ${
+                  isMenuOpen ? "pds-module-title--compact" : "pds-module-title--full"
                 }`}>
                   {module.name}
                 </h3>
-                <button className="px-6 py-2 rounded-lg bg-[#0B4F8A] text-white hover:bg-[#094170] transition-colors">
+                <button className="pds-module-button">
                   Ver más
                 </button>
               </div>
@@ -205,10 +202,10 @@ export default function ProjectDashboardScreen() {
         </div>
 
         {/* Volver */}
-        <div className="mt-12">
+        <div className="pds-back-wrapper">
           <button
             onClick={() => navigate("/seleccion-proyecto")}
-            className="text-[#FAFAFA] hover:text-[#0B4F8A] transition-colors flex items-center gap-2"
+            className="pds-back-button"
           >
             ← Volver a Proyectos
           </button>

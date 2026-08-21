@@ -1,0 +1,554 @@
+/* ProjectSelectionScreen.css */
+
+.pss-page {
+  min-height: 100vh;
+  background-color: #0A0A0A;
+}
+
+/* Header */
+.pss-header {
+  background-color: #1A1A1A;
+  border-bottom: 1px solid #2A2A2A;
+  padding: 1rem 2rem;
+}
+
+.pss-header-inner {
+  max-width: 80rem; /* max-w-7xl */
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pss-logo {
+  height: 3.75rem; /* h-15 */
+}
+
+/* Main content */
+.pss-main {
+  max-width: 48rem; /* max-w-3xl */
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+}
+
+.pss-heading {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.pss-heading-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: #0B4F8A;
+  margin: 0 auto 1rem;
+  opacity: 0.8;
+}
+
+.pss-heading-title {
+  color: #FAFAFA;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  margin-bottom: 0.5rem;
+}
+
+.pss-heading-subtitle {
+  color: #6B6B6B;
+  font-size: 0.875rem;
+}
+
+.pss-error {
+  margin-bottom: 1.5rem;
+  padding: 0.75rem;
+  background-color: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 0.5rem;
+  color: #F87171;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+/* Action buttons grid */
+.pss-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.pss-actions-grid--admin {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .pss-actions-grid--admin {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.pss-actions-grid--single {
+  grid-template-columns: 1fr;
+  max-width: 28rem; /* max-w-md */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Action card (button) - shared base */
+.pss-action-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2.5rem 1.5rem;
+  border-radius: 0.75rem;
+  border: 2px solid #2A2A2A;
+  background-color: #1A1A1A;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* "Escoger Proyecto" card */
+.pss-action-card--select:hover {
+  border-color: rgba(11, 79, 138, 0.6);
+  background-color: rgba(11, 79, 138, 0.05);
+}
+
+.pss-action-card--select.pss-action-card--active {
+  background-color: rgba(11, 79, 138, 0.15);
+  border-color: #0B4F8A;
+  box-shadow: 0 10px 15px -3px rgba(11, 79, 138, 0.1), 0 4px 6px -4px rgba(11, 79, 138, 0.1);
+}
+
+/* "Crear Proyecto" card */
+.pss-action-card--create:hover {
+  border-color: rgba(123, 95, 207, 0.6);
+  background-color: rgba(123, 95, 207, 0.05);
+}
+
+.pss-action-icon-wrapper {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #2A2A2A;
+  transition: background-color 0.2s ease;
+}
+
+.pss-action-card--select:hover .pss-action-icon-wrapper {
+  background-color: rgba(11, 79, 138, 0.2);
+}
+
+.pss-action-card--select.pss-action-card--active .pss-action-icon-wrapper {
+  background-color: #0B4F8A;
+}
+
+.pss-action-card--create:hover .pss-action-icon-wrapper {
+  background-color: rgba(123, 95, 207, 0.2);
+}
+
+.pss-action-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  color: #6B6B6B;
+  transition: color 0.2s ease;
+}
+
+.pss-action-card--select:hover .pss-action-icon {
+  color: #0B4F8A;
+}
+
+.pss-action-card--select.pss-action-card--active .pss-action-icon {
+  color: #FFFFFF;
+}
+
+.pss-action-card--create:hover .pss-action-icon {
+  color: #7B5FCF;
+}
+
+.pss-action-text {
+  text-align: center;
+}
+
+.pss-action-title {
+  display: block;
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: 0.025em;
+  color: #FAFAFA;
+}
+
+.pss-action-subtitle {
+  display: block;
+  font-size: 0.75rem;
+  color: #6B6B6B;
+  margin-top: 0.25rem;
+}
+
+.pss-action-dot {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background-color: #0B4F8A;
+}
+
+/* Project list */
+.pss-list-card {
+  background-color: #1A1A1A;
+  border: 1px solid #2A2A2A;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.pss-list-header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #2A2A2A;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pss-list-header-icon {
+  width: 1rem;
+  height: 1rem;
+  color: #0B4F8A;
+}
+
+.pss-list-header-title {
+  color: #FAFAFA;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+
+.pss-list-header-count {
+  margin-left: auto;
+  color: #6B6B6B;
+  font-size: 0.75rem;
+}
+
+.pss-list-state {
+  padding: 2rem;
+  text-align: center;
+}
+
+.pss-spinner {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid rgba(11, 79, 138, 0.3);
+  border-top-color: #0B4F8A;
+  border-radius: 9999px;
+  display: inline-block;
+  animation: pss-spin 0.8s linear infinite;
+}
+
+@keyframes pss-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pss-list-state-text {
+  color: #6B6B6B;
+  font-size: 0.875rem;
+  margin-top: 0.75rem;
+}
+
+.pss-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pss-list > li + li {
+  border-top: 1px solid #2A2A2A;
+}
+
+.pss-list-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.15s ease;
+}
+
+.pss-list-item:hover {
+  background-color: rgba(11, 79, 138, 0.08);
+}
+
+.pss-list-item-icon-wrapper {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  background-color: rgba(11, 79, 138, 0.15);
+  border: 1px solid rgba(11, 79, 138, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease;
+}
+
+.pss-list-item:hover .pss-list-item-icon-wrapper {
+  background-color: rgba(11, 79, 138, 0.25);
+}
+
+.pss-list-item-icon {
+  width: 1rem;
+  height: 1rem;
+  color: #0B4F8A;
+}
+
+.pss-list-item-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pss-list-item-name {
+  color: #FAFAFA;
+  font-weight: 500;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.pss-list-item-meta {
+  color: #6B6B6B;
+  font-size: 0.75rem;
+  margin-top: 0.125rem;
+}
+
+.pss-list-item-chevron {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: #2A2A2A;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.pss-list-item-chevron--active {
+  color: #0B4F8A;
+  transform: translateX(0.125rem);
+}
+
+/* Modal */
+.pss-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.pss-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.pss-modal {
+  position: relative;
+  width: 100%;
+  max-width: 32rem; /* max-w-lg */
+  background-color: #1A1A1A;
+  border-radius: 0.75rem;
+  border: 1px solid #2A2A2A;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.pss-modal-header {
+  background: linear-gradient(to right, #7B5FCF, #0B4F8A);
+  padding: 1.25rem 1.75rem;
+  flex-shrink: 0;
+}
+
+.pss-modal-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pss-modal-header-eyebrow {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+
+.pss-modal-header-title {
+  color: #FFFFFF;
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+
+.pss-modal-close {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.pss-modal-close:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.pss-modal-close-icon {
+  width: 1rem;
+  height: 1rem;
+  color: #FFFFFF;
+}
+
+.pss-modal-body {
+  overflow-y: auto;
+  flex: 1 1 auto;
+  padding: 1.75rem;
+}
+
+.pss-modal-error {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background-color: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 0.5rem;
+  color: #F87171;
+  font-size: 0.875rem;
+}
+
+.pss-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.pss-modal-field {
+  width: 100%;
+}
+
+.pss-modal-label {
+  display: block;
+  margin-bottom: 0.375rem;
+  color: #FAFAFA;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.pss-modal-input,
+.pss-modal-select,
+.pss-modal-textarea {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #2A2A2A;
+  border-radius: 0.5rem;
+  background-color: #0A0A0A;
+  color: #FAFAFA;
+  font-size: 0.875rem;
+  outline: none;
+  font-family: inherit;
+  transition: box-shadow 0.15s ease;
+}
+
+.pss-modal-input::placeholder,
+.pss-modal-textarea::placeholder {
+  color: #4A4A4A;
+}
+
+.pss-modal-input:focus,
+.pss-modal-select:focus,
+.pss-modal-textarea:focus {
+  box-shadow: 0 0 0 2px #7B5FCF;
+}
+
+.pss-modal-textarea {
+  resize: none;
+}
+
+.pss-modal-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .pss-modal-grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.pss-modal-footer {
+  padding: 1.25rem 1.75rem;
+  border-top: 1px solid #2A2A2A;
+  background-color: #0A0A0A;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.pss-modal-cancel {
+  padding: 0.625rem 1.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #2A2A2A;
+  background: none;
+  color: #6B6B6B;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.pss-modal-cancel:hover {
+  color: #FAFAFA;
+  border-color: #6B6B6B;
+}
+
+.pss-modal-submit {
+  padding: 0.625rem 2rem;
+  border-radius: 0.5rem;
+  border: none;
+  background-color: #7B5FCF;
+  color: #FFFFFF;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  box-shadow: 0 10px 15px -3px rgba(123, 95, 207, 0.2), 0 4px 6px -4px rgba(123, 95, 207, 0.2);
+}
+
+.pss-modal-submit:hover:not(:disabled) {
+  background-color: #6a4eb8;
+}
+
+.pss-modal-submit:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

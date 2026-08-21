@@ -1,0 +1,152 @@
+/* ProjectRegistrationScreen.css */
+
+.prs-page {
+  min-height: 100vh;
+  background-color: #0A0A0A;
+  padding: 2rem 1rem;
+}
+
+.prs-container {
+  max-width: 48rem; /* max-w-3xl */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.prs-logo-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.prs-logo {
+  height: 4rem;
+}
+
+.prs-card {
+  background-color: #1A1A1A;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  border: 1px solid #2A2A2A;
+  overflow: hidden;
+}
+
+.prs-card-header {
+  background: linear-gradient(to right, #7B5FCF, #0B4F8A);
+  padding: 1.5rem 2rem;
+}
+
+.prs-card-header-eyebrow {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+
+.prs-card-header-title {
+  color: #FFFFFF;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+
+.prs-card-header-subtitle {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  line-height: 1.625;
+}
+
+.prs-card-body {
+  padding: 2rem;
+}
+
+.prs-error {
+  margin-bottom: 1.5rem;
+  padding: 0.75rem;
+  background-color: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 0.5rem;
+  color: #F87171;
+  font-size: 0.875rem;
+}
+
+.prs-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.prs-field {
+  width: 100%;
+}
+
+.prs-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #FAFAFA;
+}
+
+.prs-input,
+.prs-select,
+.prs-textarea {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #2A2A2A;
+  border-radius: 0.5rem;
+  background-color: #0A0A0A;
+  color: #FAFAFA;
+  outline: none;
+  font: inherit;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.prs-input:focus,
+.prs-select:focus,
+.prs-textarea:focus {
+  box-shadow: 0 0 0 2px #7B5FCF;
+}
+
+.prs-textarea {
+  resize: none;
+}
+
+.prs-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .prs-grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.prs-submit-row {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 1rem;
+}
+
+.prs-submit-button {
+  background-color: #7B5FCF;
+  color: #FFFFFF;
+  padding: 0.75rem 2rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  transition: background-color 0.15s ease;
+  box-shadow: 0 10px 15px -3px rgba(123, 95, 207, 0.2), 0 4px 6px -4px rgba(123, 95, 207, 0.2);
+}
+
+.prs-submit-button:hover:not(:disabled) {
+  background-color: #6a4eb8;
+}
+
+.prs-submit-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import logo from "../assets/Logo_Negativo.png";
+import logo from "../assets/FoccusNB_White.png";
 import API_URL from "../api";
+import "../desing/ProjectRegistration.css";
 
 const formatOptions = [
   "serie", "miniserie", "pelicula", "largometraje", "mediometraje", "cortometraje",
@@ -74,39 +75,39 @@ export default function ProjectRegistrationScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] py-8 px-4">
-      <div className="max-w-3xl mx-auto">
+    <div className="prs-page">
+      <div className="prs-container">
         {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <img src={logo} alt="Logo" className="h-16" />
+        <div className="prs-logo-wrapper">
+          <img src={logo} alt="Logo" className="prs-logo" />
         </div>
 
         {/* Card */}
-        <div className="bg-[#1A1A1A] rounded-lg shadow-lg border border-[#2A2A2A] overflow-hidden">
+        <div className="prs-card">
           {/* Header */}
-          <div className="bg-gradient-to-r from-[#7B5FCF] to-[#0B4F8A] px-8 py-6">
-            <p className="text-white/60 text-xs font-semibold tracking-widest uppercase mb-1">
+          <div className="prs-card-header">
+            <p className="prs-card-header-eyebrow">
               Primer paso
             </p>
-            <h1 className="text-white text-xl font-semibold tracking-wide">
+            <h1 className="prs-card-header-title">
               Crea tu primer proyecto
             </h1>
-            <p className="text-white/70 text-sm mt-1 leading-relaxed">
+            <p className="prs-card-header-subtitle">
               Registra los datos de tu producción audiovisual para comenzar a trabajar.
             </p>
           </div>
 
-          <div className="p-8">
+          <div className="prs-card-body">
             {/* Error */}
             {error && (
-              <div className="mb-6 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+              <div className="prs-error">
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label className="block mb-2 text-[#FAFAFA]">
+            <form onSubmit={handleSubmit} className="prs-form">
+              <div className="prs-field">
+                <label className="prs-label">
                   Nombre del Proyecto
                 </label>
                 <input
@@ -114,20 +115,20 @@ export default function ProjectRegistrationScreen() {
                   name="project_name"
                   value={formData.project_name}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA]"
+                  className="prs-input"
                   placeholder="Nombre de la serie, película u otro proyecto audiovisual"
                   required
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block mb-2 text-[#FAFAFA]">Formato</label>
+              <div className="prs-grid-2">
+                <div className="prs-field">
+                  <label className="prs-label">Formato</label>
                   <select
                     name="formato_de_produccion"
                     value={formData.formato_de_produccion}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA]"
+                    className="prs-select"
                     required
                   >
                     <option value="">Selecciona un formato</option>
@@ -139,13 +140,13 @@ export default function ProjectRegistrationScreen() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block mb-2 text-[#FAFAFA]">Género</label>
+                <div className="prs-field">
+                  <label className="prs-label">Género</label>
                   <select
                     name="genero"
                     value={formData.genero}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA]"
+                    className="prs-select"
                     required
                   >
                     <option value="">Selecciona un género</option>
@@ -158,35 +159,35 @@ export default function ProjectRegistrationScreen() {
                 </div>
               </div>
 
-              <div>
-                <label className="block mb-2 text-[#FAFAFA]">Sinopsis</label>
+              <div className="prs-field">
+                <label className="prs-label">Sinopsis</label>
                 <textarea
                   name="sinopsis"
                   value={formData.sinopsis}
                   onChange={handleChange}
                   rows={4}
-                  className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA] resize-none"
+                  className="prs-textarea"
                   placeholder="Detalle de lo que trata el producto audiovisual"
                 />
               </div>
 
-              <div>
-                <label className="block mb-2 text-[#FAFAFA]">Director</label>
+              <div className="prs-field">
+                <label className="prs-label">Director</label>
                 <input
                   type="text"
                   name="director"
                   value={formData.director}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA]"
+                  className="prs-input"
                   placeholder="Director o directores del producto audiovisual"
                 />
               </div>
 
-              <div className="flex justify-end pt-4">
+              <div className="prs-submit-row">
                 <button
                   type="submit"
                   disabled={loading}
-                  className="bg-[#7B5FCF] text-white px-8 py-3 rounded-lg hover:bg-[#6a4eb8] transition-colors shadow-lg shadow-[#7B5FCF]/20 disabled:opacity-50"
+                  className="prs-submit-button"
                 >
                   {loading ? "Creando..." : "Crear Proyecto"}
                 </button>

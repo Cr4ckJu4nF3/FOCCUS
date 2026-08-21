@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, UserPlus, Users, Mail, X, CheckCircle } from "lucide-react";
-import logo from "../assets/Logo_Negativo.png";
+import logo from "../assets/FoccusNB_White.png";
 import API_URL from "../api";
+import "../desing/Roles.css";
 
 const rolLabels = {
   1001: "Administrador",
@@ -109,91 +110,91 @@ export default function RolesScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A]">
+    <div className="rs-page">
       {/* Header */}
-      <header className="bg-[#1A1A1A] border-b border-[#2A2A2A] px-8 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <header className="rs-header">
+        <div className="rs-header-inner">
+          <div className="rs-header-left">
             <button
               onClick={() => navigate(-1)}
-              className="p-2 hover:bg-[#2A2A2A] rounded-lg transition-colors"
+              className="rs-back-button"
             >
-              <ArrowLeft className="w-5 h-5 text-[#FAFAFA]" />
+              <ArrowLeft className="rs-back-icon" />
             </button>
-            <img src={logo} alt="Logo" className="h-15" />
+            <img src={logo} alt="Logo" className="rs-logo" />
           </div>
-          <p className="text-[#6B6B6B] text-sm">{projectName}</p>
+          <p className="rs-header-project-name">{projectName}</p>
         </div>
       </header>
 
       {/* Content */}
-      <main className="max-w-4xl mx-auto px-8 py-12">
+      <main className="rs-main">
         {/* Título y botón invitar */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <Users className="w-6 h-6 text-[#7B5FCF]" />
-            <h1 className="text-[#FAFAFA] text-2xl font-semibold">Roles y Equipo</h1>
+        <div className="rs-title-row">
+          <div className="rs-title-left">
+            <Users className="rs-title-icon" />
+            <h1 className="rs-title">Roles y Equipo</h1>
           </div>
           <button
             onClick={() => { setShowInviteModal(true); setError(""); }}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#7B5FCF] text-white rounded-lg hover:bg-[#6a4eb8] transition-colors shadow-lg shadow-[#7B5FCF]/20"
+            className="rs-invite-button"
           >
-            <UserPlus className="w-4 h-4" />
+            <UserPlus className="rs-icon-sm" />
             Invitar Miembro
           </button>
         </div>
 
         {/* Mensajes */}
         {success && (
-          <div className="mb-6 p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-400 text-sm flex items-center gap-2">
-            <CheckCircle className="w-4 h-4" />
+          <div className="rs-alert rs-alert--success">
+            <CheckCircle className="rs-icon-sm" />
             {success}
           </div>
         )}
         {error && !showInviteModal && (
-          <div className="mb-6 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+          <div className="rs-alert rs-alert--error">
             {error}
           </div>
         )}
 
         {/* Lista de miembros */}
-        <div className="bg-[#1A1A1A] rounded-xl border border-[#2A2A2A] overflow-hidden">
-          <div className="px-6 py-4 border-b border-[#2A2A2A] flex items-center justify-between">
-            <span className="text-[#FAFAFA] text-sm font-semibold">Miembros del proyecto</span>
-            <span className="text-[#6B6B6B] text-xs">{usuarios.length} miembros</span>
+        <div className="rs-list-card">
+          <div className="rs-list-header">
+            <span className="rs-list-header-title">Miembros del proyecto</span>
+            <span className="rs-list-header-count">{usuarios.length} miembros</span>
           </div>
 
           {loadingUsers ? (
-            <div className="p-8 text-center">
-              <span className="w-6 h-6 border-2 border-[#7B5FCF]/30 border-t-[#7B5FCF] rounded-full animate-spin inline-block" />
-              <p className="text-[#6B6B6B] text-sm mt-3">Cargando equipo...</p>
+            <div className="rs-list-state">
+              <span className="rs-spinner" />
+              <p className="rs-list-state-text">Cargando equipo...</p>
             </div>
           ) : usuarios.length === 0 ? (
-            <div className="p-8 text-center">
-              <Users className="w-10 h-10 text-[#2A2A2A] mx-auto mb-3" />
-              <p className="text-[#6B6B6B] text-sm">No hay miembros en este proyecto. Invita a tu equipo.</p>
+            <div className="rs-list-state">
+              <Users className="rs-list-state-icon" />
+              <p className="rs-list-state-text">No hay miembros en este proyecto. Invita a tu equipo.</p>
             </div>
           ) : (
-            <div className="divide-y divide-[#2A2A2A]">
+            <div className="rs-list">
               {usuarios.map((user, index) => {
                 const rol = user.id_rol || 1005;
                 return (
-                  <div key={user.id_user || index} className="px-6 py-4 flex items-center justify-between hover:bg-[#2A2A2A]/30 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm"
+                  <div key={user.id_user || index} className="rs-list-item">
+                    <div className="rs-list-item-left">
+                      <div className="rs-avatar"
                         style={{ backgroundColor: rolColors[rol] || "#6B6B6B" }}
                       >
                         {(user.nombre || "?")[0]}{(user.apellido || "?")[0]}
                       </div>
                       <div>
-                        <p className="text-[#FAFAFA] font-medium text-sm">
+                        <p className="rs-user-name">
                           {user.nombre} {user.apellido}
                         </p>
-                        <p className="text-[#6B6B6B] text-xs">{user.mail}</p>
+                        <p className="rs-user-mail">{user.mail}</p>
                       </div>
                     </div>
                     <span
-                      className="px-3 py-1 rounded-full text-xs font-semibold"
+                      className="rs-role-badge"
                       style={{
                         backgroundColor: (rolColors[rol] || "#6B6B6B") + "20",
                         color: rolColors[rol] || "#6B6B6B",
@@ -212,67 +213,67 @@ export default function RolesScreen() {
 
       {/* Modal Invitar */}
       {showInviteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="rs-modal-overlay">
           <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            className="rs-modal-backdrop"
             onClick={() => setShowInviteModal(false)}
           />
 
-          <div className="relative w-full max-w-lg bg-[#1A1A1A] rounded-xl border border-[#2A2A2A] shadow-2xl overflow-hidden">
+          <div className="rs-modal">
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-[#7B5FCF] to-[#0B4F8A] px-7 py-5">
-              <div className="flex items-center justify-between">
+            <div className="rs-modal-header">
+              <div className="rs-modal-header-row">
                 <div>
-                  <p className="text-white/60 text-xs font-semibold tracking-widest uppercase mb-1">
+                  <p className="rs-modal-header-eyebrow">
                     Nuevo miembro
                   </p>
-                  <h2 className="text-white text-lg font-semibold tracking-wide">
+                  <h2 className="rs-modal-header-title">
                     Invitar al Proyecto
                   </h2>
                 </div>
                 <button
                   onClick={() => setShowInviteModal(false)}
-                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                  className="rs-modal-close"
                 >
-                  <X className="w-4 h-4 text-white" />
+                  <X className="rs-modal-close-icon" />
                 </button>
               </div>
             </div>
 
             {/* Modal Body */}
-            <div className="p-7">
+            <div className="rs-modal-body">
               {error && (
-                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+                <div className="rs-modal-error">
                   {error}
                 </div>
               )}
 
-              <form onSubmit={handleInvite} className="space-y-5">
-                <div>
-                  <label className="block mb-1.5 text-[#FAFAFA] text-sm font-medium">
+              <form onSubmit={handleInvite} className="rs-modal-form">
+                <div className="rs-modal-field">
+                  <label className="rs-modal-label">
                     Correos electrónicos
                   </label>
                   <textarea
                     value={correos}
                     onChange={(e) => setCorreos(e.target.value)}
                     rows={3}
-                    className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA] placeholder:text-[#4A4A4A] resize-none text-sm"
+                    className="rs-modal-textarea"
                     placeholder="correo1@ejemplo.com, correo2@ejemplo.com"
                     required
                   />
-                  <p className="mt-1.5 text-[#6B6B6B] text-xs">
+                  <p className="rs-modal-hint">
                     Separa los correos con comas para invitar a varias personas.
                   </p>
                 </div>
 
-                <div>
-                  <label className="block mb-1.5 text-[#FAFAFA] text-sm font-medium">
+                <div className="rs-modal-field">
+                  <label className="rs-modal-label">
                     Rol asignado
                   </label>
                   <select
                     value={rolInvitado}
                     onChange={(e) => setRolInvitado(Number(e.target.value))}
-                    className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA] text-sm"
+                    className="rs-modal-select"
                   >
                     <option value={1001}>Administrador</option>
                     <option value={1002}>Director</option>
@@ -282,27 +283,27 @@ export default function RolesScreen() {
                   </select>
                 </div>
 
-                <div className="flex items-center justify-end gap-3 pt-2">
+                <div className="rs-modal-footer">
                   <button
                     type="button"
                     onClick={() => setShowInviteModal(false)}
-                    className="px-6 py-2.5 rounded-lg border border-[#2A2A2A] text-[#6B6B6B] hover:text-[#FAFAFA] hover:border-[#6B6B6B] text-sm font-medium transition-all"
+                    className="rs-modal-cancel"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={loadingInvite}
-                    className="px-8 py-2.5 rounded-lg bg-[#7B5FCF] text-white hover:bg-[#6a4eb8] text-sm font-semibold tracking-wide transition-all shadow-lg shadow-[#7B5FCF]/20 disabled:opacity-50 flex items-center gap-2"
+                    className="rs-modal-submit"
                   >
                     {loadingInvite ? (
                       <>
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span className="rs-modal-submit-spinner" />
                         Enviando...
                       </>
                     ) : (
                       <>
-                        <Mail className="w-4 h-4" />
+                        <Mail className="rs-icon-sm" />
                         Enviar Invitaciones
                       </>
                     )}

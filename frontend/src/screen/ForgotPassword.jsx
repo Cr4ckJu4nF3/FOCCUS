@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Mail, CheckCircle, Shield, KeyRound, Eye, EyeOff } from "lucide-react";
-import logo from "../assets/Isotipo_Color.png";
+import Logo from "../assets/Logo.png";
 import claqueta from "../assets/claqueta.jpg";
 import API_URL from "../api";
-
+import "../desing/ForgotPassword.css";
 
 export default function ForgotPasswordScreen() {
   const [paso, setPaso] = useState(1);
@@ -93,62 +93,62 @@ export default function ForgotPasswordScreen() {
 
   return (
 
-    <div className="min-h-screen flex items-center justify-center px-4 relative">
+    <div className="auth-page">
       {/* Fondo con imagen */}
       <div
-        className="absolute inset-0 bg-cover bg-center"
+        className="auth-page__bg"
         style={{ backgroundImage: `url(${claqueta})` }}
       />
-      <div className="absolute inset-0 bg-[#0A0A0A]/85" />
-      <div className="w-full max-w-md relative z-10">
+      <div className="auth-page__overlay" />
+      <div className="auth-card-wrapper">
 
         {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <img src={logo} alt="Logo" className="w-35 h-35 opacity-90" />
+        <div className="auth-logo">
+          <img src={Logo} alt="Logo" className="auth-logo__img" />
         </div>
 
         {/* PASO 1: Ingresar correo */}
         {paso === 1 && (
-          <div className="bg-[#1A1A1A] rounded-xl shadow-2xl border border-[#2A2A2A] overflow-hidden">
-            <div className="bg-gradient-to-r from-[#0B4F8A] to-[#7B5FCF] px-8 py-6">
-              <div className="flex items-center gap-3 mb-1">
-                <Shield className="w-5 h-5 text-white/80" />
-                <span className="text-white/60 text-xs font-semibold tracking-widest uppercase">
+          <div className="auth-card">
+            <div className="auth-card__header auth-card__header--blue-purple">
+              <div className="auth-card__eyebrow-row">
+                <Shield size={20} className="auth-card__eyebrow-icon" />
+                <span className="auth-card__eyebrow">
                   Seguridad de cuenta
                 </span>
               </div>
-              <h1 className="text-white text-xl font-semibold tracking-wide">
+              <h1 className="auth-card__title">
                 Recuperación de Acceso
               </h1>
-              <p className="text-white/70 text-sm mt-1 leading-relaxed">
+              <p className="auth-card__subtitle">
                 Ingresa tu correo electrónico registrado y te enviaremos un código de verificación.
               </p>
             </div>
 
-            <div className="p-8">
+            <div className="auth-content">
               {error && (
-                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+                <div className="auth-error">
                   {error}
                 </div>
               )}
 
-              <form onSubmit={handleEnviarCodigo} className="space-y-6">
-                <div>
-                  <label className="block mb-2 text-[#FAFAFA] text-sm font-medium tracking-wide">
+              <form onSubmit={handleEnviarCodigo} className="auth-form">
+                <div className="field">
+                  <label className="field__label">
                     Correo Electrónico
                   </label>
-                  <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B6B6B]" />
+                  <div className="field--icon-left">
+                    <Mail size={16} className="field__icon-left" />
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B4F8A] bg-[#0A0A0A] text-[#FAFAFA] placeholder:text-[#4A4A4A] transition-all"
+                      className="field__input field__input--icon-left"
                       placeholder="correo@dominio.com"
                       required
                     />
                   </div>
-                  <p className="mt-2 text-[#6B6B6B] text-xs leading-relaxed">
+                  <p className="field__hint">
                     Debe coincidir con el correo asociado a tu cuenta en el sistema.
                   </p>
                 </div>
@@ -156,11 +156,11 @@ export default function ForgotPasswordScreen() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-3 rounded-lg font-semibold tracking-wide transition-all flex items-center justify-center gap-2 bg-[#0B4F8A] text-white hover:bg-[#094170] shadow-lg shadow-[#0B4F8A]/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="btn-primary"
                 >
                   {isLoading ? (
                     <>
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span className="spinner" />
                       Enviando...
                     </>
                   ) : (
@@ -169,12 +169,12 @@ export default function ForgotPasswordScreen() {
                 </button>
               </form>
 
-              <div className="mt-8 pt-6 border-t border-[#2A2A2A]">
+              <div className="auth-footer-center">
                 <button
                   onClick={() => navigate("/")}
-                  className="flex items-center gap-2 text-[#6B6B6B] hover:text-[#FAFAFA] text-sm transition-colors mx-auto"
+                  className="auth-link"
                 >
-                  <ArrowLeft className="w-4 h-4" />
+                  <ArrowLeft size={16} />
                   Volver al inicio de sesión
                 </button>
               </div>
@@ -184,91 +184,91 @@ export default function ForgotPasswordScreen() {
 
         {/* PASO 2: Ingresar código + nueva contraseña */}
         {paso === 2 && (
-          <div className="bg-[#1A1A1A] rounded-xl shadow-2xl border border-[#2A2A2A] overflow-hidden">
-            <div className="bg-gradient-to-r from-[#7B5FCF] to-[#0B4F8A] px-8 py-6">
-              <div className="flex items-center gap-3 mb-1">
-                <KeyRound className="w-5 h-5 text-white/80" />
-                <span className="text-white/60 text-xs font-semibold tracking-widest uppercase">
+          <div className="auth-card">
+            <div className="auth-card__header auth-card__header--purple-blue">
+              <div className="auth-card__eyebrow-row">
+                <KeyRound size={20} className="auth-card__eyebrow-icon" />
+                <span className="auth-card__eyebrow">
                   Verificación
                 </span>
               </div>
-              <h1 className="text-white text-xl font-semibold tracking-wide">
+              <h1 className="auth-card__title">
                 Restablecer Contraseña
               </h1>
-              <p className="text-white/70 text-sm mt-1 leading-relaxed">
-                Ingresa el código que enviamos a <span className="text-white font-medium">{email}</span> y tu nueva contraseña.
+              <p className="auth-card__subtitle">
+                Ingresa el código que enviamos a <span className="auth-card__subtitle-strong">{email}</span> y tu nueva contraseña.
               </p>
             </div>
 
-            <div className="p-8">
+            <div className="auth-content">
               {error && (
-                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+                <div className="auth-error">
                   {error}
                 </div>
               )}
 
-              <form onSubmit={handleResetPassword} className="space-y-6">
-                <div>
-                  <label className="block mb-2 text-[#FAFAFA] text-sm font-medium">
+              <form onSubmit={handleResetPassword} className="auth-form">
+                <div className="field">
+                  <label className="field__label">
                     Código de Verificación
                   </label>
                   <input
                     type="text"
                     value={codigo}
                     onChange={(e) => setCodigo(e.target.value)}
-                    className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA] text-center text-2xl tracking-widest"
+                    className="field__input field__input--purple field__input--code"
                     placeholder="000000"
                     required
                   />
                 </div>
 
-                <div>
-                  <label className="block mb-2 text-[#FAFAFA] text-sm font-medium">Nueva Contraseña</label>
-                  <div className="relative">
+                <div className="field">
+                  <label className="field__label">Nueva Contraseña</label>
+                  <div className="field--password">
                     <input
                       type={verNueva ? "text" : "password"}
                       value={nuevaContrasena}
                       onChange={(e) => setNuevaContrasena(e.target.value)}
-                      className="w-full px-4 py-3 pr-12 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA]"
+                      className="field__input field__input--purple field__input--icon"
                       placeholder="Ingresa tu nueva contraseña"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setVerNueva(!verNueva)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B6B6B] hover:text-[#FAFAFA] transition-colors"
+                      className="field__toggle"
                     >
-                      {verNueva ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {verNueva ? <EyeOff size={20} /> : <Eye size={20} />}
                     </button>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block mb-2 text-[#FAFAFA] text-sm font-medium">Confirmar Nueva Contraseña</label>
-                  <div className="relative">
+                <div className="field">
+                  <label className="field__label">Confirmar Nueva Contraseña</label>
+                  <div className="field--password">
                     <input
                       type={verConfirmar ? "text" : "password"}
                       value={confirmarContrasena}
                       onChange={(e) => setConfirmarContrasena(e.target.value)}
-                      className="w-full px-4 py-3 pr-12 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA]"
+                      className="field__input field__input--purple field__input--icon"
                       placeholder="Confirma tu nueva contraseña"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setVerConfirmar(!verConfirmar)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B6B6B] hover:text-[#FAFAFA] transition-colors"
+                      className="field__toggle"
                     >
-                      {verConfirmar ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {verConfirmar ? <EyeOff size={20} /> : <Eye size={20} />}
                     </button>
                   </div>
                 </div>
 
                 {/* Requisitos de contraseña */}
                 {nuevaContrasena && (
-                  <div className="p-4 bg-[#0A0A0A] border border-[#2A2A2A] rounded-lg">
-                    <p className="text-[#6B6B6B] text-xs mb-2 font-semibold">La contraseña debe tener:</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+                  <div className="password-requirements">
+                    <p className="password-requirements__title">La contraseña debe tener:</p>
+                    <div className="password-requirements__grid">
                       {[
                         { label: "Mínimo 8 caracteres", valid: nuevaContrasena.length >= 8 },
                         { label: "Una letra minúscula", valid: /[a-z]/.test(nuevaContrasena) },
@@ -276,7 +276,7 @@ export default function ForgotPasswordScreen() {
                         { label: "Un número", valid: /[0-9]/.test(nuevaContrasena) },
                         { label: "Un carácter especial", valid: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(nuevaContrasena) },
                       ].map((regla) => (
-                        <p key={regla.label} className={`text-xs flex items-center gap-1.5 ${regla.valid ? "text-green-400" : "text-[#6B6B6B]"}`}>
+                        <p key={regla.label} className={`requirement ${regla.valid ? "requirement--valid" : ""}`}>
                           {regla.valid ? "✓" : "○"} {regla.label}
                         </p>
                       ))}
@@ -287,11 +287,11 @@ export default function ForgotPasswordScreen() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-3 rounded-lg font-semibold tracking-wide transition-all flex items-center justify-center gap-2 bg-[#7B5FCF] text-white hover:bg-[#6a4eb8] shadow-lg shadow-[#7B5FCF]/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="btn-primary btn-primary--purple"
                 >
                   {isLoading ? (
                     <>
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span className="spinner" />
                       Verificando...
                     </>
                   ) : (
@@ -300,17 +300,17 @@ export default function ForgotPasswordScreen() {
                 </button>
               </form>
 
-              <div className="mt-6 pt-6 border-t border-[#2A2A2A] flex justify-between">
+              <div className="auth-footer-row">
                 <button
                   onClick={() => { setPaso(1); setError(""); }}
-                  className="flex items-center gap-2 text-[#6B6B6B] hover:text-[#FAFAFA] text-sm transition-colors"
+                  className="auth-link"
                 >
-                  <ArrowLeft className="w-4 h-4" />
+                  <ArrowLeft size={16} />
                   Cambiar correo
                 </button>
                 <button
                   onClick={handleEnviarCodigo}
-                  className="text-[#7B5FCF] hover:underline text-sm"
+                  className="auth-link auth-link--accent"
                 >
                   Reenviar código
                 </button>
@@ -321,38 +321,38 @@ export default function ForgotPasswordScreen() {
 
         {/* PASO 3: Éxito */}
         {paso === 3 && (
-          <div className="bg-[#1A1A1A] rounded-xl shadow-2xl border border-[#2A2A2A] overflow-hidden">
-            <div className="bg-gradient-to-r from-[#1a4a2e] to-[#0B4F8A] px-8 py-6">
-              <div className="flex items-center gap-3 mb-1">
-                <CheckCircle className="w-5 h-5 text-[#3d9970]" />
-                <span className="text-white/60 text-xs font-semibold tracking-widest uppercase">
+          <div className="auth-card">
+            <div className="auth-card__header auth-card__header--green-blue">
+              <div className="auth-card__eyebrow-row">
+                <CheckCircle size={20} className="auth-card__eyebrow-icon--success" />
+                <span className="auth-card__eyebrow">
                   Proceso completado
                 </span>
               </div>
-              <h1 className="text-white text-xl font-semibold tracking-wide">
+              <h1 className="auth-card__title">
                 Contraseña Restablecida
               </h1>
             </div>
 
-            <div className="p-8">
-              <div className="flex justify-center mb-6">
-                <div className="w-16 h-16 rounded-full bg-[#3d9970]/15 border border-[#3d9970]/30 flex items-center justify-center">
-                  <CheckCircle className="w-8 h-8 text-[#3d9970]" />
+            <div className="auth-content">
+              <div className="auth-success-icon-row">
+                <div className="auth-success-icon">
+                  <CheckCircle size={32} />
                 </div>
               </div>
 
-              <div className="text-center space-y-3 mb-8">
-                <p className="text-[#FAFAFA] font-medium">
+              <div className="auth-success-text">
+                <p className="auth-success-text__title">
                   Tu contraseña ha sido actualizada exitosamente.
                 </p>
-                <p className="text-[#6B6B6B] text-sm leading-relaxed">
+                <p className="auth-success-text__subtitle">
                   Ya puedes iniciar sesión con tu nueva contraseña.
                 </p>
               </div>
 
               <button
                 onClick={() => navigate("/")}
-                className="w-full py-3 rounded-lg bg-[#0B4F8A] text-white hover:bg-[#094170] font-semibold tracking-wide transition-all shadow-lg shadow-[#0B4F8A]/20"
+                className="btn-primary"
               >
                 Ir al Inicio de Sesión
               </button>
