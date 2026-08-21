@@ -1,14 +1,14 @@
 import { createBrowserRouter } from "react-router-dom";
 import Login from "./screen/Login";
-import TwoFactorScreen from "./screen/TwoFactorScreen";
-import ForgotPasswordScreen from "./screen/ForgotPasswordScreen";
-import ProjectRegistrationScreen from "./screen/ProjectRegistrationScreen";
-import ProjectSelectionScreen from "./screen/ProjectSelectionScreen";
-import ProjectDashboardScreen from "./screen/ProjectDashboardScreen";
-import ProfileScreen from "./screen/ProfileScreen";
-import DashboardScreen from "./screen/DashboardScreen";
+import TwoFactor from "./screen/TwoFactor";
+import ForgotPassword from "./screen/ForgotPassword";
+import ProjectRegistration from "./screen/ProjectRegistration";
+import ProjectSelection from "./screen/ProjectSelection";
+import ProjectDashboard from "./screen/ProjectDashboard";
+import Profile from "./screen/Profile";
+import Dashboard from "./screen/Dashboard";
 import Landing from "./screen/Landing";
-import RolesScreen from "./screen/RolesScreen";
+import Roles from "./screen/Roles";
 import ProtectedRoute from "./screen/ProtectedRoute";
 
 export const router = createBrowserRouter([
@@ -23,35 +23,35 @@ export const router = createBrowserRouter([
 
   {
     path: "/verificacion",
-    element: <ProtectedRoute><TwoFactorScreen /></ProtectedRoute>,
+    element: <ProtectedRoute><TwoFactor /></ProtectedRoute>,
   },
 
   {
     path: "/recuperar-acceso",
-    Component: ForgotPasswordScreen,
+    Component: ForgotPassword,
   },
   {
     path: "/registro-proyecto",
-    element: <ProtectedRoute><ProjectRegistrationScreen /></ProtectedRoute>,
+    element: <ProtectedRoute><ProjectRegistration /></ProtectedRoute>,
   },
   {
     path: "/seleccion-proyecto",
-    element: <ProtectedRoute><ProjectSelectionScreen /></ProtectedRoute>,
+    element: <ProtectedRoute><ProjectSelection /></ProtectedRoute>,
   },
   {
     path: "/proyecto-dashboard",
-    element: <ProtectedRoute><ProjectDashboardScreen /></ProtectedRoute>,
+    element: <ProtectedRoute><ProjectDashboard /></ProtectedRoute>,
   },
   {
     path: "/perfil",
-    element: <ProtectedRoute><ProfileScreen /></ProtectedRoute>,
+    element: <ProtectedRoute><Profile /></ProtectedRoute>,
   },
   {
     path: "/dashboard",
-    element: <ProtectedRoute><DashboardScreen /></ProtectedRoute>,
+    element: <ProtectedRoute><Dashboard /></ProtectedRoute>,
   },
   {
     path: "/roles",
-    element: <ProtectedRoute><RolesScreen /></ProtectedRoute>,
+    element: <ProtectedRoute><Roles /></ProtectedRoute>,
   },
 ]);

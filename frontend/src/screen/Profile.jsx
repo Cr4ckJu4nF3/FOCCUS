@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, Eye, EyeOff } from "lucide-react";
-import logo from "../assets/Logo_Negativo.png";
+import logo from "../assets/FoccusNB_White.png";
 import API_URL from "../api";
+import "../desing/Profile.css";
 
 const identificacionTypes = ["CC", "NIT", "TI", "PA", "CE"];
 
@@ -184,121 +185,121 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
-        <span className="w-8 h-8 border-2 border-[#0B4F8A]/30 border-t-[#0B4F8A] rounded-full animate-spin" />
+      <div className="prf-loading-page">
+        <span className="prf-spinner" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A]">
+    <div className="prf-page">
       {/* Header */}
-      <header className="bg-[#1A1A1A] border-b border-[#2A2A2A] px-8 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <header className="prf-header">
+        <div className="prf-header-inner">
+          <div className="prf-header-left">
             <button
               onClick={() => navigate(-1)}
-              className="p-2 hover:bg-[#2A2A2A] rounded-lg transition-colors"
+              className="prf-back-button"
             >
-              <ArrowLeft className="w-5 h-5 text-[#FAFAFA]" />
+              <ArrowLeft className="prf-back-icon" />
             </button>
-            <img src={logo} alt="Logo" className="h-15" />
+            <img src={logo} alt="Logo" className="prf-logo" />
           </div>
         </div>
       </header>
 
       {/* Content */}
-      <main className="max-w-4xl mx-auto px-8 py-12">
-        <div className="bg-[#1A1A1A] rounded-lg shadow-lg border border-[#2A2A2A] p-8">
-          <h1 className="text-[#FAFAFA] mb-8">Perfil de Usuario</h1>
+      <main className="prf-main">
+        <div className="prf-card">
+          <h1 className="prf-title">Perfil de Usuario</h1>
 
           {/* Mensajes */}
           {error && (
-            <div className="mb-6 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+            <div className="prf-alert prf-alert--error">
               {error}
             </div>
           )}
           {success && (
-            <div className="mb-6 p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-400 text-sm">
+            <div className="prf-alert prf-alert--success">
               {success}
             </div>
           )}
 
           {/* Formulario de datos personales */}
-          <form onSubmit={handleSave} className="space-y-6">
+          <form onSubmit={handleSave} className="prf-form">
             {/* Profile Photo */}
-            <div className="flex justify-center mb-8">
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-32 h-32 rounded-full bg-[#2A2A2A] border-2 border-[#0B4F8A] overflow-hidden flex items-center justify-center">
+            <div className="prf-photo-row">
+              <div className="prf-photo-col">
+                <div className="prf-photo-frame">
                   {profilePhoto ? (
-                    <img src={profilePhoto} alt="Foto de perfil" className="w-full h-full object-cover" />
+                    <img src={profilePhoto} alt="Foto de perfil" className="prf-photo-img" />
                   ) : (
-                    <Upload className="w-12 h-12 text-[#6B6B6B]" />
+                    <Upload className="prf-photo-placeholder" />
                   )}
                 </div>
-                <label className="cursor-pointer bg-[#0B4F8A] text-white px-4 py-2 rounded-lg hover:bg-[#094170] transition-colors flex items-center gap-2">
-                  <Upload className="w-4 h-4" />
+                <label className="prf-photo-upload-label">
+                  <Upload className="prf-photo-upload-icon" />
                   Subir Foto
-                  <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                  <input type="file" accept="image/*" onChange={handlePhotoUpload} className="prf-photo-upload-input" />
                 </label>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block mb-2 text-[#FAFAFA]">Nombres</label>
+            <div className="prf-grid-2">
+              <div className="prf-field">
+                <label className="prf-label">Nombres</label>
                 <input
                   type="text"
                   name="nombre"
                   value={formData.nombre}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B4F8A] bg-[#0A0A0A] text-[#FAFAFA]"
+                  className="prf-input"
                   placeholder="Ingresa tus nombres"
                 />
               </div>
 
-              <div>
-                <label className="block mb-2 text-[#FAFAFA]">Apellidos</label>
+              <div className="prf-field">
+                <label className="prf-label">Apellidos</label>
                 <input
                   type="text"
                   name="apellido"
                   value={formData.apellido}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B4F8A] bg-[#0A0A0A] text-[#FAFAFA]"
+                  className="prf-input"
                   placeholder="Ingresa tus apellidos"
                 />
               </div>
 
-              <div>
-                <label className="block mb-2 text-[#FAFAFA]">Email</label>
+              <div className="prf-field">
+                <label className="prf-label">Email</label>
                 <input
                   type="email"
                   name="mail"
                   value={formData.mail}
                   disabled
-                  className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg bg-[#2A2A2A] text-[#6B6B6B] cursor-not-allowed"
+                  className="prf-input prf-input--disabled"
                 />
               </div>
 
-              <div>
-                <label className="block mb-2 text-[#FAFAFA]">Celular</label>
+              <div className="prf-field">
+                <label className="prf-label">Celular</label>
                 <input
                   type="tel"
                   name="msisdn"
                   value={formData.msisdn}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B4F8A] bg-[#0A0A0A] text-[#FAFAFA]"
+                  className="prf-input"
                   placeholder="Número de celular"
                 />
               </div>
 
-              <div>
-                <label className="block mb-2 text-[#FAFAFA]">Tipo de Identificación</label>
+              <div className="prf-field">
+                <label className="prf-label">Tipo de Identificación</label>
                 <select
                   name="identificacion"
                   value={formData.identificacion}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B4F8A] bg-[#0A0A0A] text-[#FAFAFA]"
+                  className="prf-select"
                 >
                   <option value="">Seleccione tipo</option>
                   {identificacionTypes.map((type) => (
@@ -307,70 +308,70 @@ export default function ProfileScreen() {
                 </select>
               </div>
 
-              <div>
-                <label className="block mb-2 text-[#FAFAFA]">Número de Documento</label>
+              <div className="prf-field">
+                <label className="prf-label">Número de Documento</label>
                 <input
                   type="text"
                   name="id_identificacion"
                   value={formData.id_identificacion}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B4F8A] bg-[#0A0A0A] text-[#FAFAFA]"
+                  className="prf-input"
                   placeholder="Número de documento"
                 />
               </div>
 
-              <div>
-                <label className="block mb-2 text-[#FAFAFA]">Dirección de Residencia</label>
+              <div className="prf-field">
+                <label className="prf-label">Dirección de Residencia</label>
                 <input
                   type="text"
                   name="direccion"
                   value={formData.direccion}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B4F8A] bg-[#0A0A0A] text-[#FAFAFA]"
+                  className="prf-input"
                   placeholder="Dirección completa"
                 />
               </div>
 
-              <div>
-                <label className="block mb-2 text-[#FAFAFA]">Fecha de Nacimiento</label>
+              <div className="prf-field">
+                <label className="prf-label">Fecha de Nacimiento</label>
                 <input
                   type="date"
                   name="fecha_de_nacimiento"
                   value={formData.fecha_de_nacimiento}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B4F8A] bg-[#0A0A0A] text-[#FAFAFA]"
+                  className="prf-input"
                 />
               </div>
 
-              <div>
-                <label className="block mb-2 text-[#FAFAFA]">Fecha de Creación del Perfil</label>
+              <div className="prf-field">
+                <label className="prf-label">Fecha de Creación del Perfil</label>
                 <input
                   type="date"
                   name="fecha_de_creacion"
                   value={formData.fecha_de_creacion}
                   disabled
-                  className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg bg-[#2A2A2A] text-[#6B6B6B] cursor-not-allowed"
+                  className="prf-input prf-input--disabled"
                 />
               </div>
 
-              <div>
-                <label className="block mb-2 text-[#FAFAFA]">Nombre del Departamento</label>
+              <div className="prf-field">
+                <label className="prf-label">Nombre del Departamento</label>
                 <input
                   type="text"
                   name="id_departamento"
                   value={formData.id_departamento}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B4F8A] bg-[#0A0A0A] text-[#FAFAFA]"
+                  className="prf-input"
                   placeholder="Departamento al que pertenece"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end pt-4">
+            <div className="prf-submit-row">
               <button
                 type="submit"
                 disabled={saving}
-                className="bg-[#0B4F8A] text-white px-8 py-3 rounded-lg hover:bg-[#094170] transition-colors disabled:opacity-50"
+                className="prf-submit-button"
               >
                 {saving ? "Guardando..." : "Guardar Cambios"}
               </button>
@@ -378,62 +379,62 @@ export default function ProfileScreen() {
           </form>
 
           {/* Separador */}
-          <div className="border-t border-[#2A2A2A] my-8"></div>
+          <div className="prf-divider"></div>
 
           {/* Cambio de Contraseña */}
           <div>
-            <h2 className="text-[#FAFAFA] mb-6">Cambiar Contraseña</h2>
+            <h2 className="prf-section-title">Cambiar Contraseña</h2>
 
             {passwordError && (
-              <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+              <div className="prf-alert prf-alert--error">
                 {passwordError}
               </div>
             )}
             {passwordSuccess && (
-              <div className="mb-4 p-3 bg-green-500/20 border border-green-500/50 rounded-lg text-green-400 text-sm">
+              <div className="prf-alert prf-alert--success">
                 {passwordSuccess}
               </div>
             )}
 
-            <form onSubmit={handleChangePassword} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block mb-2 text-[#FAFAFA]">Nueva Contraseña</label>
-                  <div className="relative">
+            <form onSubmit={handleChangePassword} className="prf-form">
+              <div className="prf-grid-2">
+                <div className="prf-field">
+                  <label className="prf-label">Nueva Contraseña</label>
+                  <div className="prf-password-field">
                     <input
                       type={verNueva ? "text" : "password"}
                       value={passwordData.nueva}
                       onChange={(e) => setPasswordData({ ...passwordData, nueva: e.target.value })}
-                      className="w-full px-4 py-3 pr-12 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA]"
+                      className="prf-password-input"
                       placeholder="Ingresa nueva contraseña"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setVerNueva(!verNueva)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B6B6B] hover:text-[#FAFAFA] transition-colors"
+                      className="prf-password-toggle"
                     >
-                      {verNueva ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {verNueva ? <EyeOff className="prf-password-toggle-icon" /> : <Eye className="prf-password-toggle-icon" />}
                     </button>
                   </div>
                 </div>
-                <div>
-                  <label className="block mb-2 text-[#FAFAFA]">Confirmar Contraseña</label>
-                  <div className="relative">
+                <div className="prf-field">
+                  <label className="prf-label">Confirmar Contraseña</label>
+                  <div className="prf-password-field">
                     <input
                       type={verConfirmar ? "text" : "password"}
                       value={passwordData.confirmar}
                       onChange={(e) => setPasswordData({ ...passwordData, confirmar: e.target.value })}
-                      className="w-full px-4 py-3 pr-12 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA]"
+                      className="prf-password-input"
                       placeholder="Confirma nueva contraseña"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setVerConfirmar(!verConfirmar)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B6B6B] hover:text-[#FAFAFA] transition-colors"
+                      className="prf-password-toggle"
                     >
-                      {verConfirmar ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {verConfirmar ? <EyeOff className="prf-password-toggle-icon" /> : <Eye className="prf-password-toggle-icon" />}
                     </button>
                   </div>
                 </div>
@@ -441,9 +442,9 @@ export default function ProfileScreen() {
 
               {/* Requisitos de contraseña */}
               {passwordData.nueva && (
-                <div className="p-4 bg-[#0A0A0A] border border-[#2A2A2A] rounded-lg">
-                  <p className="text-[#6B6B6B] text-xs mb-2 font-semibold">La contraseña debe tener:</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+                <div className="prf-password-requirements">
+                  <p className="prf-password-requirements-title">La contraseña debe tener:</p>
+                  <div className="prf-password-requirements-grid">
                     {[
                       { label: "Mínimo 8 caracteres", valid: passwordData.nueva.length >= 8 },
                       { label: "Una letra minúscula", valid: /[a-z]/.test(passwordData.nueva) },
@@ -451,7 +452,7 @@ export default function ProfileScreen() {
                       { label: "Un número", valid: /[0-9]/.test(passwordData.nueva) },
                       { label: "Un carácter especial", valid: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(passwordData.nueva) },
                     ].map((regla) => (
-                      <p key={regla.label} className={`text-xs flex items-center gap-1.5 ${regla.valid ? "text-green-400" : "text-[#6B6B6B]"}`}>
+                      <p key={regla.label} className={`prf-password-requirement ${regla.valid ? "prf-password-requirement--valid" : "prf-password-requirement--invalid"}`}>
                         {regla.valid ? "✓" : "○"} {regla.label}
                       </p>
                     ))}
@@ -459,11 +460,11 @@ export default function ProfileScreen() {
                 </div>
               )}
 
-              <div className="flex justify-end">
+              <div className="prf-password-submit-row">
                 <button
                   type="submit"
                   disabled={savingPassword}
-                  className="bg-[#7B5FCF] text-white px-8 py-3 rounded-lg hover:bg-[#6a4eb8] transition-colors disabled:opacity-50"
+                  className="prf-password-submit-button"
                 >
                   {savingPassword ? "Cambiando..." : "Cambiar Contraseña"}
                 </button>

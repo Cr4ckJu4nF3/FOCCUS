@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FolderOpen, Plus, ChevronRight, X, Film, Clapperboard } from "lucide-react";
-import logo from "../assets/Logo_Negativo.png";
+import logo from "../assets/FoccusNB_White.png";
 import API_URL from "../api";
+import "../desing/ProjectSelection.css";
 
 const formatOptions = [
   "serie", "miniserie", "pelicula", "largometraje", "mediometraje", "cortometraje",
@@ -115,71 +116,57 @@ export default function ProjectSelectionScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A]">
+    <div className="pss-page">
       {/* Header */}
-      <header className="bg-[#1A1A1A] border-b border-[#2A2A2A] px-8 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-center">
-          <img src={logo} alt="Logo" className="h-15" />
+      <header className="pss-header">
+        <div className="pss-header-inner">
+          <img src={logo} alt="Logo" className="pss-logo" />
         </div>
       </header>
 
       {/* Content */}
-      <main className="max-w-3xl mx-auto px-6 py-16">
+      <main className="pss-main">
         {/* Page heading */}
-        <div className="text-center mb-12">
-          <Clapperboard className="w-10 h-10 text-[#0B4F8A] mx-auto mb-4 opacity-80" />
-          <h1 className="text-[#FAFAFA] text-2xl font-semibold tracking-wide mb-2">
+        <div className="pss-heading">
+          <Clapperboard className="pss-heading-icon" />
+          <h1 className="pss-heading-title">
             Gestión de Proyectos
           </h1>
-          <p className="text-[#6B6B6B] text-sm">
+          <p className="pss-heading-subtitle">
             Consulte tus proyectos.
           </p>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="mb-6 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm text-center">
+          <div className="pss-error">
             {error}
           </div>
         )}
 
         {/* Two action buttons */}
-        <div className={`grid gap-5 mb-8 ${esAdmin ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 max-w-md mx-auto"}`}>
+        <div className={`pss-actions-grid ${esAdmin ? "pss-actions-grid--admin" : "pss-actions-grid--single"}`}>
           {/* Escoger proyecto */}
           <button
             onClick={() => {
               setShowProjectList((prev) => !prev);
               setShowCreateModal(false);
             }}
-            className={`group relative flex flex-col items-center gap-4 py-10 px-6 rounded-xl border-2 transition-all duration-200 ${
-              showProjectList
-                ? "bg-[#0B4F8A]/15 border-[#0B4F8A] shadow-lg shadow-[#0B4F8A]/10"
-                : "bg-[#1A1A1A] border-[#2A2A2A] hover:border-[#0B4F8A]/60 hover:bg-[#0B4F8A]/5"
-            }`}
+            className={`pss-action-card pss-action-card--select ${showProjectList ? "pss-action-card--active" : ""}`}
           >
-            <div
-              className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
-                showProjectList
-                  ? "bg-[#0B4F8A]"
-                  : "bg-[#2A2A2A] group-hover:bg-[#0B4F8A]/20"
-              }`}
-            >
-              <FolderOpen
-                className={`w-7 h-7 transition-colors ${
-                  showProjectList ? "text-white" : "text-[#6B6B6B] group-hover:text-[#0B4F8A]"
-                }`}
-              />
+            <div className="pss-action-icon-wrapper">
+              <FolderOpen className="pss-action-icon" />
             </div>
-            <div className="text-center">
-              <span className="block font-semibold text-base tracking-wide text-[#FAFAFA]">
+            <div className="pss-action-text">
+              <span className="pss-action-title">
                 Escoger Proyecto
               </span>
-              <span className="block text-xs text-[#6B6B6B] mt-1">
+              <span className="pss-action-subtitle">
                 Acceder a un proyecto existente
               </span>
             </div>
             {showProjectList && (
-              <span className="absolute top-3 right-3 w-2 h-2 rounded-full bg-[#0B4F8A]" />
+              <span className="pss-action-dot" />
             )}
           </button>
 
@@ -190,16 +177,16 @@ export default function ProjectSelectionScreen() {
                 setShowCreateModal(true);
                 setShowProjectList(false);
               }}
-              className="group relative flex flex-col items-center gap-4 py-10 px-6 rounded-xl border-2 border-[#2A2A2A] bg-[#1A1A1A] hover:border-[#7B5FCF]/60 hover:bg-[#7B5FCF]/5 transition-all duration-200"
+              className="pss-action-card pss-action-card--create"
             >
-              <div className="w-16 h-16 rounded-full bg-[#2A2A2A] group-hover:bg-[#7B5FCF]/20 flex items-center justify-center transition-all">
-                <Plus className="w-7 h-7 text-[#6B6B6B] group-hover:text-[#7B5FCF] transition-colors" />
+              <div className="pss-action-icon-wrapper">
+                <Plus className="pss-action-icon" />
               </div>
-              <div className="text-center">
-                <span className="block font-semibold text-base tracking-wide text-[#FAFAFA]">
+              <div className="pss-action-text">
+                <span className="pss-action-title">
                   Crear Proyecto
                 </span>
-                <span className="block text-xs text-[#6B6B6B] mt-1">
+                <span className="pss-action-subtitle">
                   Registrar un nuevo proyecto
                 </span>
               </div>
@@ -209,53 +196,49 @@ export default function ProjectSelectionScreen() {
 
         {/* Project List */}
         {showProjectList && (
-          <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-[#2A2A2A] flex items-center gap-2">
-              <Film className="w-4 h-4 text-[#0B4F8A]" />
-              <span className="text-[#FAFAFA] text-sm font-semibold tracking-wide">
+          <div className="pss-list-card">
+            <div className="pss-list-header">
+              <Film className="pss-list-header-icon" />
+              <span className="pss-list-header-title">
                 Proyectos disponibles
               </span>
-              <span className="ml-auto text-[#6B6B6B] text-xs">
+              <span className="pss-list-header-count">
                 {projects.length} proyectos
               </span>
             </div>
 
             {loadingProjects ? (
-              <div className="p-8 text-center">
-                <span className="w-6 h-6 border-2 border-[#0B4F8A]/30 border-t-[#0B4F8A] rounded-full animate-spin inline-block" />
-                <p className="text-[#6B6B6B] text-sm mt-3">Cargando proyectos...</p>
+              <div className="pss-list-state">
+                <span className="pss-spinner" />
+                <p className="pss-list-state-text">Cargando proyectos...</p>
               </div>
             ) : projects.length === 0 ? (
-              <div className="p-8 text-center">
-                <p className="text-[#6B6B6B] text-sm">No hay proyectos disponibles. Crea uno nuevo.</p>
+              <div className="pss-list-state">
+                <p className="pss-list-state-text">No hay proyectos disponibles. Crea uno nuevo.</p>
               </div>
             ) : (
-              <ul className="divide-y divide-[#2A2A2A]">
+              <ul className="pss-list">
                 {projects.map((project) => (
                   <li key={project.id_project}>
                     <button
                       onClick={() => handleSelectProject(project)}
                       onMouseEnter={() => setHoveredProject(project.id_project)}
                       onMouseLeave={() => setHoveredProject(null)}
-                      className="w-full flex items-center gap-4 px-6 py-4 hover:bg-[#0B4F8A]/8 transition-colors text-left group"
+                      className="pss-list-item"
                     >
-                      <div className="w-10 h-10 rounded-lg bg-[#0B4F8A]/15 border border-[#0B4F8A]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#0B4F8A]/25 transition-colors">
-                        <Clapperboard className="w-4 h-4 text-[#0B4F8A]" />
+                      <div className="pss-list-item-icon-wrapper">
+                        <Clapperboard className="pss-list-item-icon" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[#FAFAFA] font-medium text-sm truncate">
+                      <div className="pss-list-item-body">
+                        <p className="pss-list-item-name">
                           {project.project_name}
                         </p>
-                        <p className="text-[#6B6B6B] text-xs mt-0.5">
+                        <p className="pss-list-item-meta">
                           {project.formato_de_produccion} &middot; {project.genero} {project.director ? `· Dir. ${project.director}` : ""}
                         </p>
                       </div>
                       <ChevronRight
-                        className={`w-4 h-4 flex-shrink-0 transition-all ${
-                          hoveredProject === project.id_project
-                            ? "text-[#0B4F8A] translate-x-0.5"
-                            : "text-[#2A2A2A]"
-                        }`}
+                        className={`pss-list-item-chevron ${hoveredProject === project.id_project ? "pss-list-item-chevron--active" : ""}`}
                       />
                     </button>
                   </li>
@@ -268,44 +251,44 @@ export default function ProjectSelectionScreen() {
 
       {/* Create Project Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="pss-modal-overlay">
           <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            className="pss-modal-backdrop"
             onClick={() => setShowCreateModal(false)}
           />
 
-          <div className="relative w-full max-w-lg bg-[#1A1A1A] rounded-xl border border-[#2A2A2A] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="pss-modal">
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-[#7B5FCF] to-[#0B4F8A] px-7 py-5 flex-shrink-0">
-              <div className="flex items-center justify-between">
+            <div className="pss-modal-header">
+              <div className="pss-modal-header-row">
                 <div>
-                  <p className="text-white/60 text-xs font-semibold tracking-widest uppercase mb-1">
+                  <p className="pss-modal-header-eyebrow">
                     Nuevo registro
                   </p>
-                  <h2 className="text-white text-lg font-semibold tracking-wide">
+                  <h2 className="pss-modal-header-title">
                     Crear Proyecto
                   </h2>
                 </div>
                 <button
                   onClick={() => setShowCreateModal(false)}
-                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                  className="pss-modal-close"
                 >
-                  <X className="w-4 h-4 text-white" />
+                  <X className="pss-modal-close-icon" />
                 </button>
               </div>
             </div>
 
             {/* Modal Body */}
-            <div className="overflow-y-auto flex-1 p-7">
+            <div className="pss-modal-body">
               {error && (
-                <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+                <div className="pss-modal-error">
                   {error}
                 </div>
               )}
 
-              <form onSubmit={handleCreateProject} className="space-y-5" id="create-project-form">
-                <div>
-                  <label className="block mb-1.5 text-[#FAFAFA] text-sm font-medium">
+              <form onSubmit={handleCreateProject} className="pss-modal-form" id="create-project-form">
+                <div className="pss-modal-field">
+                  <label className="pss-modal-label">
                     Nombre del Proyecto
                   </label>
                   <input
@@ -313,22 +296,22 @@ export default function ProjectSelectionScreen() {
                     name="project_name"
                     value={formData.project_name}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA] placeholder:text-[#4A4A4A] text-sm"
+                    className="pss-modal-input"
                     placeholder="Nombre de la serie, película u otro proyecto audiovisual"
                     required
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block mb-1.5 text-[#FAFAFA] text-sm font-medium">
+                <div className="pss-modal-grid-2">
+                  <div className="pss-modal-field">
+                    <label className="pss-modal-label">
                       Formato
                     </label>
                     <select
                       name="formato_de_produccion"
                       value={formData.formato_de_produccion}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA] text-sm"
+                      className="pss-modal-select"
                       required
                     >
                       <option value="">Selecciona formato</option>
@@ -340,15 +323,15 @@ export default function ProjectSelectionScreen() {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block mb-1.5 text-[#FAFAFA] text-sm font-medium">
+                  <div className="pss-modal-field">
+                    <label className="pss-modal-label">
                       Género
                     </label>
                     <select
                       name="genero"
                       value={formData.genero}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA] text-sm"
+                      className="pss-modal-select"
                       required
                     >
                       <option value="">Selecciona género</option>
@@ -361,8 +344,8 @@ export default function ProjectSelectionScreen() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block mb-1.5 text-[#FAFAFA] text-sm font-medium">
+                <div className="pss-modal-field">
+                  <label className="pss-modal-label">
                     Sinopsis
                   </label>
                   <textarea
@@ -370,13 +353,13 @@ export default function ProjectSelectionScreen() {
                     value={formData.sinopsis}
                     onChange={handleChange}
                     rows={3}
-                    className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA] placeholder:text-[#4A4A4A] resize-none text-sm"
+                    className="pss-modal-textarea"
                     placeholder="Detalle de lo que trata el producto audiovisual"
                   />
                 </div>
 
-                <div>
-                  <label className="block mb-1.5 text-[#FAFAFA] text-sm font-medium">
+                <div className="pss-modal-field">
+                  <label className="pss-modal-label">
                     Director
                   </label>
                   <input
@@ -384,7 +367,7 @@ export default function ProjectSelectionScreen() {
                     name="director"
                     value={formData.director}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-[#2A2A2A] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7B5FCF] bg-[#0A0A0A] text-[#FAFAFA] placeholder:text-[#4A4A4A] text-sm"
+                    className="pss-modal-input"
                     placeholder="Director o directores del producto audiovisual"
                   />
                 </div>
@@ -392,11 +375,11 @@ export default function ProjectSelectionScreen() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-7 py-5 border-t border-[#2A2A2A] bg-[#0A0A0A] flex items-center justify-end gap-3 flex-shrink-0">
+            <div className="pss-modal-footer">
               <button
                 type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="px-6 py-2.5 rounded-lg border border-[#2A2A2A] text-[#6B6B6B] hover:text-[#FAFAFA] hover:border-[#6B6B6B] text-sm font-medium transition-all"
+                className="pss-modal-cancel"
               >
                 Cancelar
               </button>
@@ -404,7 +387,7 @@ export default function ProjectSelectionScreen() {
                 type="submit"
                 form="create-project-form"
                 disabled={loadingCreate}
-                className="px-8 py-2.5 rounded-lg bg-[#7B5FCF] text-white hover:bg-[#6a4eb8] text-sm font-semibold tracking-wide transition-all shadow-lg shadow-[#7B5FCF]/20 disabled:opacity-50"
+                className="pss-modal-submit"
               >
                 {loadingCreate ? "Creando..." : "Crear Proyecto"}
               </button>
