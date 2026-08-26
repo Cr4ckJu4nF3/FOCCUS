@@ -23,17 +23,20 @@ export default function ForgotPasswordScreen() {
     setIsLoading(true);
 
     try {
+      const normalizedEmail = email.trim().toLowerCase();
       const response = await fetch(`${API_URL}/users/recover-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mail: email }),
+        body: JSON.stringify({ mail: normalizedEmail }),
       });
 
-      if (response.ok) {
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setEmail(normalizedEmail);
         setPaso(2);
       } else {
-        const errorData = await response.json();
-        setError(errorData.detail || "No se encontró una cuenta con ese correo");
+        setError(result.detail || result.message || result.error || "No se encontró una cuenta con ese correo");
       }
     } catch (err) {
       setError("No se pudo conectar con el servidor");
@@ -52,6 +55,12 @@ export default function ForgotPasswordScreen() {
       return;
     }
 
+    const reglasFaltantes = validarContrasena(nuevaContrasena);
+    if (reglasFaltantes.length > 0) {
+      setError("La contraseña debe tener: " + reglasFaltantes.join(", "));
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -65,11 +74,12 @@ export default function ForgotPasswordScreen() {
         }),
       });
 
-      if (response.ok) {
+      const result = await response.json();
+
+      if (response.ok && result.success) {
         setPaso(3);
       } else {
-        const errorData = await response.json();
-        setError(errorData.detail || "Código inválido o expirado");
+        setError(result.detail || result.message || result.error || "Código inválido o expirado");
       }
     } catch (err) {
       setError("No se pudo conectar con el servidor");

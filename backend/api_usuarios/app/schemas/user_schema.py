@@ -43,6 +43,13 @@ class ResetPasswordSchema(BaseModel):
     mail: str
     codigo: str
     nueva_contrasena: str
+
+    @field_validator("nueva_contrasena")
+    @classmethod
+    def validate_password_length(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("La contraseña no puede superar los 72 bytes")
+        return value
     
 class RegisterSchema(BaseModel):
     # Datos empresa
