@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.config.database import get_db
+from app.utils.auth import get_current_user, require_admin
 from app.schemas.user_schema import (
     UserSchema,
     LoginSchema,
@@ -35,6 +36,10 @@ from app.controllers.user_controller import (
 # ROUTER
 router = APIRouter()
 
+# ==========================================
+# RUTAS PUBLICAS (no requieren token)
+# ==========================================
+
 # LOGIN
 @router.post("/users/login")
 def login(user: LoginSchema, db: Session = Depends(get_db)):
@@ -57,72 +62,100 @@ def register_user(data: RegisterSchema, db: Session = Depends(get_db)):
 
 
 # 2FA - VERIFICAR SI NECESITA 2FA
-
 @router.post("/users/2fa/check")
 def check_2fa(data: TwoFactorSendSchema, db: Session = Depends(get_db)):
     return check_2fa_required(data.mail, data.device_id)
 
 
 # 2FA - ENVIAR CODIGO
-
 @router.post("/users/2fa/send")
 def send_2fa(data: TwoFactorSendSchema, db: Session = Depends(get_db)):
     return send_2fa_code(data.mail, data.device_id, db)
 
 
 # 2FA - VERIFICAR CODIGO
-
 @router.post("/users/2fa/verify")
 def verify_2fa(data: TwoFactorVerifySchema, db: Session = Depends(get_db)):
     return verify_2fa_code(data.mail, data.codigo, data.device_id, db)
 
 
-# INVITE USERS
+# ==========================================
+# RUTAS PROTEGIDAS (requieren token valido)
+# ==========================================
 
+# INVITE USERS
 @router.post("/users/invite")
-def invite(data: InviteSchema, db: Session = Depends(get_db)):
+def invite(
+    data: InviteSchema,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
     return invite_users(data.correos, data.id_project, data.id_client, data.id_rol, db)
 
-# GET ALL USERS
+# GET ALL USERS (solo administradores: expone datos de todos los usuarios del sistema)
 @router.get("/users")
-def users(db: Session = Depends(get_db)):
+def users(db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
     return get_users(db)
 
-# CREATE USER
+# CREATE USER (solo administradores: permite fijar id_rol directamente)
 @router.post("/users")
-def store_user(user: UserSchema, db: Session = Depends(get_db)):
+def store_user(
+    user: UserSchema,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
     return create_user(user, db)
 
 
 # GET USERS BY PROJECT
-
 @router.get("/users/project/{id_project}")
-def users_by_project(id_project: str, db: Session = Depends(get_db)):
+def users_by_project(
+    id_project: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
     return get_users_by_project(id_project, db)
 
 
 # GET PROJECTS BY USER
-
 @router.get("/users/{id_user}/projects")
-def user_projects(id_user: int, db: Session = Depends(get_db)):
+def user_projects(
+    id_user: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
     return get_user_projects(id_user, db)
 
 # GET USER BY ID
 @router.get("/users/{id}")
-def user(id: int, db: Session = Depends(get_db)):
+def user(id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     return get_user(id, db)
 
 # UPDATE USER (PUT)
 @router.put("/users/{id}")
-def edit_user(id: int, user: UserSchema, db: Session = Depends(get_db)):
+def edit_user(
+    id: int,
+    user: UserSchema,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
     return update_user_full(id, user, db)
 
 # UPDATE USER (PATCH)
 @router.patch("/users/{id}")
-def patch_user(id: int, user: UserUpdateSchema, db: Session = Depends(get_db)):
+def patch_user(
+    id: int,
+    user: UserUpdateSchema,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
     return update_user(id, user, db)
 
-# DELETE USER
+# DELETE USER (solo administradores)
 @router.delete("/users/{id}")
-def destroy_user(id: int, db: Session = Depends(get_db)):
+def destroy_user(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
     return delete_user(id, db)

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FolderOpen, Plus, ChevronRight, X, Film, Clapperboard } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
-import API_URL from "../api";
+import { apiFetch } from "../api";
 import "../desing/ProjectSelection.css";
 
 const formatOptions = [
@@ -44,7 +44,7 @@ export default function ProjectSelectionScreen() {
   setError("");
   try {
     const idUser = localStorage.getItem("id_user");
-    const response = await fetch(`${API_URL}/users/${idUser}/projects`);
+    const response = await apiFetch(`/users/${idUser}/projects`);
     if (response.ok) {
       const result = await response.json();
       const data = result.data || result;
@@ -84,9 +84,8 @@ export default function ProjectSelectionScreen() {
 
     try {
       const idClient = localStorage.getItem("id_client") || 1;
-      const response = await fetch(`${API_URL}/projects/create`, {
+      const response = await apiFetch("/projects/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
           id_client: Number(idClient),

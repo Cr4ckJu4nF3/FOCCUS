@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/FoccusNB_White.png";
-import API_URL from "../api";
+import { apiFetch } from "../api";
 import "../desing/ProjectRegistration.css";
 
 const formatOptions = [
@@ -37,9 +37,8 @@ export default function ProjectRegistrationScreen() {
 
     try {
       const idClient = localStorage.getItem("id_client");
-      const response = await fetch(`${API_URL}/projects/create`, {
+      const response = await apiFetch("/projects/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
           id_client: Number(idClient),

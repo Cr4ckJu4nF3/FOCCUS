@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional
 from datetime import datetime
 
@@ -61,6 +61,13 @@ class RegisterSchema(BaseModel):
     mail: str
     msisdn: str
     contrasena: str
+
+    @field_validator("contrasena")
+    @classmethod
+    def validate_password_length(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("La contraseña no puede superar los 72 bytes")
+        return value
     
 class TwoFactorSendSchema(BaseModel):
     mail: str

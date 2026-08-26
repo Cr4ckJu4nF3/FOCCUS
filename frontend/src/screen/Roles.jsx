@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, UserPlus, Users, Mail, X, CheckCircle } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
-import API_URL from "../api";
+import { apiFetch } from "../api";
 import "../desing/Roles.css";
 
 const rolLabels = {
@@ -40,7 +40,7 @@ export default function RolesScreen() {
   const fetchUsuarios = async () => {
     setLoadingUsers(true);
     try {
-      const response = await fetch(`${API_URL}/users/project/${idProject}`);
+      const response = await apiFetch(`/users/project/${idProject}`);
       if (response.ok) {
         const data = await response.json();
         setUsuarios(Array.isArray(data) ? data : data.data || []);
@@ -75,9 +75,8 @@ export default function RolesScreen() {
     }
 
     try {
-      const response = await fetch(`${API_URL}/users/invite`, {
+      const response = await apiFetch("/users/invite", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           correos: listaCorreos,
           id_project: idProject,

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { KeyRound, Eye, EyeOff } from "lucide-react";
 import logo from "../assets/Logo.png";
 import claqueta from "../assets/claqueta.jpg";
-import API_URL, { getDeviceId } from "../api";
+import { apiFetch, getDeviceId, setToken } from "../api";
 import "../desing/Login.css";
 
 export default function LoginScreen() {
@@ -53,43 +53,47 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/users/login`, {
+      const normalizedMail = mail.trim().toLowerCase();
+      const response = await apiFetch("/users/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mail, contrasena }),
+        body: JSON.stringify({ mail: normalizedMail, contrasena }),
       });
 
-      if (response.ok) {
-        const result = await response.json();
+      const result = await response.json();
+
+      if (response.ok && result.success) {
         const data = result.data;
 
-              // Guardar datos del usuario
+        // Guardar el token de sesión y los datos del usuario
+        setToken(data.access_token);
         localStorage.setItem("id_user", data.id_user);
         localStorage.setItem("nombre", data.nombre);
         localStorage.setItem("apellido", data.apellido);
         localStorage.setItem("mail", data.mail);
         localStorage.setItem("id_rol", data.id_rol);
         localStorage.setItem("id_client", data.id_client);
-        localStorage.setItem("id_rol", 1001);
 
         // Verificar si necesita 2FA
         const deviceId = getDeviceId();
-        const check2fa = await fetch(`${API_URL}/users/2fa/check`, {
+        const check2fa = await apiFetch("/users/2fa/check", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mail, device_id: deviceId }),
+          body: JSON.stringify({ mail: normalizedMail, device_id: deviceId }),
         });
 
         if (check2fa.ok) {
           const check2faResult = await check2fa.json();
           const check2faData = check2faResult.data || check2faResult;
           if (check2faData.requires_2fa) {
-            await fetch(`${API_URL}/users/2fa/send`, {
+            const send2faResponse = await apiFetch("/users/2fa/send", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ mail, device_id: deviceId }),
+              body: JSON.stringify({ mail: normalizedMail, device_id: deviceId }),
             });
-            navigate("/verificacion", { state: { mail }, replace: true });
+            const send2faResult = await send2faResponse.json();
+            if (!send2faResponse.ok || !send2faResult.success) {
+              setError(send2faResult.message || "No se pudo enviar el código de verificación");
+              return;
+            }
+            navigate("/verificacion", { state: { mail: normalizedMail }, replace: true });
           } else {
             navigate("/seleccion-proyecto", { replace: true });
           }
@@ -97,8 +101,10 @@ export default function LoginScreen() {
           navigate("/seleccion-proyecto", { replace: true });
         }
       } else {
-        const errorData = await response.json();
-        setError(errorData.detail || errorData.message || "Correo o contraseña incorrectos");
+        const detail = Array.isArray(result.detail)
+          ? result.detail.map((item) => item.msg).join(", ")
+          : result.detail;
+        setError(detail || result.message || result.error || "Correo o contraseña incorrectos");
       }
     } catch (err) {
       setError("No se pudo conectar con el servidor");
@@ -131,17 +137,18 @@ export default function LoginScreen() {
 
     try {
       const { confirmarContrasena, ...datosEnviar } = registro;
-      const response = await fetch(`${API_URL}/register`, {
+      const response = await apiFetch("/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(datosEnviar),
       });
 
-      if (response.ok) {
-        const result = await response.json();
+      const result = await response.json();
+
+      if (response.ok && result.success) {
         const data = result.data;
 
-        // Guardar datos del usuario registrado
+        // Guardar el token de sesión y los datos del usuario registrado
+        setToken(data.access_token);
         localStorage.setItem("id_user", data.id_user);
         localStorage.setItem("nombre", data.nombre);
         localStorage.setItem("apellido", data.apellido);
@@ -151,8 +158,10 @@ export default function LoginScreen() {
         // Siempre ir a registrar proyecto.
         navigate("/registro-proyecto");
       } else {
-        const errorData = await response.json();
-        setError(errorData.detail || errorData.message || "Error al registrar");
+        const detail = Array.isArray(result.detail)
+          ? result.detail.map((item) => item.msg).join(", ")
+          : result.detail;
+        setError(detail || result.message || result.error || "Error al registrar");
       }
     } catch (err) {
       setError("No se pudo conectar con el servidor");

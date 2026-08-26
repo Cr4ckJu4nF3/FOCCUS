@@ -2,6 +2,7 @@ import random
 import string
 from datetime import datetime, timedelta
 from app.utils.mail import send_recovery_email, send_2fa_email, send_invitation_email
+from app.utils.auth import create_access_token
 from app.models.project_model import Project
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
@@ -220,7 +221,8 @@ def delete_user(id: int, db: Session):
 # LOGIN
 # ==========================================
 def login_user(mail: str, contrasena: str, db: Session):
-    user = db.query(User).filter(User.mail == mail).first()
+    normalized_mail = mail.strip().lower()
+    user = db.query(User).filter(User.mail == normalized_mail).first()
 
     if not user:
         return api_response(False, "Correo no registrado", error="USER_NOT_FOUND")
@@ -238,13 +240,17 @@ def login_user(mail: str, contrasena: str, db: Session):
     user.ultimo_acceso = func.now()
     db.commit()
 
+    token = create_access_token({"id_user": user.id_user, "id_rol": user.id_rol})
+
     return api_response(True, "Login exitoso", {
         "id_user": user.id_user,
         "nombre": user.nombre,
         "apellido": user.apellido,
         "mail": user.mail,
         "id_rol": user.id_rol,
-        "id_client": id_client
+        "id_client": id_client,
+        "access_token": token,
+        "token_type": "bearer"
     })
 
 # ==========================================
@@ -350,13 +356,17 @@ def register(data, db: Session):
         db.refresh(new_user)
         db.refresh(new_client)
 
+        token = create_access_token({"id_user": new_user.id_user, "id_rol": new_user.id_rol})
+
         return api_response(True, "Registro exitoso", {
             "id_user": new_user.id_user,
             "nombre": new_user.nombre,
             "apellido": new_user.apellido,
             "mail": new_user.mail,
             "id_cliente": new_client.id_cliente,
-            "razon_social": new_client.razon_social
+            "razon_social": new_client.razon_social,
+            "access_token": token,
+            "token_type": "bearer"
         })
 
     except Exception as e:
@@ -431,6 +441,8 @@ def verify_2fa_code(mail: str, codigo: str, device_id: str, db: Session):
         if project:
             id_client = project.id_client
 
+    token = create_access_token({"id_user": user.id_user, "id_rol": user.id_rol})
+
     return api_response(True, "Verificación exitosa", {
         "id_user": user.id_user,
         "nombre": user.nombre,
@@ -438,7 +450,9 @@ def verify_2fa_code(mail: str, codigo: str, device_id: str, db: Session):
         "mail": user.mail,
         "id_rol": user.id_rol,
         "id_client": id_client,
-        "device_verified": True
+        "device_verified": True,
+        "access_token": token,
+        "token_type": "bearer"
     })
 
 # ==========================================

@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Shield, ArrowLeft } from "lucide-react";
 import claqueta from "../assets/claqueta.jpg";
 import Logo from "../assets/Logo.png";
-import API_URL, { getDeviceId } from "../api";
+import { apiFetch, getDeviceId, setToken } from "../api";
 import "../desing/TwoFactor.css";
 
 export default function TwoFactorScreen() {
@@ -22,17 +22,22 @@ export default function TwoFactorScreen() {
 
     try {
       const deviceId = getDeviceId();
-      const response = await fetch(`${API_URL}/users/2fa/verify`, {
+      const response = await apiFetch("/users/2fa/verify", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mail, codigo, device_id: deviceId }),
       });
 
-      if (response.ok) {
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        const data = result.data;
+        // El backend reemite el token tras verificar el segundo factor
+        if (data?.access_token) {
+          setToken(data.access_token);
+        }
         navigate("/seleccion-proyecto");
       } else {
-        const errorData = await response.json();
-        setError(errorData.detail || "Código incorrecto o expirado");
+        setError(result.detail || result.message || result.error || "Código incorrecto o expirado");
       }
     } catch (err) {
       setError("No se pudo conectar con el servidor");
@@ -47,17 +52,18 @@ export default function TwoFactorScreen() {
 
     try {
       const deviceId = getDeviceId();
-      const response = await fetch(`${API_URL}/users/2fa/send`, {
+      const response = await apiFetch("/users/2fa/send", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mail, device_id: deviceId }),
       });
 
-      if (response.ok) {
+      const result = await response.json();
+
+      if (response.ok && result.success) {
         setReenviado(true);
         setTimeout(() => setReenviado(false), 3000);
       } else {
-        setError("Error al reenviar el código");
+        setError(result.message || result.error || "Error al reenviar el código");
       }
     } catch (err) {
       setError("No se pudo conectar con el servidor");

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, Eye, EyeOff } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
-import API_URL from "../api";
+import { apiFetch } from "../api";
 import "../desing/Profile.css";
 
 const identificacionTypes = ["CC", "NIT", "TI", "PA", "CE"];
@@ -53,7 +53,7 @@ export default function ProfileScreen() {
     const fetchUser = async () => {
       const idUser = localStorage.getItem("id_user");
       try {
-        const response = await fetch(`${API_URL}/users/${idUser}`);
+        const response = await apiFetch(`/users/${idUser}`);
         if (response.ok) {
           const result = await response.json();
           const data = Array.isArray(result) ? result : result.data || result;
@@ -100,9 +100,8 @@ export default function ProfileScreen() {
 
     try {
       const idUser = localStorage.getItem("id_user");
-      const response = await fetch(`${API_URL}/users/${idUser}`, {
+      const response = await apiFetch(`/users/${idUser}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nombre: formData.nombre,
           apellido: formData.apellido,
@@ -157,9 +156,8 @@ export default function ProfileScreen() {
 
     try {
       const idUser = localStorage.getItem("id_user");
-      const response = await fetch(`${API_URL}/users/${idUser}`, {
+      const response = await apiFetch(`/users/${idUser}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contrasena: passwordData.nueva }),
       });
 

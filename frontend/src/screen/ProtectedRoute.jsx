@@ -1,9 +1,8 @@
 import { Navigate } from "react-router-dom";
+import { isTokenValid } from "../api";
 
 export default function ProtectedRoute({ children }) {
-  const idUser = localStorage.getItem("id_user");
-  
-  if (!idUser) {
+  if (!isTokenValid()) {
     return <Navigate to="/" replace />;
   }
 
