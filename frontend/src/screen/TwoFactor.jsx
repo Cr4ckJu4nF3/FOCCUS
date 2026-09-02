@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Shield, ArrowLeft } from "lucide-react";
-import claqueta from "../assets/claqueta.jpg";
+import FondoLogin from "../assets/FondoLogin.jpeg";
 import Logo from "../assets/Logo.png";
 import { apiFetch, getDeviceId, setToken } from "../api";
 import "../desing/TwoFactor.css";
@@ -75,7 +75,7 @@ export default function TwoFactorScreen() {
       {/* Fondo con imagen */}
       <div
         className="auth-page__bg"
-        style={{ backgroundImage: `url(${claqueta})` }}
+        style={{ backgroundImage: `url(${FondoLogin})` }}
       />
       <div className="auth-page__overlay" />
       <div className="auth-card-wrapper">

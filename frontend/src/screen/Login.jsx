@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { KeyRound, Eye, EyeOff } from "lucide-react";
 import logo from "../assets/Logo.png";
-import claqueta from "../assets/claqueta.jpg";
+import FondoLogin from "../assets/FondoLogin.jpeg";
 import { apiFetch, getDeviceId, setToken } from "../api";
 import "../desing/Login.css";
 
@@ -185,7 +185,7 @@ export default function LoginScreen() {
       {/* Fondo con imagen */}
       <div
         className="login-page__bg"
-        style={{ backgroundImage: `url(${claqueta})` }}
+        style={{ backgroundImage: `url(${FondoLogin})` }}
       />
       <div className="login-page__overlay" />
 

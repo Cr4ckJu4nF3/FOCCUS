@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Mail, CheckCircle, Shield, KeyRound, Eye, EyeOff } from "lucide-react";
 import Logo from "../assets/Logo.png";
-import claqueta from "../assets/claqueta.jpg";
+import FondoLogin from "../assets/FondoLogin.jpeg";
 import API_URL from "../api";
 import "../desing/ForgotPassword.css";
 
@@ -107,7 +107,7 @@ export default function ForgotPasswordScreen() {
       {/* Fondo con imagen */}
       <div
         className="auth-page__bg"
-        style={{ backgroundImage: `url(${claqueta})` }}
+        style={{ backgroundImage: `url(${FondoLogin})` }}
       />
       <div className="auth-page__overlay" />
       <div className="auth-card-wrapper">

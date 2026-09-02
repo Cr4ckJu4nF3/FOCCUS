@@ -16,7 +16,7 @@ def send_recovery_email(destinatario: str, codigo: str):
         mensaje = MIMEMultipart("related")
         mensaje["From"] = MAIL_USER
         mensaje["To"] = destinatario
-        mensaje["Subject"] = "Recuperación de contraseña - Raccord"
+        mensaje["Subject"] = "Recuperación de contraseña - Foccus"
 
         cuerpo = f"""
         <html>
@@ -28,9 +28,9 @@ def send_recovery_email(destinatario: str, codigo: str):
             <p>Este código expira en 15 minutos.</p>
             <p>Si no solicitaste este cambio, ignora este correo.</p>
             <br>
-            <p>Equipo Raccord. </p>
+            <p>Equipo Foccus. </p>
             <br>
-            <img src="cid:logo" alt="Raccord Logo" style="width: 150px; height: auto;">
+            <img src="cid:logo" alt="Foccus Logo" style="width: 150px; height: auto;">
         </body>
         </html>
         """
@@ -58,13 +58,13 @@ def send_recovery_email(destinatario: str, codigo: str):
         print("Error enviando correo:", e)
         return False
     
-# correo para recibir el mail de codigo de verificación de para ingresar a raccord.
+# correo para recibir el mail de codigo de verificación de para ingresar a foccus.
 def send_2fa_email(destinatario: str, codigo: str):
     try:
         mensaje = MIMEMultipart("related")
         mensaje["From"] = MAIL_USER
         mensaje["To"] = destinatario
-        mensaje["Subject"] = "Código de verificación - Raccord"
+        mensaje["Subject"] = "Código de verificación - Foccus"
 
         cuerpo = f"""
         <html>
@@ -76,9 +76,9 @@ def send_2fa_email(destinatario: str, codigo: str):
             <p>Este código expira en 10 minutos.</p>
             <p>Si no fuiste tú, cambia tu contraseña inmediatamente.</p>
             <br>
-            <p>Equipo Raccord</p>
+            <p>Equipo Foccus</p>
             <br>
-            <img src="cid:logo" alt="Raccord Logo" style="width: 150px; height: auto;">
+            <img src="cid:logo" alt="Foccus Logo" style="width: 150px; height: auto;">
         </body>
         </html>
         """
@@ -112,13 +112,13 @@ def send_invitation_email(destinatario: str, nombre_proyecto: str, contrasena: s
         mensaje = MIMEMultipart("related")
         mensaje["From"] = MAIL_USER
         mensaje["To"] = destinatario
-        mensaje["Subject"] = f"Invitación al proyecto {nombre_proyecto} - Raccord"
+        mensaje["Subject"] = f"Invitación al proyecto {nombre_proyecto} - Foccus"
 
         cuerpo = f"""
         <html>
         <body style="font-family: Arial, sans-serif; text-align: center; padding: 20px;">
             <h2>¡Has sido invitado!</h2>
-            <p>Se te ha invitado a colaborar en el proyecto <strong>{nombre_proyecto}</strong> en Raccord.</p>
+            <p>Se te ha invitado a colaborar en el proyecto <strong>{nombre_proyecto}</strong> en Foccus.</p>
             <br>
             <p>Tus credenciales de acceso son:</p>
             <table style="margin: 0 auto; text-align: left; border-collapse: collapse;">
@@ -134,9 +134,9 @@ def send_invitation_email(destinatario: str, nombre_proyecto: str, contrasena: s
             <br>
             <p>Te recomendamos cambiar tu contraseña después de iniciar sesión.</p>
             <br>
-            <p>Equipo Raccord</p>
+            <p>Equipo Foccus</p>
             <br>
-            <img src="cid:logo" alt="Raccord Logo" style="width: 150px; height: auto;">
+            <img src="cid:logo" alt="Foccus Logo" style="width: 150px; height: auto;">
         </body>
         </html>
         """
@@ -171,12 +171,12 @@ def send_contact_email(nombre: str, email: str, celular: str, empresa: str, tipo
         msg = MIMEMultipart("related")
         msg["From"] = MAIL_USER
         msg["To"] = CONTACT_EMAIL
-        msg["Subject"] = f"Nuevo contacto desde RACCORD - {tipo}"
+        msg["Subject"] = f"Nuevo contacto desde FOCCUS - {tipo}"
 
         cuerpo = f"""
         <html>
         <body style="font-family: Arial, sans-serif; padding: 20px;">
-            <h2 style="color: #2563eb;">Nuevo Contacto desde RACCORD</h2>
+            <h2 style="color: #2563eb;">Nuevo Contacto desde FOCCUS</h2>
             <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
                 <tr>
                     <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold; background: #f5f5f5;">Nombre</td>
@@ -204,9 +204,9 @@ def send_contact_email(nombre: str, email: str, celular: str, empresa: str, tipo
                 </tr>
             </table>
             <br>
-            <p style="color: #888;">Este mensaje fue enviado desde el formulario de contacto de RACCORD.</p>
+            <p style="color: #888;">Este mensaje fue enviado desde el formulario de contacto de FOCCUS.</p>
             <br>
-            <img src="cid:logo" alt="Raccord Logo" style="width: 150px; height: auto;">
+            <img src="cid:logo" alt="Foccus Logo" style="width: 150px; height: auto;">
         </body>
         </html>
         """
