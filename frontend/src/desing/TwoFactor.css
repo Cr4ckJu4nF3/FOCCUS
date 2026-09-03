@@ -22,7 +22,7 @@
 .auth-page__overlay {
   position: absolute;
   inset: 0;
-  background-color: rgba(10, 10, 10, 0.85);
+  background: linear-gradient(135deg, rgba(8, 18, 32, 0.94), rgba(17, 17, 17, 0.86));
 }
 
 .auth-card-wrapper {
@@ -50,10 +50,10 @@
 /* Card */
 
 .auth-card {
-  background: #1a1a1a;
+  background: rgba(20, 23, 28, 0.96);
   border-radius: 12px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  border: 1px solid #2a2a2a;
+  box-shadow: 18px 18px 0 rgba(6, 11, 18, 0.45), 0 24px 60px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(250, 250, 250, 0.16);
   overflow: hidden;
 }
 
@@ -62,7 +62,7 @@
 }
 
 .auth-card__header--blue-purple {
-  background: linear-gradient(to right, #0b4f8a, #7b5fcf);
+  background: linear-gradient(135deg, #0b4f8a, #e67e5c);
 }
 
 .auth-card__eyebrow-row {
@@ -163,11 +163,13 @@
 
 .field__input:focus {
   outline: none;
-  box-shadow: 0 0 0 2px #0b4f8a;
+  border-color: #e67e5c;
+  box-shadow: 0 0 0 2px rgba(230, 126, 92, 0.22);
 }
 
 .field__input--purple:focus {
-  box-shadow: 0 0 0 2px #7b5fcf;
+  border-color: #e67e5c;
+  box-shadow: 0 0 0 2px rgba(230, 126, 92, 0.22);
 }
 
 .field__input--code {
@@ -190,23 +192,24 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: background 0.2s ease, opacity 0.2s ease;
-  background: #0b4f8a;
+  transition: background 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  background: #e67e5c;
   color: #fff;
-  box-shadow: 0 10px 15px -3px rgba(11, 79, 138, 0.2);
+  box-shadow: 0 10px 15px -3px rgba(230, 126, 92, 0.22);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #094170;
+  background: #d86646;
+  transform: translateY(-1px);
 }
 
 .btn-primary--purple {
-  background: #7b5fcf;
-  box-shadow: 0 10px 15px -3px rgba(123, 95, 207, 0.2);
+  background: linear-gradient(135deg, #e67e5c, #0b4f8a);
+  box-shadow: 0 10px 15px -3px rgba(230, 126, 92, 0.2);
 }
 
 .btn-primary--purple:hover:not(:disabled) {
-  background: #6a4eb8;
+  background: linear-gradient(135deg, #d86646, #094170);
 }
 
 .btn-primary:disabled {
@@ -264,10 +267,10 @@
 }
 
 .auth-link--accent {
-  color: #7b5fcf;
+  color: #e67e5c;
 }
 
 .auth-link--accent:hover {
-  color: #7b5fcf;
+  color: #f39a7f;
   text-decoration: underline;
 }

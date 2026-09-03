@@ -68,6 +68,21 @@ export default function ProjectDashboardScreen() {
     setIsMenuOpen(false);
     if (option === "Roles") {
       navigate("/roles", { state: { projectName, projectId } });
+      return;
+    }
+
+    if (option === "Guión") {
+      navigate("/guion", { state: { projectName, projectId } });
+      return;
+    }
+
+    if (option === "Escenas" || option === "Crear Escenas") {
+      navigate("/escenas", { state: { projectName, projectId } });
+      return;
+    }
+
+    if (option === "Plan de Rodaje") {
+      navigate("/rodaje", { state: { projectName, projectId } });
     }
   };
 
@@ -76,6 +91,57 @@ export default function ProjectDashboardScreen() {
   navigate("/", { replace: true });
   window.history.pushState(null, "", "/");
   };
+
+  const latestUpdates = [
+    {
+      title: "Revisión de guion",
+      module: "Guión",
+      status: "pendiente",
+      detail: "Falta confirmar cambios de narrativas finales antes del pase de producción.",
+      date: "Hoy",
+    },
+    {
+      title: "Ajuste de escenografía",
+      module: "Escenas",
+      status: "en-progreso",
+      detail: "Se están corrigiendo cambios de ubicación para la escena 08 y 09.",
+      date: "Hace 2h",
+    },
+    {
+      title: "Cronograma de grabación",
+      module: "Plan de Rodaje",
+      status: "en-progreso",
+      detail: "Se validan días y orden de rodaje del bloque principal.",
+      date: "Ayer",
+    },
+    {
+      title: "Pasaje final del guion",
+      module: "Guión",
+      status: "finalizado",
+      detail: "El guion quedó aprobado por dirección y producción.",
+      date: "Hace 1d",
+    },
+    {
+      title: "Escenas cerradas",
+      module: "Escenas",
+      status: "finalizado",
+      detail: "La secuencia principal está marcada como lista para revisión técnica.",
+      date: "Hace 2d",
+    },
+    {
+      title: "Desglose de producción",
+      module: "Desglose",
+      status: "pendiente",
+      detail: "Falta validar costos, materiales y tiempos de armado del set.",
+      date: "Próximo",
+    },
+  ];
+
+  const updateStatusOrder = [
+    { key: "pendiente", label: "Pendiente" },
+    { key: "en-progreso", label: "En progreso" },
+    { key: "finalizado", label: "Finalizado" },
+  ];
 
   return (
     <div className="pds-page">
@@ -176,9 +242,11 @@ export default function ProjectDashboardScreen() {
             {modules.map((module) => (
               <div
                 key={module.name}
+                onClick={() => handleMenuOption(module.name)}
                 className={`pds-module-card ${
                   isMenuOpen ? "pds-module-card--compact" : "pds-module-card--full"
                 }`}
+                style={{ cursor: "pointer" }}
               >
                 <div
                   className={`pds-module-icon-wrapper ${
@@ -200,6 +268,48 @@ export default function ProjectDashboardScreen() {
             ))}
           </div>
         </div>
+
+        <section className="pds-updates">
+          <div className="pds-updates-header">
+            <div>
+              <p className="pds-updates-eyebrow">Actividad reciente</p>
+              <h2>Últimas actualizaciones</h2>
+            </div>
+            <span className="pds-updates-total">{latestUpdates.length} cambios</span>
+          </div>
+
+          <div className="pds-updates-grid">
+            {updateStatusOrder.map((status) => {
+              const items = latestUpdates.filter((item) => item.status === status.key);
+
+              return (
+                <div key={status.key} className={`pds-update-column pds-update-column--${status.key}`}>
+                  <div className="pds-update-column__header">
+                    <span className={`pds-status-pill pds-status-pill--${status.key}`}>{status.label}</span>
+                    <span className="pds-status-count">{items.length}</span>
+                  </div>
+
+                  <div className="pds-update-list">
+                    {items.length === 0 ? (
+                      <p className="pds-update-empty">Sin cambios aún</p>
+                    ) : (
+                      items.map((item) => (
+                        <article key={`${item.module}-${item.title}`} className="pds-update-item">
+                          <div className="pds-update-item__topline">
+                            <span className="pds-update-module">{item.module}</span>
+                            <span className="pds-update-date">{item.date}</span>
+                          </div>
+                          <h3>{item.title}</h3>
+                          <p>{item.detail}</p>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
 
         {/* Volver */}
         <div className="pds-back-wrapper">

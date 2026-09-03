@@ -9,6 +9,9 @@ import Profile from "./screen/Profile";
 import Dashboard from "./screen/Dashboard";
 import Landing from "./screen/Landing";
 import Roles from "./screen/Roles";
+import Guion from "./screen/Guion";
+import Escena from "./screen/Escena";
+import Rodaje from "./screen/Rodaje";
 import ProtectedRoute from "./screen/ProtectedRoute";
 
 export const router = createBrowserRouter([
@@ -53,5 +56,17 @@ export const router = createBrowserRouter([
   {
     path: "/roles",
     element: <ProtectedRoute><Roles /></ProtectedRoute>,
+  },
+  {
+    path: "/guion",
+    element: <ProtectedRoute><Guion /></ProtectedRoute>,
+  },
+  {
+    path: "/escenas",
+    element: <ProtectedRoute><Escena /></ProtectedRoute>,
+  },
+  {
+    path: "/rodaje",
+    element: <ProtectedRoute><Rodaje /></ProtectedRoute>,
   },
 ]);
