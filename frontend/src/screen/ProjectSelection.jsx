@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FolderOpen, Plus, ChevronRight, X, Film, Clapperboard } from "lucide-react";
+import { FolderOpen, Plus, ChevronRight, X, Film, Clapperboard, LogOut } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
-import { apiFetch } from "../api";
+import { apiFetch, clearSession } from "../api";
 import "../desing/ProjectSelection.css";
 
 const formatOptions = [
@@ -37,6 +37,11 @@ export default function ProjectSelectionScreen() {
   const navigate = useNavigate();
   const idRol = parseInt(localStorage.getItem("id_rol")) || 0;
   const esAdmin = idRol === 1001;
+
+  const handleLogout = () => {
+    clearSession();
+    navigate("/", { replace: true });
+  };
 
   // Cargar proyectos al abrir la lista
   const fetchProjects = async () => {
@@ -120,6 +125,16 @@ export default function ProjectSelectionScreen() {
       <header className="pss-header">
         <div className="pss-header-inner">
           <img src={logo} alt="Logo" className="pss-logo" />
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="pss-logout-button"
+            title="Cerrar sesión"
+            aria-label="Cerrar sesión"
+          >
+            <LogOut size={18} />
+            <span>Cerrar sesión</span>
+          </button>
         </div>
       </header>
 

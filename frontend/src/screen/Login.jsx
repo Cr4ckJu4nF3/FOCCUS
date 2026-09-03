@@ -285,6 +285,12 @@ export default function LoginScreen() {
                     <span>¿Olvidaste tu contraseña o usuario?</span>
                   </button>
                 </div>
+
+                <p className="login-invited-note">
+                  ¿Te invitaron a un proyecto? Inicia sesión aquí mismo con el
+                  correo y la contraseña que recibiste por email. No necesitas
+                  registrar una empresa.
+                </p>
               </form>
             ) : (
               <form ref={registroFormRef} onSubmit={handleRegister} className="login-form register-form">
