@@ -7,8 +7,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 16px;
+  padding: 48px 16px;
   position: relative;
+  overflow: hidden;
 }
 
 .login-page__bg {
@@ -21,7 +22,7 @@
 .login-page__overlay {
   position: absolute;
   inset: 0;
-  background-color: rgba(10, 10, 10, 0.85);
+  background: linear-gradient(135deg, rgba(8, 18, 32, 0.94), rgba(17, 17, 17, 0.86));
 }
 
 .login-card-wrapper {
@@ -33,6 +34,29 @@
   transition: max-width 0.2s ease;
 }
 
+.login-card-wrapper::before,
+.login-card-wrapper::after {
+  content: "";
+  position: absolute;
+  border: 1px solid rgba(230, 126, 92, 0.28);
+  pointer-events: none;
+}
+
+.login-card-wrapper::before {
+  width: 92px;
+  height: 92px;
+  top: 92px;
+  left: -44px;
+}
+
+.login-card-wrapper::after {
+  width: 58px;
+  height: 58px;
+  right: -28px;
+  bottom: 48px;
+  border-color: rgba(11, 79, 138, 0.55);
+}
+
 .login-card-wrapper--wide {
   max-width: 672px; /* max-w-2xl */
 }
@@ -42,30 +66,32 @@
 .login-logo {
   display: flex;
   justify-content: center;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 .login-logo__img {
-  width: 140px;
-  height: 140px;
+  width: 116px;
+  height: 116px;
   object-fit: contain;
 }
 
 /* Card */
 
 .login-card {
-  background: #1a1a1a;
-  border-radius: 8px;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  background: rgba(20, 23, 28, 0.96);
+  border-radius: 2px;
+  box-shadow: 18px 18px 0 rgba(6, 11, 18, 0.45), 0 24px 60px rgba(0, 0, 0, 0.35);
   overflow: hidden;
-  border: 1px solid #2a2a2a;
+  border: 1px solid rgba(250, 250, 250, 0.16);
 }
 
 /* Tabs */
 
 .login-tabs {
   display: flex;
-  border-bottom: 1px solid #2a2a2a;
+  gap: 1px;
+  border-bottom: 1px solid rgba(250, 250, 250, 0.12);
+  background: #0e1218;
 }
 
 .login-tab {
@@ -73,26 +99,26 @@
   padding: 16px 24px;
   border: none;
   cursor: pointer;
-  background: #1a1a1a;
+  background: #0e1218;
   color: #6b6b6b;
   font-size: 15px;
   transition: all 0.2s ease;
 }
 
 .login-tab:hover {
-  background: #2a2a2a;
+  background: #19222d;
 }
 
 .login-tab--active,
 .login-tab--active:hover {
-  background: #0b4f8a;
+  background: #e67e5c;
   color: #fff;
 }
 
 /* Content */
 
 .login-content {
-  padding: 32px;
+  padding: 30px;
 }
 
 .login-error {
@@ -102,6 +128,16 @@
   border: 1px solid rgba(239, 68, 68, 0.5);
   border-radius: 8px;
   color: #f87171;
+  font-size: 14px;
+}
+
+.login-success {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.45);
+  border-radius: 2px;
+  color: #86efac;
   font-size: 14px;
 }
 
@@ -123,8 +159,8 @@
   width: 100%;
   padding: 12px 16px;
   border: 1px solid #2a2a2a;
-  border-radius: 8px;
-  background: #0a0a0a;
+  border-radius: 2px;
+  background: #0c1015;
   color: #fafafa;
   font-size: 15px;
   font-family: inherit;
@@ -136,7 +172,8 @@
 
 .field__input:focus {
   outline: none;
-  box-shadow: 0 0 0 2px #0b4f8a;
+  border-color: #e67e5c;
+  box-shadow: 4px 4px 0 rgba(230, 126, 92, 0.22);
 }
 
 .field__input--icon {
@@ -169,18 +206,18 @@
 
 .btn-primary {
   width: 100%;
-  background: #0b4f8a;
+  background: #e67e5c;
   color: #fff;
   padding: 12px 0;
   border: none;
-  border-radius: 8px;
+  border-radius: 2px;
   font-size: 15px;
   cursor: pointer;
   transition: background 0.2s ease, opacity 0.2s ease;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #094170;
+  background: #d86646;
 }
 
 .btn-primary:disabled {
@@ -223,7 +260,7 @@
 /* Register form sections */
 
 .form-section-title {
-  color: #0b4f8a;
+  color: #e67e5c;
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 16px;
@@ -246,13 +283,117 @@
   border-top: 1px solid #2a2a2a;
 }
 
+.register-form {
+  gap: 22px;
+}
+
+.register-progress {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 4px;
+  background: #0c1015;
+  border: 1px solid rgba(250, 250, 250, 0.1);
+}
+
+.register-progress__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 6px;
+  color: #6b6b6b;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.register-progress__item--active {
+  background: #19222d;
+  color: #fafafa;
+}
+
+.register-progress__number {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 11px;
+}
+
+.register-step {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  animation: register-step-in 0.22s ease-out;
+}
+
+.register-step__heading {
+  padding: 18px;
+  border-left: 3px solid #e67e5c;
+  background: #19222d;
+}
+
+.register-step__heading .form-section-title {
+  margin: 3px 0 4px;
+}
+
+.register-step__heading p {
+  margin: 0;
+  color: #a7adb5;
+  font-size: 13px;
+}
+
+.register-step__eyebrow {
+  color: #e67e5c;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.register-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 6px;
+}
+
+.register-actions .btn-primary,
+.register-actions .btn-secondary {
+  width: auto;
+  min-width: 132px;
+  padding: 12px 20px;
+}
+
+.btn-secondary {
+  border: 1px solid #44515f;
+  border-radius: 2px;
+  background: transparent;
+  color: #fafafa;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-secondary:hover {
+  border-color: #e67e5c;
+  background: #19222d;
+}
+
+@keyframes register-step-in {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
 /* Password requirements */
 
 .password-requirements {
   padding: 16px;
   background: #0a0a0a;
   border: 1px solid #2a2a2a;
-  border-radius: 8px;
+  border-radius: 2px;
 }
 
 .password-requirements__title {
@@ -293,10 +434,36 @@
   margin-top: 4px;
   width: 16px;
   height: 16px;
-  border-radius: 4px;
+  border-radius: 2px;
   border: 1px solid #2a2a2a;
   background: #0a0a0a;
   accent-color: #0b4f8a;
+}
+
+@media (max-width: 560px) {
+  .login-page {
+    padding: 28px 12px;
+    align-items: flex-start;
+  }
+
+  .login-content {
+    padding: 22px 18px;
+  }
+
+  .register-progress__item {
+    flex-direction: column;
+    gap: 4px;
+    font-size: 10px;
+  }
+
+  .register-actions {
+    flex-direction: column-reverse;
+  }
+
+  .register-actions .btn-primary,
+  .register-actions .btn-secondary {
+    width: 100%;
+  }
 }
 
 .terms__label {

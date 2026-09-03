@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { KeyRound, Eye, EyeOff } from "lucide-react";
 import logo from "../assets/Logo.png";
@@ -8,7 +8,9 @@ import "../desing/Login.css";
 
 export default function LoginScreen() {
   const [activeTab, setActiveTab] = useState("ingresar");
+  const [registroPaso, setRegistroPaso] = useState(1);
   const [error, setError] = useState("");
+  const [registroExitoso, setRegistroExitoso] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const [aceptaTerminos, setAceptaTerminos] = useState(false);
@@ -116,6 +118,7 @@ export default function LoginScreen() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
+    setRegistroExitoso("");
 
     if (registro.contrasena !== registro.confirmarContrasena) {
       setError("Las contraseñas no coinciden");
@@ -145,18 +148,11 @@ export default function LoginScreen() {
       const result = await response.json();
 
       if (response.ok && result.success) {
-        const data = result.data;
-
-        // Guardar el token de sesión y los datos del usuario registrado
-        setToken(data.access_token);
-        localStorage.setItem("id_user", data.id_user);
-        localStorage.setItem("nombre", data.nombre);
-        localStorage.setItem("apellido", data.apellido);
-        localStorage.setItem("mail", data.mail);
-        localStorage.setItem("id_client", data.id_cliente);
-
-        // Siempre ir a registrar proyecto.
-        navigate("/registro-proyecto");
+        setMail(registro.mail);
+        setContrasena("");
+        setRegistroExitoso("¡Registro completado! Ahora inicia sesión con tu correo y contraseña.");
+        setActiveTab("ingresar");
+        setRegistroPaso(1);
       } else {
         const detail = Array.isArray(result.detail)
           ? result.detail.map((item) => item.msg).join(", ")
@@ -172,6 +168,16 @@ export default function LoginScreen() {
 
   const handleRegistroChange = (e) => {
     setRegistro({ ...registro, [e.target.name]: e.target.value });
+  };
+
+  const registroFormRef = useRef(null);
+
+  const cambiarPasoRegistro = (siguientePaso) => {
+    if (siguientePaso > registroPaso && !registroFormRef.current?.reportValidity()) {
+      return;
+    }
+    setError("");
+    setRegistroPaso(siguientePaso);
   };
   // Para poder ver la contraseña que estoy escribiendo en el login
   const [verContrasena, setVerContrasena] = useState(false);
@@ -206,7 +212,7 @@ export default function LoginScreen() {
               Ingresar
             </button>
             <button
-              onClick={() => { setActiveTab("registrar"); setError(""); }}
+              onClick={() => { setActiveTab("registrar"); setError(""); setRegistroPaso(1); }}
               className={`login-tab ${activeTab === "registrar" ? "login-tab--active" : ""}`}
             >
               Registrar
@@ -216,6 +222,11 @@ export default function LoginScreen() {
           {/* Content */}
           <div className="login-content">
             {/* Mensaje de error */}
+            {registroExitoso && activeTab === "ingresar" && (
+              <div className="login-success">
+                {registroExitoso}
+              </div>
+            )}
             {error && (
               <div className="login-error">
                 {error}
@@ -276,12 +287,25 @@ export default function LoginScreen() {
                 </div>
               </form>
             ) : (
-              <form onSubmit={handleRegister} className="login-form">
-                {/* Sección: Datos de la Empresa */}
-                <div>
-                  <h3 className="form-section-title">
-                    Información de la Empresa
-                  </h3>
+              <form ref={registroFormRef} onSubmit={handleRegister} className="login-form register-form">
+                <div className="register-progress" aria-label={`Paso ${registroPaso} de 3`}>
+                  {["Empresa", "Usuario", "Seguridad"].map((paso, index) => {
+                    const numeroPaso = index + 1;
+                    return (
+                      <div key={paso} className={`register-progress__item ${numeroPaso <= registroPaso ? "register-progress__item--active" : ""}`}>
+                        <span className="register-progress__number">{numeroPaso}</span>
+                        <span>{paso}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {registroPaso === 1 && <div className="register-step">
+                  <div className="register-step__heading">
+                    <span className="register-step__eyebrow">Paso 1 de 3</span>
+                    <h3 className="form-section-title">Información de la empresa</h3>
+                    <p>Cuéntanos quién estará detrás de la producción.</p>
+                  </div>
                   <div className="form-grid">
                     <div className="field">
                       <label className="field__label">Razón Social</label>
@@ -382,16 +406,14 @@ export default function LoginScreen() {
                       />
                     </div>
                   </div>
-                </div>
+                </div>}
 
-                {/* Separador */}
-                <div className="divider"></div>
-
-                {/* Sección: Datos del Administrador */}
-                <div>
-                  <h3 className="form-section-title">
-                    Información de usuario
-                  </h3>
+                {registroPaso === 2 && <div className="register-step">
+                  <div className="register-step__heading">
+                    <span className="register-step__eyebrow">Paso 2 de 3</span>
+                    <h3 className="form-section-title">Información de usuario</h3>
+                    <p>Estos serán los datos de acceso del administrador.</p>
+                  </div>
                   <div className="form-grid">
                     <div className="field">
                       <label className="field__label">Nombres</label>
@@ -441,6 +463,16 @@ export default function LoginScreen() {
                         required
                       />
                     </div>
+                  </div>
+                </div>}
+
+                {registroPaso === 3 && <div className="register-step">
+                  <div className="register-step__heading">
+                    <span className="register-step__eyebrow">Paso 3 de 3</span>
+                    <h3 className="form-section-title">Seguridad y confirmación</h3>
+                    <p>Protege tu cuenta y revisa las condiciones de uso.</p>
+                  </div>
+                  <div className="form-grid">
                     <div className="field">
                       <label className="field__label">Contraseña</label>
                       <div className="field--password">
@@ -453,11 +485,7 @@ export default function LoginScreen() {
                           placeholder="Crea una contraseña"
                           required
                         />
-                        <button
-                          type="button"
-                          onClick={() => setVerContrasenaReg(!verContrasenaReg)}
-                          className="field__toggle"
-                        >
+                        <button type="button" onClick={() => setVerContrasenaReg(!verContrasenaReg)} className="field__toggle">
                           {verContrasenaReg ? <EyeOff size={20} /> : <Eye size={20} />}
                         </button>
                       </div>
@@ -474,20 +502,13 @@ export default function LoginScreen() {
                           placeholder="Confirma tu contraseña"
                           required
                         />
-                        <button
-                          type="button"
-                          onClick={() => setVerConfirmarReg(!verConfirmarReg)}
-                          className="field__toggle"
-                        >
+                        <button type="button" onClick={() => setVerConfirmarReg(!verConfirmarReg)} className="field__toggle">
                           {verConfirmarReg ? <EyeOff size={20} /> : <Eye size={20} />}
                         </button>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Requisitos de contraseña */}
-                {registro.contrasena && (
                   <div className="password-requirements">
                     <p className="password-requirements__title">La contraseña debe tener:</p>
                     <div className="password-requirements__grid">
@@ -504,9 +525,7 @@ export default function LoginScreen() {
                       ))}
                     </div>
                   </div>
-                )}
 
-                {/* Términos y condiciones */}
                 <div className="terms">
                   <input
                     type="checkbox"
@@ -518,14 +537,24 @@ export default function LoginScreen() {
                     Acepto los <span className="terms__link">Términos y Condiciones</span> y autorizo el tratamiento de mis datos personales conforme a la <span className="terms__link">Política de Privacidad</span>.
                   </label>
                 </div>
+                </div>}
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="btn-primary"
-                >
-                  {loading ? "Registrando..." : "Registrar"}
-                </button>
+                <div className="register-actions">
+                  {registroPaso > 1 && (
+                    <button type="button" className="btn-secondary" onClick={() => cambiarPasoRegistro(registroPaso - 1)}>
+                      Atrás
+                    </button>
+                  )}
+                  {registroPaso < 3 ? (
+                    <button type="button" className="btn-primary" onClick={() => cambiarPasoRegistro(registroPaso + 1)}>
+                      Continuar
+                    </button>
+                  ) : (
+                    <button type="submit" disabled={loading} className="btn-primary">
+                      {loading ? "Registrando..." : "Crear cuenta"}
+                    </button>
+                  )}
+                </div>
               </form>
             )}
           </div>
