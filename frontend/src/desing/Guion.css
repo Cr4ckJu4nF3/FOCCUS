@@ -132,6 +132,23 @@
   gap: 0.5rem;
 }
 
+.guion-item__delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9c9c9c;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.guion-item__delete:hover {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.12);
+}
+
 .guion-item__number {
   color: #9cc1ff;
   font-size: 0.7rem;

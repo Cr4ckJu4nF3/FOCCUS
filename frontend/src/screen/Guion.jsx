@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, CalendarDays, FileText, FolderOpen, Plus, Sparkles, UploadCloud, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CalendarDays, FileText, FolderOpen, Plus, Sparkles, UploadCloud, CheckCircle2, Trash2 } from "lucide-react";
 import API_URL, { getToken } from "../api";
 import "../desing/Guion.css";
 
@@ -61,6 +61,28 @@ export default function GuionScreen() {
       setError(err.message || "No se pudo conectar con el servidor");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteGuion = async (idGuion) => {
+    if (!window.confirm("¿Eliminar este guion? No se puede deshacer.")) return;
+    try {
+      const token = getToken();
+      const response = await fetch(`${API_URL}/guiones/${idGuion}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.detail || data.message || "No se pudo eliminar el guion");
+      }
+      if (selectedGuionId === idGuion) {
+        setSelectedGuionId(null);
+        setVersiones([]);
+      }
+      await fetchGuiones();
+    } catch (err) {
+      setError(err.message || "No se pudo eliminar el guion");
     }
   };
 
@@ -228,9 +250,10 @@ export default function GuionScreen() {
           ) : (
             <div className="guion-list">
               {guiones.map((guion) => (
-                <button
+                <div
                   key={guion.id_guion}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   className={`guion-item ${selectedGuionId === guion.id_guion ? "guion-item--active" : ""}`}
                   onClick={() => {
                     setSelectedGuionId(guion.id_guion);
@@ -240,10 +263,21 @@ export default function GuionScreen() {
                   <div className="guion-item__top">
                     <span className="guion-item__number">#{guion.id_guion}</span>
                     <span className="guion-item__tag">Guion</span>
+                    <button
+                      type="button"
+                      className="guion-item__delete"
+                      title="Eliminar guion"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteGuion(guion.id_guion);
+                      }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                   <strong>{guion.nombre}</strong>
                   <small>{guion.descripcion || "Sin descripción"}</small>
-                </button>
+                </div>
               ))}
             </div>
           )}

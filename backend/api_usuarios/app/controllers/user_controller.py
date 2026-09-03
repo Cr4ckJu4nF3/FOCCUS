@@ -218,6 +218,23 @@ def delete_user(id: int, db: Session):
     return api_response(True, "Usuario eliminado")
 
 # ==========================================
+# REMOVER USUARIO DE UN PROYECTO (sin borrar la cuenta)
+# ==========================================
+def remove_user_from_project(id_user: int, id_project: str, db: Session):
+    vinculo = db.query(UserProject).filter(
+        UserProject.id_user == id_user,
+        UserProject.id_project == id_project
+    ).first()
+
+    if not vinculo:
+        return api_response(False, "El usuario no pertenece a este proyecto")
+
+    db.delete(vinculo)
+    db.commit()
+
+    return api_response(True, "Usuario removido del proyecto")
+
+# ==========================================
 # LOGIN
 # ==========================================
 def login_user(mail: str, contrasena: str, db: Session):

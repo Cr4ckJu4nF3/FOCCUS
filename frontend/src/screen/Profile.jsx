@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload, Eye, EyeOff } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
-import { apiFetch } from "../api";
+import { apiFetch, clearSession } from "../api";
 import "../desing/Profile.css";
 
 const identificacionTypes = ["CC", "NIT", "TI", "PA", "CE"];
@@ -178,6 +178,21 @@ export default function ProfileScreen() {
       setPasswordError("No se pudo conectar con el servidor");
     } finally {
       setSavingPassword(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm("¿Eliminar tu cuenta? Perderás el acceso a todos tus proyectos. No se puede deshacer.")) return;
+    try {
+      const response = await apiFetch("/users/me/account", { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.detail || data.message || "No se pudo eliminar la cuenta");
+      }
+      clearSession();
+      navigate("/login", { replace: true });
+    } catch (err) {
+      setError(err.message || "No se pudo eliminar la cuenta");
     }
   };
 
@@ -468,6 +483,20 @@ export default function ProfileScreen() {
                 </button>
               </div>
             </form>
+          </div>
+
+          <div className="prf-card prf-danger-zone">
+            <h3 className="prf-danger-title">Zona de peligro</h3>
+            <p className="prf-danger-text">
+              Eliminar tu cuenta es permanente y no se puede deshacer.
+            </p>
+            <button
+              type="button"
+              className="prf-danger-button"
+              onClick={handleDeleteAccount}
+            >
+              Eliminar mi cuenta
+            </button>
           </div>
         </div>
       </main>

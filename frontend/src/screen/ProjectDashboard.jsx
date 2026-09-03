@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Menu, User, Bell, LogOut } from "lucide-react";
+import { Menu, User, LogOut, Trash2 } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
-import API_URL from "../api";
+import { apiFetch } from "../api";
 import "../desing/ProjectDashboard.css";
 
 const modules = [
@@ -11,6 +11,13 @@ const modules = [
   { name: "Plan de Rodaje", color: "#E67E5C" },
   { name: "Desglose", color: "#6B6B6B" },
 ];
+
+const normalizeUpdateStatus = (status) => {
+  const normalizedStatus = String(status || "").trim().toLowerCase();
+  if (normalizedStatus === "en progreso" || normalizedStatus === "en-progreso") return "en-progreso";
+  if (normalizedStatus === "finalizado") return "finalizado";
+  return "pendiente";
+};
 
 export default function ProjectDashboardScreen() {
   const location = useLocation();
@@ -26,6 +33,9 @@ export default function ProjectDashboardScreen() {
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [latestUpdates, setLatestUpdates] = useState([]);
+  const [updatesLoading, setUpdatesLoading] = useState(false);
+  const [updatesError, setUpdatesError] = useState("");
   const menuRef = useRef(null);
   const profileRef = useRef(null);
 
@@ -51,6 +61,76 @@ export default function ProjectDashboardScreen() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    const fetchRecentActivity = async () => {
+      if (!projectId) {
+        setLatestUpdates([]);
+        return;
+      }
+
+      setUpdatesLoading(true);
+      setUpdatesError("");
+
+      try {
+        const rodajesResponse = await apiFetch(`/projects/${projectId}/rodajes`);
+        const rodajesData = await rodajesResponse.json();
+
+        if (!rodajesResponse.ok) {
+          throw new Error(rodajesData.detail || rodajesData.message || "No se pudo cargar la actividad");
+        }
+
+        const rodajes = Array.isArray(rodajesData.data) ? rodajesData.data : [];
+        const procesosPorRodaje = await Promise.all(
+          rodajes.map(async (rodaje) => {
+            const procesosResponse = await apiFetch(`/rodajes/${rodaje.id_rodaje}/procesos`);
+            const procesosData = await procesosResponse.json();
+
+            if (!procesosResponse.ok) {
+              throw new Error(procesosData.detail || procesosData.message || "No se pudo cargar un proceso");
+            }
+
+            return { rodaje, procesos: Array.isArray(procesosData.data) ? procesosData.data : [] };
+          }),
+        );
+
+        const activities = procesosPorRodaje.flatMap(({ rodaje, procesos }) => [
+          {
+            title: rodaje.nombre,
+            module: "Plan de Rodaje",
+            status: normalizeUpdateStatus(rodaje.estado),
+            detail: rodaje.descripcion || `${rodaje.locacion || "Sin locación"} · ${rodaje.fecha_inicio} a ${rodaje.fecha_fin}`,
+            date: rodaje.fecha_inicio,
+          },
+          ...procesos.map((proceso) => ({
+            title: proceso.nombre,
+            module: "Proceso de rodaje",
+            status: normalizeUpdateStatus(proceso.estado),
+            detail: [proceso.ubicacion, proceso.encargado].filter(Boolean).join(" · ") || proceso.descripcion || "Sin detalles adicionales",
+            date: proceso.fecha,
+          })),
+        ]);
+
+        if (isCurrent) {
+          setLatestUpdates(activities.sort((first, second) => String(second.date).localeCompare(String(first.date))));
+        }
+      } catch (err) {
+        if (isCurrent) {
+          setLatestUpdates([]);
+          setUpdatesError(err.message || "No se pudo cargar la actividad");
+        }
+      } finally {
+        if (isCurrent) setUpdatesLoading(false);
+      }
+    };
+
+    fetchRecentActivity();
+    return () => {
+      isCurrent = false;
+    };
+  }, [projectId]);
 
   // Opciones del menú — Roles solo para admin
   const menuOptions = [
@@ -92,50 +172,21 @@ export default function ProjectDashboardScreen() {
   window.history.pushState(null, "", "/");
   };
 
-  const latestUpdates = [
-    {
-      title: "Revisión de guion",
-      module: "Guión",
-      status: "pendiente",
-      detail: "Falta confirmar cambios de narrativas finales antes del pase de producción.",
-      date: "Hoy",
-    },
-    {
-      title: "Ajuste de escenografía",
-      module: "Escenas",
-      status: "en-progreso",
-      detail: "Se están corrigiendo cambios de ubicación para la escena 08 y 09.",
-      date: "Hace 2h",
-    },
-    {
-      title: "Cronograma de grabación",
-      module: "Plan de Rodaje",
-      status: "en-progreso",
-      detail: "Se validan días y orden de rodaje del bloque principal.",
-      date: "Ayer",
-    },
-    {
-      title: "Pasaje final del guion",
-      module: "Guión",
-      status: "finalizado",
-      detail: "El guion quedó aprobado por dirección y producción.",
-      date: "Hace 1d",
-    },
-    {
-      title: "Escenas cerradas",
-      module: "Escenas",
-      status: "finalizado",
-      detail: "La secuencia principal está marcada como lista para revisión técnica.",
-      date: "Hace 2d",
-    },
-    {
-      title: "Desglose de producción",
-      module: "Desglose",
-      status: "pendiente",
-      detail: "Falta validar costos, materiales y tiempos de armado del set.",
-      date: "Próximo",
-    },
-  ];
+  const handleDeleteProject = async () => {
+    if (!window.confirm(`¿Eliminar el proyecto "${projectName}"? Borra todo su contenido y no se puede deshacer.`)) return;
+    try {
+      const response = await apiFetch(`/projects/${projectId}`, { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.detail || data.message || "No se pudo eliminar el proyecto");
+      }
+      localStorage.removeItem("projectId");
+      localStorage.removeItem("projectName");
+      navigate("/seleccion-proyecto", { replace: true });
+    } catch (err) {
+      alert(err.message || "No se pudo eliminar el proyecto");
+    }
+  };
 
   const updateStatusOrder = [
     { key: "pendiente", label: "Pendiente" },
@@ -186,6 +237,15 @@ export default function ProjectDashboardScreen() {
                     <User className="pds-icon-sm" />
                     Perfil
                   </button>
+                  {esAdmin && (
+                    <button
+                      onClick={() => { handleDeleteProject(); setIsProfileMenuOpen(false); }}
+                      className="pds-profile-dropdown-item pds-profile-dropdown-item--danger"
+                    >
+                      <Trash2 className="pds-icon-sm" />
+                      Eliminar proyecto
+                    </button>
+                  )}
                   <button
                     onClick={handleLogout}
                     className="pds-profile-dropdown-item pds-profile-dropdown-item--danger"
@@ -275,11 +335,18 @@ export default function ProjectDashboardScreen() {
               <p className="pds-updates-eyebrow">Actividad reciente</p>
               <h2>Últimas actualizaciones</h2>
             </div>
-            <span className="pds-updates-total">{latestUpdates.length} cambios</span>
+            <span className="pds-updates-total">{latestUpdates.length} registros</span>
           </div>
 
-          <div className="pds-updates-grid">
-            {updateStatusOrder.map((status) => {
+          {updatesLoading ? (
+            <p className="pds-update-empty">Cargando actividad...</p>
+          ) : updatesError ? (
+            <p className="pds-update-empty">{updatesError}</p>
+          ) : latestUpdates.length === 0 ? (
+            <p className="pds-update-empty">Aún no hay actividad en el plan de rodaje.</p>
+          ) : (
+            <div className="pds-updates-grid">
+              {updateStatusOrder.map((status) => {
               const items = latestUpdates.filter((item) => item.status === status.key);
 
               return (
@@ -307,8 +374,9 @@ export default function ProjectDashboardScreen() {
                   </div>
                 </div>
               );
-            })}
-          </div>
+              })}
+            </div>
+          )}
         </section>
 
         {/* Volver */}

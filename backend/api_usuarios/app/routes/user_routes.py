@@ -30,7 +30,8 @@ from app.controllers.user_controller import (
     verify_2fa_code,
     invite_users,
     get_users_by_project,
-    get_user_projects
+    get_user_projects,
+    remove_user_from_project
 )
 
 # ROUTER
@@ -159,3 +160,21 @@ def destroy_user(
     current_user: dict = Depends(require_admin)
 ):
     return delete_user(id, db)
+
+# REMOVER USUARIO DE UN PROYECTO (solo administradores, no borra la cuenta)
+@router.delete("/users/{id_user}/project/{id_project}")
+def remove_from_project(
+    id_user: int,
+    id_project: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    return remove_user_from_project(id_user, id_project, db)
+
+# ELIMINAR MI PROPIA CUENTA (cualquier usuario logueado, solo la suya)
+@router.delete("/users/me/account")
+def destroy_my_account(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    return delete_user(current_user["id_user"], db)

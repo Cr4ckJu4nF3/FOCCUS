@@ -250,6 +250,29 @@
   margin: 0;
 }
 
+.rs-list-item-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rs-remove-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9c9c9c;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border-radius: 6px;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.rs-remove-btn:hover {
+  color: #e5484d;
+  background: rgba(229, 72, 77, 0.12);
+}
+
 .rs-role-badge {
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;

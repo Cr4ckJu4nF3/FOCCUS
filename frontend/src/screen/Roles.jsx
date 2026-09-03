@@ -52,6 +52,22 @@ export default function RolesScreen() {
     }
   };
 
+  const handleRemoveUser = async (idUser, nombreCompleto) => {
+    if (!window.confirm(`¿Quitar a ${nombreCompleto} de este proyecto?`)) return;
+    try {
+      const response = await apiFetch(`/users/${idUser}/project/${idProject}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.detail || data.message || "No se pudo remover al usuario");
+      }
+      setUsuarios((prev) => prev.filter((u) => u.id_user !== idUser));
+    } catch (err) {
+      setError(err.message || "No se pudo remover al usuario");
+    }
+  };
+
   useEffect(() => {
     fetchUsuarios();
   }, []);
@@ -192,16 +208,28 @@ export default function RolesScreen() {
                         <p className="rs-user-mail">{user.mail}</p>
                       </div>
                     </div>
-                    <span
-                      className="rs-role-badge"
-                      style={{
-                        backgroundColor: (rolColors[rol] || "#6B6B6B") + "20",
-                        color: rolColors[rol] || "#6B6B6B",
-                        border: `1px solid ${(rolColors[rol] || "#6B6B6B")}40`,
-                      }}
-                    >
-                      {rolLabels[rol] || "Sin rol"}
-                    </span>
+                    <div className="rs-list-item-right">
+                      <span
+                        className="rs-role-badge"
+                        style={{
+                          backgroundColor: (rolColors[rol] || "#6B6B6B") + "20",
+                          color: rolColors[rol] || "#6B6B6B",
+                          border: `1px solid ${(rolColors[rol] || "#6B6B6B")}40`,
+                        }}
+                      >
+                        {rolLabels[rol] || "Sin rol"}
+                      </span>
+                      {user.id_user !== Number(localStorage.getItem("id_user")) && (
+                        <button
+                          type="button"
+                          className="rs-remove-btn"
+                          title="Quitar del proyecto"
+                          onClick={() => handleRemoveUser(user.id_user, `${user.nombre} ${user.apellido}`)}
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
