@@ -29,6 +29,8 @@ export default function RodajeScreen() {
   const navigate = useNavigate();
   const projectId = localStorage.getItem("projectId") || "";
   const projectName = localStorage.getItem("projectName") || "Proyecto";
+  const idRol = Number(localStorage.getItem("id_rol")) || 0;
+  const esAdmin = idRol === 1001;
 
   const [rodajes, setRodajes] = useState([]);
   const [selectedRodajeId, setSelectedRodajeId] = useState("");
@@ -278,95 +280,97 @@ export default function RodajeScreen() {
           )}
         </section>
 
-        <section className="rodaje-panel">
-          <div className="rodaje-panel__header">
-            <div className="rodaje-panel__title-row">
-              <Plus size={20} />
-              <h2>Nuevo plan</h2>
-            </div>
-          </div>
-
-          <form onSubmit={handleCreateRodaje} className="rodaje-form">
-            <label>
-              Nombre del plan
-              <input
-                type="text"
-                value={rodajeForm.nombre}
-                onChange={(e) => setRodajeForm({ ...rodajeForm, nombre: e.target.value })}
-                placeholder="Rodaje principal"
-              />
-            </label>
-
-            <label>
-              Descripción
-              <textarea
-                rows={4}
-                value={rodajeForm.descripcion}
-                onChange={(e) => setRodajeForm({ ...rodajeForm, descripcion: e.target.value })}
-                placeholder="Resumen del bloque de rodaje, objetivos y observaciones"
-              />
-            </label>
-
-            <div className="rodaje-grid">
-              <label>
-                Fecha inicio
-                <input
-                  type="date"
-                  value={rodajeForm.fecha_inicio}
-                  onChange={(e) => setRodajeForm({ ...rodajeForm, fecha_inicio: e.target.value })}
-                />
-              </label>
-
-              <label>
-                Fecha fin
-                <input
-                  type="date"
-                  value={rodajeForm.fecha_fin}
-                  onChange={(e) => setRodajeForm({ ...rodajeForm, fecha_fin: e.target.value })}
-                />
-              </label>
+        {esAdmin && (
+          <section className="rodaje-panel">
+            <div className="rodaje-panel__header">
+              <div className="rodaje-panel__title-row">
+                <Plus size={20} />
+                <h2>Nuevo plan</h2>
+              </div>
             </div>
 
-            <div className="rodaje-grid">
+            <form onSubmit={handleCreateRodaje} className="rodaje-form">
               <label>
-                Locación
+                Nombre del plan
                 <input
                   type="text"
-                  value={rodajeForm.locacion}
-                  onChange={(e) => setRodajeForm({ ...rodajeForm, locacion: e.target.value })}
-                  placeholder="Madrid / estudio / exterior"
+                  value={rodajeForm.nombre}
+                  onChange={(e) => setRodajeForm({ ...rodajeForm, nombre: e.target.value })}
+                  placeholder="Rodaje principal"
                 />
               </label>
 
               <label>
-                Estado
-                <select
-                  value={rodajeForm.estado}
-                  onChange={(e) => setRodajeForm({ ...rodajeForm, estado: e.target.value })}
-                >
-                  <option value="Pendiente">Pendiente</option>
-                  <option value="En progreso">En progreso</option>
-                  <option value="Finalizado">Finalizado</option>
-                </select>
+                Descripción
+                <textarea
+                  rows={4}
+                  value={rodajeForm.descripcion}
+                  onChange={(e) => setRodajeForm({ ...rodajeForm, descripcion: e.target.value })}
+                  placeholder="Resumen del bloque de rodaje, objetivos y observaciones"
+                />
               </label>
-            </div>
 
-            <label>
-              Documento / archivo relacionado
-              <input
-                type="text"
-                value={rodajeForm.archivo}
-                onChange={(e) => setRodajeForm({ ...rodajeForm, archivo: e.target.value })}
-                placeholder="cronograma.pdf / agenda-rodaje.xlsx"
-              />
-            </label>
+              <div className="rodaje-grid">
+                <label>
+                  Fecha inicio
+                  <input
+                    type="date"
+                    value={rodajeForm.fecha_inicio}
+                    onChange={(e) => setRodajeForm({ ...rodajeForm, fecha_inicio: e.target.value })}
+                  />
+                </label>
 
-            <button type="submit" className="rodaje-button">
-              <Plus size={18} />
-              Crear plan
-            </button>
-          </form>
-        </section>
+                <label>
+                  Fecha fin
+                  <input
+                    type="date"
+                    value={rodajeForm.fecha_fin}
+                    onChange={(e) => setRodajeForm({ ...rodajeForm, fecha_fin: e.target.value })}
+                  />
+                </label>
+              </div>
+
+              <div className="rodaje-grid">
+                <label>
+                  Locación
+                  <input
+                    type="text"
+                    value={rodajeForm.locacion}
+                    onChange={(e) => setRodajeForm({ ...rodajeForm, locacion: e.target.value })}
+                    placeholder="Madrid / estudio / exterior"
+                  />
+                </label>
+
+                <label>
+                  Estado
+                  <select
+                    value={rodajeForm.estado}
+                    onChange={(e) => setRodajeForm({ ...rodajeForm, estado: e.target.value })}
+                  >
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="En progreso">En progreso</option>
+                    <option value="Finalizado">Finalizado</option>
+                  </select>
+                </label>
+              </div>
+
+              <label>
+                Documento / archivo relacionado
+                <input
+                  type="text"
+                  value={rodajeForm.archivo}
+                  onChange={(e) => setRodajeForm({ ...rodajeForm, archivo: e.target.value })}
+                  placeholder="cronograma.pdf / agenda-rodaje.xlsx"
+                />
+              </label>
+
+              <button type="submit" className="rodaje-button">
+                <Plus size={18} />
+                Crear plan
+              </button>
+            </form>
+          </section>
+        )}
       </main>
 
       <section className="rodaje-processes">
@@ -403,99 +407,108 @@ export default function RodajeScreen() {
             )}
           </div>
 
-          <form onSubmit={handleCreateProceso} className="rodaje-process-form">
-            <h3>Agregar proceso</h3>
+          {esAdmin ? (
+            <form onSubmit={handleCreateProceso} className="rodaje-process-form">
+              <h3>Agregar proceso</h3>
 
-            <label>
-              Nombre del proceso
-              <input
-                type="text"
-                value={procesoForm.nombre}
-                onChange={(e) => setProcesoForm({ ...procesoForm, nombre: e.target.value })}
-                placeholder="Carga de equipamiento"
-              />
-            </label>
-
-            <div className="rodaje-grid">
               <label>
-                Ubicación
+                Nombre del proceso
                 <input
                   type="text"
-                  value={procesoForm.ubicacion}
-                  onChange={(e) => setProcesoForm({ ...procesoForm, ubicacion: e.target.value })}
-                  placeholder="Set 2 - estudio central"
+                  value={procesoForm.nombre}
+                  onChange={(e) => setProcesoForm({ ...procesoForm, nombre: e.target.value })}
+                  placeholder="Carga de equipamiento"
+                />
+              </label>
+
+              <div className="rodaje-grid">
+                <label>
+                  Ubicación
+                  <input
+                    type="text"
+                    value={procesoForm.ubicacion}
+                    onChange={(e) => setProcesoForm({ ...procesoForm, ubicacion: e.target.value })}
+                    placeholder="Set 2 - estudio central"
+                  />
+                </label>
+
+                <label>
+                  Orden
+                  <input
+                    type="number"
+                    min="1"
+                    value={procesoForm.orden}
+                    onChange={(e) => setProcesoForm({ ...procesoForm, orden: e.target.value })}
+                  />
+                </label>
+              </div>
+
+              <div className="rodaje-grid">
+                <label>
+                  Fecha
+                  <input
+                    type="date"
+                    value={procesoForm.fecha}
+                    onChange={(e) => setProcesoForm({ ...procesoForm, fecha: e.target.value })}
+                  />
+                </label>
+
+                <label>
+                  Encargado
+                  <input
+                    type="text"
+                    value={procesoForm.encargado}
+                    onChange={(e) => setProcesoForm({ ...procesoForm, encargado: e.target.value })}
+                    placeholder="Director de arte"
+                  />
+                </label>
+              </div>
+
+              <label>
+                Estado
+                <select
+                  value={procesoForm.estado}
+                  onChange={(e) => setProcesoForm({ ...procesoForm, estado: e.target.value })}
+                >
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="En progreso">En progreso</option>
+                  <option value="Finalizado">Finalizado</option>
+                </select>
+              </label>
+
+              <label>
+                Descripción
+                <textarea
+                  rows={3}
+                  value={procesoForm.descripcion}
+                  onChange={(e) => setProcesoForm({ ...procesoForm, descripcion: e.target.value })}
+                  placeholder="Detalles del proceso, criterio, recursos y observaciones"
                 />
               </label>
 
               <label>
-                Orden
-                <input
-                  type="number"
-                  min="1"
-                  value={procesoForm.orden}
-                  onChange={(e) => setProcesoForm({ ...procesoForm, orden: e.target.value })}
-                />
-              </label>
-            </div>
-
-            <div className="rodaje-grid">
-              <label>
-                Fecha
-                <input
-                  type="date"
-                  value={procesoForm.fecha}
-                  onChange={(e) => setProcesoForm({ ...procesoForm, fecha: e.target.value })}
-                />
-              </label>
-
-              <label>
-                Encargado
+                Archivo relacionado
                 <input
                   type="text"
-                  value={procesoForm.encargado}
-                  onChange={(e) => setProcesoForm({ ...procesoForm, encargado: e.target.value })}
-                  placeholder="Director de arte"
+                  value={procesoForm.archivo}
+                  onChange={(e) => setProcesoForm({ ...procesoForm, archivo: e.target.value })}
+                  placeholder="cronograma-proceso.pdf"
                 />
               </label>
+
+              <button type="submit" className="rodaje-button rodaje-button--secondary">
+                <Plus size={18} />
+                Agregar proceso
+              </button>
+            </form>
+          ) : (
+            <div className="rodaje-process-form" style={{ opacity: 0.9 }}>
+              <h3>Acceso de lectura</h3>
+              <p className="rodaje-empty" style={{ padding: 0 }}>
+                Solo los administradores pueden crear, editar o eliminar planes y procesos de rodaje.
+              </p>
             </div>
-
-            <label>
-              Estado
-              <select
-                value={procesoForm.estado}
-                onChange={(e) => setProcesoForm({ ...procesoForm, estado: e.target.value })}
-              >
-                <option value="Pendiente">Pendiente</option>
-                <option value="En progreso">En progreso</option>
-                <option value="Finalizado">Finalizado</option>
-              </select>
-            </label>
-
-            <label>
-              Descripción
-              <textarea
-                rows={3}
-                value={procesoForm.descripcion}
-                onChange={(e) => setProcesoForm({ ...procesoForm, descripcion: e.target.value })}
-                placeholder="Detalles del proceso, criterio, recursos y observaciones"
-              />
-            </label>
-
-            <label>
-              Archivo relacionado
-              <input
-                type="text"
-                value={procesoForm.archivo}
-                onChange={(e) => setProcesoForm({ ...procesoForm, archivo: e.target.value })}
-                placeholder="cronograma-proceso.pdf"
-              />
-            </label>
-
-            <button type="submit" className="rodaje-button rodaje-button--secondary">
-              <Plus size={18} />
-              Agregar proceso
-            </button>
-          </form>
+          )}
         </div>
       </section>
     </div>

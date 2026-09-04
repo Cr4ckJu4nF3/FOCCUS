@@ -173,9 +173,21 @@ export default function ProjectDashboardScreen() {
   };
 
   const handleDeleteProject = async () => {
+    if (!esAdmin) {
+      alert("Solo un administrador puede eliminar este proyecto.");
+      return;
+    }
+
+    if (!projectId) {
+      alert("No hay un proyecto activo para eliminar.");
+      navigate("/seleccion-proyecto", { replace: true });
+      return;
+    }
+
     if (!window.confirm(`¿Eliminar el proyecto "${projectName}"? Borra todo su contenido y no se puede deshacer.`)) return;
+
     try {
-      const response = await apiFetch(`/projects/${projectId}`, { method: "DELETE" });
+      const response = await apiFetch(`/projects/${projectId}/delete`, { method: "POST" });
       const data = await response.json();
       if (!response.ok || !data.success) {
         throw new Error(data.detail || data.message || "No se pudo eliminar el proyecto");

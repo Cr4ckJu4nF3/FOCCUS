@@ -30,6 +30,8 @@ export default function GuionScreen() {
   const navigate = useNavigate();
   const projectId = localStorage.getItem("projectId") || "";
   const projectName = localStorage.getItem("projectName") || "Proyecto";
+  const idRol = Number(localStorage.getItem("id_rol")) || 0;
+  const esAdmin = idRol === 1001;
 
   const [guiones, setGuiones] = useState([]);
   const [selectedGuionId, setSelectedGuionId] = useState(null);
@@ -458,223 +460,233 @@ export default function GuionScreen() {
         </section>
 
         <section className="guion-panel guion-panel--right">
-          <div className="guion-form-card">
-            <div className="guion-form-card__header">
-              <Sparkles size={18} />
-              <h3>Crear guion</h3>
-            </div>
-
-            {error && <div className="guion-message guion-message--error">{error}</div>}
-            {success && <div className="guion-message guion-message--success">{success}</div>}
-
-            <div className="guion-origen-toggle" style={{ marginBottom: "1rem" }}>
-              <button
-                type="button"
-                className={`guion-origen-toggle__option ${modoCreacion === "simple" ? "guion-origen-toggle__option--active" : ""}`}
-                onClick={() => setModoCreacion("simple")}
-              >
-                <FileText size={16} />
-                Crear básico
-              </button>
-              <button
-                type="button"
-                className={`guion-origen-toggle__option ${modoCreacion === "cero" ? "guion-origen-toggle__option--active" : ""}`}
-                onClick={() => setModoCreacion("cero")}
-              >
-                <PenLine size={16} />
-                Crear desde cero
-              </button>
-            </div>
-
-            {modoCreacion === "simple" ? (
-              <form onSubmit={handleCreateGuion} className="guion-form">
-                <label>
-                  Nombre del guion
-                  <input
-                    type="text"
-                    value={form.nombre}
-                    onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-                    placeholder="Ej. Episode 01 - Opening"
-                  />
-                </label>
-
-                <label>
-                  Descripción
-                  <textarea
-                    rows={4}
-                    value={form.descripcion}
-                    onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-                    placeholder="Resumen del guion, tono, estructura o notas del proyecto"
-                  />
-                </label>
-
-                <button type="submit" className="guion-button guion-button--primary">
-                  <Plus size={18} />
-                  Crear guion
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleCreateGuionDesdeCero} className="guion-form">
-                <label>
-                  Nombre del guion
-                  <input
-                    type="text"
-                    value={form.nombre}
-                    onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-                    placeholder="Ej. Episode 01 - Opening"
-                  />
-                </label>
-
-                <label>
-                  Descripción
-                  <textarea
-                    rows={3}
-                    value={form.descripcion}
-                    onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-                    placeholder="Resumen del guion, tono, estructura o notas del proyecto"
-                  />
-                </label>
-
-                <div className="guion-editor-shell">
-                  <div className="guion-editor-toolbar">
-                    <button type="button" onClick={() => insertarFormatoEditor("**", "**")} title="Negrita">
-                      <Bold size={14} />
-                    </button>
-                    <button type="button" onClick={() => insertarFormatoEditor("*", "*")} title="Cursiva">
-                      <Italic size={14} />
-                    </button>
-                    <button type="button" onClick={() => insertarFormatoEditor("<u>", "</u>")} title="Subrayado">
-                      <Underline size={14} />
-                    </button>
-                    <button type="button" onClick={() => insertarFormatoEditor("\n# ", "\n")} title="Título">
-                      <Heading1 size={14} />
-                    </button>
-                    <button type="button" onClick={() => insertarFormatoEditor("\n- ", "")} title="Lista">
-                      <List size={14} />
-                    </button>
-                    <button type="button" onClick={() => aplicarAlineacionTexto("left")} title="Alinear a la izquierda">
-                      <AlignLeft size={14} />
-                    </button>
-                    <button type="button" onClick={() => aplicarAlineacionTexto("center")} title="Centrar">
-                      <AlignCenter size={14} />
-                    </button>
-                    <button type="button" onClick={() => aplicarAlineacionTexto("right")} title="Alinear a la derecha">
-                      <AlignRight size={14} />
-                    </button>
-                  </div>
-
-                  <textarea
-                    ref={editorRef}
-                    className={`guion-editor-surface guion-editor-surface--${alineacionTexto}`}
-                    rows={18}
-                    value={contenidoInicial}
-                    onChange={(e) => setContenidoInicial(e.target.value)}
-                    placeholder={"ESC. 1 - INT. CASA DE JUAN - DIA\n\nJuan entra a la habitación...\n\nJUAN\n¿Hay alguien ahí?"}
-                  />
+          {esAdmin ? (
+            <>
+              <div className="guion-form-card">
+                <div className="guion-form-card__header">
+                  <Sparkles size={18} />
+                  <h3>Crear guion</h3>
                 </div>
 
-                <button type="submit" className="guion-button guion-button--accent">
-                  <PenLine size={18} />
-                  Crear desde cero
-                </button>
-              </form>
-            )}
-          </div>
+                {error && <div className="guion-message guion-message--error">{error}</div>}
+                {success && <div className="guion-message guion-message--success">{success}</div>}
 
-          <div className="guion-form-card">
-            <div className="guion-form-card__header">
-              <UploadCloud size={18} />
-              <h3>Nueva versión</h3>
-            </div>
-
-            {!selectedGuionId ? (
-              <p className="guion-empty">Selecciona un guion para agregar una versión.</p>
-            ) : (
-              <>
-                <div className="guion-origen-toggle">
+                <div className="guion-origen-toggle" style={{ marginBottom: "1rem" }}>
                   <button
                     type="button"
-                    className={`guion-origen-toggle__option ${origenVersion === "archivo" ? "guion-origen-toggle__option--active" : ""}`}
-                    onClick={() => setOrigenVersion("archivo")}
+                    className={`guion-origen-toggle__option ${modoCreacion === "simple" ? "guion-origen-toggle__option--active" : ""}`}
+                    onClick={() => setModoCreacion("simple")}
                   >
-                    <Paperclip size={16} />
-                    Subir archivo
+                    <FileText size={16} />
+                    Crear básico
                   </button>
                   <button
                     type="button"
-                    className={`guion-origen-toggle__option ${origenVersion === "texto" ? "guion-origen-toggle__option--active" : ""}`}
-                    onClick={() => setOrigenVersion("texto")}
+                    className={`guion-origen-toggle__option ${modoCreacion === "cero" ? "guion-origen-toggle__option--active" : ""}`}
+                    onClick={() => setModoCreacion("cero")}
                   >
                     <PenLine size={16} />
-                    Escribir guion
+                    Crear desde cero
                   </button>
                 </div>
 
-                <form onSubmit={handleUploadVersion} className="guion-form">
-                  <div className="guion-grid">
+                {modoCreacion === "simple" ? (
+                  <form onSubmit={handleCreateGuion} className="guion-form">
                     <label>
-                      Fecha de emisión
+                      Nombre del guion
                       <input
-                        type="date"
-                        value={versionForm.fecha_de_emision}
-                        onChange={(e) => setVersionForm({ ...versionForm, fecha_de_emision: e.target.value })}
+                        type="text"
+                        value={form.nombre}
+                        onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                        placeholder="Ej. Episode 01 - Opening"
                       />
                     </label>
 
                     <label>
-                      Estado
-                      <select
-                        value={versionForm.estado}
-                        onChange={(e) => setVersionForm({ ...versionForm, estado: e.target.value })}
-                      >
-                        <option value="Borrador">Borrador</option>
-                        <option value="En revisión">En revisión</option>
-                        <option value="Aprobado">Aprobado</option>
-                        <option value="Publicado">Publicado</option>
-                      </select>
-                    </label>
-                  </div>
-
-                  <label>
-                    Comentario del cambio
-                    <textarea
-                      rows={3}
-                      value={versionForm.comentario_cambio}
-                      onChange={(e) => setVersionForm({ ...versionForm, comentario_cambio: e.target.value })}
-                      placeholder="Describe la modificación realizada"
-                    />
-                  </label>
-
-                  {origenVersion === "archivo" ? (
-                    <label className="guion-upload">
-                      <span>Archivo del guion</span>
-                      <input
-                        type="file"
-                        accept=".pdf,.docx,.fdx"
-                        onChange={(e) => setArchivo(e.target.files?.[0] || null)}
-                      />
-                    </label>
-                  ) : (
-                    <label>
-                      Contenido del guion
+                      Descripción
                       <textarea
-                        className="guion-texto-editor"
-                        rows={14}
-                        value={contenidoTexto}
-                        onChange={(e) => setContenidoTexto(e.target.value)}
+                        rows={4}
+                        value={form.descripcion}
+                        onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+                        placeholder="Resumen del guion, tono, estructura o notas del proyecto"
+                      />
+                    </label>
+
+                    <button type="submit" className="guion-button guion-button--primary">
+                      <Plus size={18} />
+                      Crear guion
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleCreateGuionDesdeCero} className="guion-form">
+                    <label>
+                      Nombre del guion
+                      <input
+                        type="text"
+                        value={form.nombre}
+                        onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                        placeholder="Ej. Episode 01 - Opening"
+                      />
+                    </label>
+
+                    <label>
+                      Descripción
+                      <textarea
+                        rows={3}
+                        value={form.descripcion}
+                        onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+                        placeholder="Resumen del guion, tono, estructura o notas del proyecto"
+                      />
+                    </label>
+
+                    <div className="guion-editor-shell">
+                      <div className="guion-editor-toolbar">
+                        <button type="button" onClick={() => insertarFormatoEditor("**", "**")} title="Negrita">
+                          <Bold size={14} />
+                        </button>
+                        <button type="button" onClick={() => insertarFormatoEditor("*", "*")} title="Cursiva">
+                          <Italic size={14} />
+                        </button>
+                        <button type="button" onClick={() => insertarFormatoEditor("<u>", "</u>")} title="Subrayado">
+                          <Underline size={14} />
+                        </button>
+                        <button type="button" onClick={() => insertarFormatoEditor("\n# ", "\n")} title="Título">
+                          <Heading1 size={14} />
+                        </button>
+                        <button type="button" onClick={() => insertarFormatoEditor("\n- ", "")} title="Lista">
+                          <List size={14} />
+                        </button>
+                        <button type="button" onClick={() => aplicarAlineacionTexto("left")} title="Alinear a la izquierda">
+                          <AlignLeft size={14} />
+                        </button>
+                        <button type="button" onClick={() => aplicarAlineacionTexto("center")} title="Centrar">
+                          <AlignCenter size={14} />
+                        </button>
+                        <button type="button" onClick={() => aplicarAlineacionTexto("right")} title="Alinear a la derecha">
+                          <AlignRight size={14} />
+                        </button>
+                      </div>
+
+                      <textarea
+                        ref={editorRef}
+                        className={`guion-editor-surface guion-editor-surface--${alineacionTexto}`}
+                        rows={18}
+                        value={contenidoInicial}
+                        onChange={(e) => setContenidoInicial(e.target.value)}
                         placeholder={"ESC. 1 - INT. CASA DE JUAN - DIA\n\nJuan entra a la habitación...\n\nJUAN\n¿Hay alguien ahí?"}
                       />
-                    </label>
-                  )}
+                    </div>
 
-                  <button type="submit" className="guion-button guion-button--accent">
-                    {origenVersion === "archivo" ? <UploadCloud size={18} /> : <PenLine size={18} />}
-                    {origenVersion === "archivo" ? "Subir versión" : "Guardar versión"}
-                  </button>
-                </form>
-              </>
-            )}
-          </div>
+                    <button type="submit" className="guion-button guion-button--accent">
+                      <PenLine size={18} />
+                      Crear desde cero
+                    </button>
+                  </form>
+                )}
+              </div>
+
+              <div className="guion-form-card">
+                <div className="guion-form-card__header">
+                  <UploadCloud size={18} />
+                  <h3>Nueva versión</h3>
+                </div>
+
+                {!selectedGuionId ? (
+                  <p className="guion-empty">Selecciona un guion para agregar una versión.</p>
+                ) : (
+                  <>
+                    <div className="guion-origen-toggle">
+                      <button
+                        type="button"
+                        className={`guion-origen-toggle__option ${origenVersion === "archivo" ? "guion-origen-toggle__option--active" : ""}`}
+                        onClick={() => setOrigenVersion("archivo")}
+                      >
+                        <Paperclip size={16} />
+                        Subir archivo
+                      </button>
+                      <button
+                        type="button"
+                        className={`guion-origen-toggle__option ${origenVersion === "texto" ? "guion-origen-toggle__option--active" : ""}`}
+                        onClick={() => setOrigenVersion("texto")}
+                      >
+                        <PenLine size={16} />
+                        Escribir guion
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleUploadVersion} className="guion-form">
+                      <div className="guion-grid">
+                        <label>
+                          Fecha de emisión
+                          <input
+                            type="date"
+                            value={versionForm.fecha_de_emision}
+                            onChange={(e) => setVersionForm({ ...versionForm, fecha_de_emision: e.target.value })}
+                          />
+                        </label>
+
+                        <label>
+                          Estado
+                          <select
+                            value={versionForm.estado}
+                            onChange={(e) => setVersionForm({ ...versionForm, estado: e.target.value })}
+                          >
+                            <option value="Borrador">Borrador</option>
+                            <option value="En revisión">En revisión</option>
+                            <option value="Aprobado">Aprobado</option>
+                            <option value="Publicado">Publicado</option>
+                          </select>
+                        </label>
+                      </div>
+
+                      <label>
+                        Comentario del cambio
+                        <textarea
+                          rows={3}
+                          value={versionForm.comentario_cambio}
+                          onChange={(e) => setVersionForm({ ...versionForm, comentario_cambio: e.target.value })}
+                          placeholder="Describe la modificación realizada"
+                        />
+                      </label>
+
+                      {origenVersion === "archivo" ? (
+                        <label className="guion-upload">
+                          <span>Archivo del guion</span>
+                          <input
+                            type="file"
+                            accept=".pdf,.docx,.fdx"
+                            onChange={(e) => setArchivo(e.target.files?.[0] || null)}
+                          />
+                        </label>
+                      ) : (
+                        <label>
+                          Contenido del guion
+                          <textarea
+                            className="guion-texto-editor"
+                            rows={14}
+                            value={contenidoTexto}
+                            onChange={(e) => setContenidoTexto(e.target.value)}
+                            placeholder={"ESC. 1 - INT. CASA DE JUAN - DIA\n\nJuan entra a la habitación...\n\nJUAN\n¿Hay alguien ahí?"}
+                          />
+                        </label>
+                      )}
+
+                      <button type="submit" className="guion-button guion-button--accent">
+                        {origenVersion === "archivo" ? <UploadCloud size={18} /> : <PenLine size={18} />}
+                        {origenVersion === "archivo" ? "Subir versión" : "Guardar versión"}
+                      </button>
+                    </form>
+                  </>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="guion-form-card">
+              <div className="guion-message guion-message--error">
+                Solo los administradores pueden crear, editar o eliminar guiones y versiones.
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="guion-panel guion-panel--wide">

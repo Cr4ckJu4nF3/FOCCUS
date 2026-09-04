@@ -78,6 +78,15 @@ def patch_project(
     return update_project(id, project, db)
 
 # DELETE PROJECT (solo administradores)
+@router.post("/projects/{id}/delete")
+def destroy_project_by_action(
+    id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    return delete_project(id, db)
+
+# DELETE PROJECT (solo administradores)
 @router.delete("/projects/{id}")
 def destroy_project(
     id: str,

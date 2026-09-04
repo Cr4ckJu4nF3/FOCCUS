@@ -12,6 +12,8 @@ export default function EscenaScreen() {
   const navigate = useNavigate();
   const projectId = localStorage.getItem("projectId") || "";
   const projectName = localStorage.getItem("projectName") || "Proyecto";
+  const idRol = Number(localStorage.getItem("id_rol")) || 0;
+  const esAdmin = idRol === 1001;
 
   const [guiones, setGuiones] = useState([]);
   const [selectedGuionId, setSelectedGuionId] = useState("");
@@ -338,168 +340,186 @@ export default function EscenaScreen() {
             <span>{versiones.length} versiones</span>
           </div>
 
-          <div className="escena-toolbar">
-            <label>
-              Versión activa
-              <select value={selectedVersionId} onChange={(e) => setSelectedVersionId(e.target.value)}>
-                {!selectedVersionId && <option value="">Selecciona una versión</option>}
-                {versiones.map((v) => (
-                  <option key={v.id_escena_version} value={v.id_escena_version}>
-                    V{v.numero_version} - {v.comentario_cambio || ""}
-                  </option>
-                ))}
-              </select>
-            </label>
+          {esAdmin ? (
+            <>
+              <div className="escena-toolbar">
+                <label>
+                  Versión activa
+                  <select value={selectedVersionId} onChange={(e) => setSelectedVersionId(e.target.value)}>
+                    {!selectedVersionId && <option value="">Selecciona una versión</option>}
+                    {versiones.map((v) => (
+                      <option key={v.id_escena_version} value={v.id_escena_version}>
+                        V{v.numero_version} - {v.comentario_cambio || ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-            <button type="button" className="escena-button" onClick={() => handleCreateVersion(escenas[0]?.id_escena)}>
-              <Plus size={14} /> Crear versión
-            </button>
-          </div>
+                <button type="button" className="escena-button" onClick={() => handleCreateVersion(escenas[0]?.id_escena)}>
+                  <Plus size={14} /> Crear versión
+                </button>
+              </div>
 
-          <form onSubmit={handleUploadContinuidad} className="escena-form">
-            <label>
-              Tipo
-              <select value={continuidadForm.tipo} onChange={(e) => setContinuidadForm({ ...continuidadForm, tipo: e.target.value })}>
-                <option value="vestuario">Vestuario</option>
-                <option value="objeto">Objeto</option>
-                <option value="espacio">Espacio</option>
-              </select>
-            </label>
+              <form onSubmit={handleUploadContinuidad} className="escena-form">
+                <label>
+                  Tipo
+                  <select value={continuidadForm.tipo} onChange={(e) => setContinuidadForm({ ...continuidadForm, tipo: e.target.value })}>
+                    <option value="vestuario">Vestuario</option>
+                    <option value="objeto">Objeto</option>
+                    <option value="espacio">Espacio</option>
+                  </select>
+                </label>
 
-            <label>
-              Etiqueta
-              <input type="text" value={continuidadForm.etiqueta} onChange={(e) => setContinuidadForm({ ...continuidadForm, etiqueta: e.target.value })} placeholder="Ej. Vestuario - Juan" />
-            </label>
+                <label>
+                  Etiqueta
+                  <input type="text" value={continuidadForm.etiqueta} onChange={(e) => setContinuidadForm({ ...continuidadForm, etiqueta: e.target.value })} placeholder="Ej. Vestuario - Juan" />
+                </label>
 
-            <label>
-              Notas
-              <textarea rows={2} value={continuidadForm.notas} onChange={(e) => setContinuidadForm({ ...continuidadForm, notas: e.target.value })} />
-            </label>
+                <label>
+                  Notas
+                  <textarea rows={2} value={continuidadForm.notas} onChange={(e) => setContinuidadForm({ ...continuidadForm, notas: e.target.value })} />
+                </label>
 
-            <label>
-              Archivos (imágenes)
-              <input type="file" accept="image/*" multiple onChange={handleFilesChange} />
-            </label>
+                <label>
+                  Archivos (imágenes)
+                  <input type="file" accept="image/*" multiple onChange={handleFilesChange} />
+                </label>
 
-            <button type="submit" className="escena-button">
-              <Camera size={16} /> Subir fotos
-            </button>
-          </form>
-        </section>
-        <section className="escena-panel">
-          <div className="escena-panel__header">
-            <div className="escena-panel__title-row">
-              <Sparkles size={20} />
-              <h2>Nueva escena</h2>
+                <button type="submit" className="escena-button">
+                  <Camera size={16} /> Subir fotos
+                </button>
+              </form>
+            </>
+          ) : (
+            <div className="escena-panel" style={{ marginTop: "1rem" }}>
+              <div className="escena-panel__header">
+                <div className="escena-panel__title-row">
+                  <Camera size={20} />
+                  <h2>Acceso de lectura</h2>
+                </div>
+              </div>
+              <div className="escena-message escena-message--error" style={{ margin: "1rem" }}>
+                Solo los administradores pueden crear, editar o eliminar escenas y continuidad.
+              </div>
             </div>
-          </div>
+          )}
+        </section>
+        {esAdmin && (
+          <section className="escena-panel">
+            <div className="escena-panel__header">
+              <div className="escena-panel__title-row">
+                <Sparkles size={20} />
+                <h2>Nueva escena</h2>
+              </div>
+            </div>
 
-          <form onSubmit={handleCreateEscena} className="escena-form">
-            <div className="escena-grid">
+            <form onSubmit={handleCreateEscena} className="escena-form">
+              <div className="escena-grid">
+                <label>
+                  Número
+                  <input
+                    type="text"
+                    value={form.numero_de_escena}
+                    onChange={(e) => setForm({ ...form, numero_de_escena: e.target.value })}
+                    placeholder="Ej. 12"
+                  />
+                </label>
+
+                <label>
+                  Página
+                  <input
+                    type="number"
+                    value={form.pagina}
+                    onChange={(e) => setForm({ ...form, pagina: e.target.value })}
+                    placeholder="42"
+                  />
+                </label>
+              </div>
+
               <label>
-                Número
+                Encabezado
                 <input
                   type="text"
-                  value={form.numero_de_escena}
-                  onChange={(e) => setForm({ ...form, numero_de_escena: e.target.value })}
-                  placeholder="Ej. 12"
+                  value={form.encabezado}
+                  onChange={(e) => setForm({ ...form, encabezado: e.target.value })}
+                  placeholder="Interior: salón principal - noche"
                 />
               </label>
 
               <label>
-                Página
+                Descripción
+                <textarea
+                  rows={4}
+                  value={form.descripcion}
+                  onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+                  placeholder="Describe la acción, el tono y la intención de la escena"
+                />
+              </label>
+
+              <div className="escena-grid">
+                <label>
+                  Modo de vista
+                  <select
+                    value={form.modo_vista}
+                    onChange={(e) => setForm({ ...form, modo_vista: e.target.value })}
+                  >
+                    {modoVistaOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Momento del día
+                  <select
+                    value={form.momento_dia}
+                    onChange={(e) => setForm({ ...form, momento_dia: e.target.value })}
+                  >
+                    {momentoDiaOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="escena-grid">
+                <label>
+                  Ciudad
+                  <input
+                    type="text"
+                    value={form.ciudad}
+                    onChange={(e) => setForm({ ...form, ciudad: e.target.value })}
+                    placeholder="Madrid"
+                  />
+                </label>
+
+                <label>
+                  Día dramático
+                  <input
+                    type="number"
+                    value={form.dia_dramatico}
+                    onChange={(e) => setForm({ ...form, dia_dramatico: e.target.value })}
+                    placeholder="1"
+                  />
+                </label>
+              </div>
+
+              <label>
+                Fecha de grabación
                 <input
-                  type="number"
-                  value={form.pagina}
-                  onChange={(e) => setForm({ ...form, pagina: e.target.value })}
-                  placeholder="42"
-                />
-              </label>
-            </div>
-
-            <label>
-              Encabezado
-              <input
-                type="text"
-                value={form.encabezado}
-                onChange={(e) => setForm({ ...form, encabezado: e.target.value })}
-                placeholder="Interior: salón principal - noche"
-              />
-            </label>
-
-            <label>
-              Descripción
-              <textarea
-                rows={4}
-                value={form.descripcion}
-                onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-                placeholder="Describe la acción, el tono y la intención de la escena"
-              />
-            </label>
-
-            <div className="escena-grid">
-              <label>
-                Modo de vista
-                <select
-                  value={form.modo_vista}
-                  onChange={(e) => setForm({ ...form, modo_vista: e.target.value })}
-                >
-                  {modoVistaOptions.map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                Momento del día
-                <select
-                  value={form.momento_dia}
-                  onChange={(e) => setForm({ ...form, momento_dia: e.target.value })}
-                >
-                  {momentoDiaOptions.map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="escena-grid">
-              <label>
-                Ciudad
-                <input
-                  type="text"
-                  value={form.ciudad}
-                  onChange={(e) => setForm({ ...form, ciudad: e.target.value })}
-                  placeholder="Madrid"
+                  type="date"
+                  value={form.fecha_de_grabacion}
+                  onChange={(e) => setForm({ ...form, fecha_de_grabacion: e.target.value })}
                 />
               </label>
 
-              <label>
-                Día dramático
-                <input
-                  type="number"
-                  value={form.dia_dramatico}
-                  onChange={(e) => setForm({ ...form, dia_dramatico: e.target.value })}
-                  placeholder="1"
-                />
-              </label>
-            </div>
-
-            <label>
-              Fecha de grabación
-              <input
-                type="date"
-                value={form.fecha_de_grabacion}
-                onChange={(e) => setForm({ ...form, fecha_de_grabacion: e.target.value })}
-              />
-            </label>
-
-            <button type="submit" className="escena-button">
-              <Plus size={18} />
-              Crear escena
-            </button>
-          </form>
-        </section>
+              <button type="submit" className="escena-button">
+                <Plus size={18} />
+                Crear escena
+              </button>
+            </form>
+          </section>
+        )}
       </main>
     </div>
   );
