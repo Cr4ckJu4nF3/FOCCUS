@@ -4,7 +4,14 @@ from fastapi import UploadFile
 from app.models.Guion import Guion
 from app.models.guion_version_model import GuionVersion
 from app.models.guion_nota_model import GuionNota
-from app.schemas.guion_schema import GuionSchema, GuionUpdateSchema, GuionVersionSchema, GuionNotaSchema
+from app.schemas.guion_schema import (
+    GuionSchema,
+    GuionUpdateSchema,
+    GuionVersionSchema,
+    GuionVersionTextoSchema,
+    GuionDesdeCeroSchema,
+    GuionNotaSchema
+)
 from app.utils.response import api_response
 from app.utils.file_storage import guardar_archivo, EXTENSIONES_GUION
 
@@ -48,7 +55,8 @@ def get_guion(id_guion: int, db: Session):
 
 
 # CREATE GUION (solo crea el registro maestro; la primera version se
-# sube aparte con subir_version, ya que requiere el archivo)
+# sube aparte con subir_version o crear_version_texto, segun si viene
+# de un archivo o de texto escrito en el sistema)
 
 def create_guion(guion: GuionSchema, db: Session):
     new_guion = Guion(
@@ -65,6 +73,45 @@ def create_guion(guion: GuionSchema, db: Session):
         "id_guion": new_guion.id_guion,
         "nombre": new_guion.nombre,
         "id_project": new_guion.id_project
+    })
+
+
+# CREAR GUION DESDE CERO (crea el maestro + primera version escrita
+# directo en el sistema, en un solo paso, sin necesidad de archivo)
+
+def crear_guion_desde_cero(data: GuionDesdeCeroSchema, id_user: int, db: Session):
+    new_guion = Guion(
+        nombre=data.nombre,
+        descripcion=data.descripcion,
+        id_project=data.id_project
+    )
+    db.add(new_guion)
+    db.flush()  # asigna id_guion antes del commit
+
+    primera_version = GuionVersion(
+        id_guion=new_guion.id_guion,
+        numero_de_version=1,
+        archivo=None,
+        contenido=data.contenido,
+        fecha_de_emision=data.fecha_de_emision,
+        estado=data.estado,
+        comentario_cambio="Version inicial creada desde el sistema",
+        creado_por=id_user
+    )
+    db.add(primera_version)
+    db.flush()
+
+    new_guion.id_guion_version_actual = primera_version.id_guion_version
+    db.commit()
+    db.refresh(new_guion)
+    db.refresh(primera_version)
+
+    return api_response(True, "Guion creado desde cero", {
+        "id_guion": new_guion.id_guion,
+        "nombre": new_guion.nombre,
+        "id_project": new_guion.id_project,
+        "id_guion_version": primera_version.id_guion_version,
+        "numero_de_version": primera_version.numero_de_version
     })
 
 
@@ -150,6 +197,46 @@ def subir_version(id_guion: int, data: GuionVersionSchema, archivo: UploadFile, 
     })
 
 
+# CREAR NUEVA VERSION ESCRITA DIRECTO EN EL SISTEMA (sin archivo)
+
+def crear_version_texto(id_guion: int, data: GuionVersionTextoSchema, id_user: int, db: Session):
+    guion = db.query(Guion).filter(Guion.id_guion == id_guion).first()
+
+    if not guion:
+        return api_response(False, "Guion no encontrado")
+
+    ultima_version = (
+        db.query(sqlfunc.max(GuionVersion.numero_de_version))
+        .filter(GuionVersion.id_guion == id_guion)
+        .scalar()
+    ) or 0
+
+    nueva_version = GuionVersion(
+        id_guion=id_guion,
+        numero_de_version=ultima_version + 1,
+        archivo=None,
+        contenido=data.contenido,
+        fecha_de_emision=data.fecha_de_emision,
+        estado=data.estado,
+        comentario_cambio=data.comentario_cambio,
+        creado_por=id_user
+    )
+
+    db.add(nueva_version)
+    db.flush()  # asigna id_guion_version antes del commit
+
+    guion.id_guion_version_actual = nueva_version.id_guion_version
+    db.commit()
+    db.refresh(nueva_version)
+
+    return api_response(True, "Nueva version del guion guardada", {
+        "id_guion_version": nueva_version.id_guion_version,
+        "numero_de_version": nueva_version.numero_de_version,
+        "contenido": nueva_version.contenido,
+        "estado": nueva_version.estado
+    })
+
+
 # LISTAR VERSIONES DE UN GUION
 
 def get_versiones(id_guion: int, db: Session):
@@ -165,6 +252,7 @@ def get_versiones(id_guion: int, db: Session):
             "id_guion_version": v.id_guion_version,
             "numero_de_version": v.numero_de_version,
             "archivo": v.archivo,
+            "contenido": v.contenido,
             "fecha_de_emision": str(v.fecha_de_emision),
             "estado": v.estado,
             "comentario_cambio": v.comentario_cambio,

@@ -1,5 +1,7 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from app.routes.user_routes import router as user_router
 from app.routes.client_routes import router as client_router
 from app.routes.project_routes import router as project_router
@@ -31,7 +33,14 @@ app = FastAPI(
  
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -48,6 +57,14 @@ app.include_router(guion_router)
 app.include_router(escena_router)
 app.include_router(rodaje_router)
 app.include_router(continuidad_router)
+
+# ARCHIVOS ESTATICOS
+# Sirve lo guardado por app/utils/file_storage.py (guiones subidos,
+# fotos de continuidad) en /assets/uploads/... . Ej: un guion con
+# archivo = "uploads/guiones/3/abc.pdf" queda accesible en
+# http://127.0.0.1:8000/assets/uploads/guiones/3/abc.pdf
+os.makedirs(os.path.join("app", "assets", "uploads"), exist_ok=True)
+app.mount("/assets", StaticFiles(directory=os.path.join("app", "assets")), name="assets")
  
  
 # HOME

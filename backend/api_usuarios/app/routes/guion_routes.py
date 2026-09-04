@@ -8,14 +8,23 @@ from app.controllers.guion_controller import (
     get_guiones,
     get_guion,
     create_guion,
+    crear_guion_desde_cero,
     update_guion,
     delete_guion,
     subir_version,
+    crear_version_texto,
     get_versiones,
     agregar_nota,
     get_notas
 )
-from app.schemas.guion_schema import GuionSchema, GuionUpdateSchema, GuionVersionSchema, GuionNotaSchema
+from app.schemas.guion_schema import (
+    GuionSchema,
+    GuionUpdateSchema,
+    GuionVersionSchema,
+    GuionVersionTextoSchema,
+    GuionDesdeCeroSchema,
+    GuionNotaSchema
+)
 
 router = APIRouter()
 
@@ -40,6 +49,16 @@ def store_guion(
     current_user: dict = Depends(require_admin)
 ):
     return create_guion(data, db)
+
+# CREAR GUION DESDE CERO - maestro + primera version en un solo paso,
+# escribiendo el texto directo en el sistema (sin subir archivo)
+@router.post("/guiones/texto")
+def store_guion_desde_cero(
+    data: GuionDesdeCeroSchema,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    return crear_guion_desde_cero(data, current_user["id_user"], db)
 
 @router.patch("/guiones/{id_guion}")
 def patch_guion(
@@ -75,6 +94,16 @@ def store_version(
 @router.get("/guiones/{id_guion}/versiones")
 def versiones(id_guion: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     return get_versiones(id_guion, db)
+
+# CREAR NUEVA VERSION ESCRITA DIRECTO EN EL SISTEMA (editar sin re-subir archivo)
+@router.post("/guiones/{id_guion}/versiones/texto")
+def store_version_texto(
+    id_guion: int,
+    data: GuionVersionTextoSchema,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    return crear_version_texto(id_guion, data, current_user["id_user"], db)
 
 @router.post("/guiones/versiones/{id_guion_version}/notas")
 def store_nota(

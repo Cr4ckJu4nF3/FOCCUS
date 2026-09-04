@@ -1,9 +1,14 @@
 from sqlalchemy import Column, Integer, String, Text, Date, DateTime, ForeignKey
+from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.sql import func
 from app.config.database import Base
 
 # GUION VERSION MODEL
-# Cada edicion del guion (texto o archivo nuevo) crea una fila aca.
+# Cada edicion del guion (texto escrito en el sistema o archivo nuevo)
+# crea una fila aca. Una version viene de una de dos fuentes:
+#   - `archivo`   -> se subio un PDF/Word/FDX (ruta relativa en disco)
+#   - `contenido` -> se escribio/edito el guion directo en el sistema
+# Siempre debe venir al menos una de las dos (se valida en el controller).
 
 class GuionVersion(Base):
     __tablename__ = "guion_version"
@@ -28,7 +33,12 @@ class GuionVersion(Base):
 
     archivo = Column(
         Text,
-        nullable=False
+        nullable=True
+    )
+
+    contenido = Column(
+        LONGTEXT,
+        nullable=True
     )
 
     fecha_de_emision = Column(
@@ -55,3 +65,4 @@ class GuionVersion(Base):
         DateTime,
         server_default=func.now()
     )
+
