@@ -5,7 +5,6 @@ from app.config.database import Base
 
 class ProcesoRodaje(Base):
     __tablename__ = "proceso_rodaje"
-    __table_args__ = {"mysql_collate": "utf8mb4_unicode_ci"}
 
     id_proceso = Column(
         Integer,
@@ -15,7 +14,7 @@ class ProcesoRodaje(Base):
     )
 
     id_rodaje = Column(
-        String(20, collation="utf8mb4_unicode_ci"),
+        String(20),
         ForeignKey("rodaje.id_rodaje", ondelete="CASCADE"),
         nullable=False,
         index=True
