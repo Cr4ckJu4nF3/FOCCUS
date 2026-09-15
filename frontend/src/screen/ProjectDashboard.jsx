@@ -163,6 +163,11 @@ export default function ProjectDashboardScreen() {
 
     if (option === "Plan de Rodaje") {
       navigate("/rodaje", { state: { projectName, projectId } });
+      return;
+    }
+
+    if (option === "Desglose") {
+      navigate("/desglose", { state: { projectName, projectId } });
     }
   };
 

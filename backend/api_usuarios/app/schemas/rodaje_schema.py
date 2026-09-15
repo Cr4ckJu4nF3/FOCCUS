@@ -8,7 +8,10 @@ class RodajeSchema(BaseModel):
     nombre: str
     descripcion: Optional[str] = None
     fecha_inicio: date
-    fecha_fin: date
+    fecha_fin: Optional[date] = None
+    dia_dramatico: Optional[int] = None
+    semana: Optional[int] = None
+    llamado: Optional[str] = None
     locacion: Optional[str] = None
     estado: Optional[str] = "Pendiente"
     archivo: Optional[str] = None
@@ -19,6 +22,9 @@ class RodajeUpdateSchema(BaseModel):
     descripcion: Optional[str] = None
     fecha_inicio: Optional[date] = None
     fecha_fin: Optional[date] = None
+    dia_dramatico: Optional[int] = None
+    semana: Optional[int] = None
+    llamado: Optional[str] = None
     locacion: Optional[str] = None
     estado: Optional[str] = None
     archivo: Optional[str] = None

@@ -23,6 +23,25 @@ def _generar_id_escena(db: Session) -> str:
     return f"esc{new_num:04d}"
 
 
+def _serializar_escena(e: Escena):
+    return {
+        "id_escena": e.id_escena,
+        "numero_de_escena": e.numero_de_escena,
+        "encabezado": e.encabezado,
+        "descripcion": e.descripcion,
+        "id_guion": e.id_guion,
+        "modo_vista": e.modo_vista,
+        "momento_dia": e.momento_dia,
+        "ciudad": e.ciudad,
+        "pagina": e.pagina,
+        "fecha_de_grabacion": str(e.fecha_de_grabacion) if e.fecha_de_grabacion else None,
+        "dia_dramatico": e.dia_dramatico,
+        "estado": e.estado or "Pendiente",
+        "id_rodaje": e.id_rodaje,
+        "id_desglose": e.id_desglose
+    }
+
+
 # LISTAR ESCENAS DE UN GUION
 
 def get_escenas_by_guion(id_guion: int, db: Session):
@@ -33,25 +52,7 @@ def get_escenas_by_guion(id_guion: int, db: Session):
         .all()
     )
 
-    escenas_list = [
-        {
-            "id_escena": e.id_escena,
-            "numero_de_escena": e.numero_de_escena,
-            "encabezado": e.encabezado,
-            "descripcion": e.descripcion,
-            "id_guion": e.id_guion,
-            "modo_vista": e.modo_vista,
-            "momento_dia": e.momento_dia,
-            "ciudad": e.ciudad,
-            "pagina": e.pagina,
-            "fecha_de_grabacion": str(e.fecha_de_grabacion) if e.fecha_de_grabacion else None,
-            "dia_dramatico": e.dia_dramatico,
-            "id_rodaje": e.id_rodaje,
-            "id_desglose": e.id_desglose
-        }
-        for e in escenas
-    ]
-    return api_response(True, "Escenas del guion", escenas_list)
+    return api_response(True, "Escenas del guion", [_serializar_escena(e) for e in escenas])
 
 
 # GET ESCENA BY ID
@@ -62,21 +63,7 @@ def get_escena(id_escena: str, db: Session):
     if not escena:
         return api_response(False, "Escena no encontrada")
 
-    return api_response(True, "Escena encontrada", {
-        "id_escena": escena.id_escena,
-        "numero_de_escena": escena.numero_de_escena,
-        "encabezado": escena.encabezado,
-        "descripcion": escena.descripcion,
-        "id_guion": escena.id_guion,
-        "modo_vista": escena.modo_vista,
-        "momento_dia": escena.momento_dia,
-        "ciudad": escena.ciudad,
-        "pagina": escena.pagina,
-        "fecha_de_grabacion": str(escena.fecha_de_grabacion) if escena.fecha_de_grabacion else None,
-        "dia_dramatico": escena.dia_dramatico,
-        "id_rodaje": escena.id_rodaje,
-        "id_desglose": escena.id_desglose
-    })
+    return api_response(True, "Escena encontrada", _serializar_escena(escena))
 
 
 # CREAR ESCENA (subdividir un guion en escenas)
@@ -100,6 +87,7 @@ def create_escena(escena: EscenaSchema, db: Session):
         pagina=escena.pagina,
         fecha_de_grabacion=escena.fecha_de_grabacion,
         dia_dramatico=escena.dia_dramatico,
+        estado=escena.estado or "Pendiente",
         id_rodaje=escena.id_rodaje,
         id_desglose=escena.id_desglose
     )
@@ -108,11 +96,7 @@ def create_escena(escena: EscenaSchema, db: Session):
     db.commit()
     db.refresh(new_escena)
 
-    return api_response(True, "Escena creada", {
-        "id_escena": new_escena.id_escena,
-        "numero_de_escena": new_escena.numero_de_escena,
-        "id_guion": new_escena.id_guion
-    })
+    return api_response(True, "Escena creada", _serializar_escena(new_escena))
 
 
 # UPDATE ESCENA (PATCH)
@@ -130,10 +114,7 @@ def update_escena(id_escena: str, escena: EscenaUpdateSchema, db: Session):
     db.commit()
     db.refresh(escena_db)
 
-    return api_response(True, "Escena actualizada", {
-        "id_escena": escena_db.id_escena,
-        "numero_de_escena": escena_db.numero_de_escena
-    })
+    return api_response(True, "Escena actualizada", _serializar_escena(escena_db))
 
 
 # DELETE ESCENA

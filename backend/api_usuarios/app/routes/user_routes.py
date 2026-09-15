@@ -11,7 +11,8 @@ from app.schemas.user_schema import (
     RegisterSchema,
     TwoFactorSendSchema,
     TwoFactorVerifySchema,
-    InviteSchema
+    InviteSchema,
+    UserProjectUpdateSchema
 )
 
 from app.controllers.user_controller import (
@@ -31,7 +32,8 @@ from app.controllers.user_controller import (
     invite_users,
     get_users_by_project,
     get_user_projects,
-    remove_user_from_project
+    remove_user_from_project,
+    update_user_project_membership
 )
 
 # ROUTER
@@ -170,6 +172,19 @@ def remove_from_project(
     current_user: dict = Depends(require_admin)
 ):
     return remove_user_from_project(id_user, id_project, db)
+
+# ACTUALIZAR AREA/DEPARTAMENTO, CARGO O NIVEL DE ACCESO DE UN MIEMBRO
+# (solo administradores; permite el "click para editar" del area/rol
+# directamente en la tabla de Roles y Equipo)
+@router.patch("/users/{id_user}/project/{id_project}")
+def edit_membership(
+    id_user: int,
+    id_project: str,
+    data: UserProjectUpdateSchema,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    return update_user_project_membership(id_user, id_project, data, db)
 
 # ELIMINAR MI PROPIA CUENTA (cualquier usuario logueado, solo la suya)
 @router.delete("/users/me/account")

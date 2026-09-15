@@ -95,3 +95,8 @@ class UserProjectSchema(BaseModel):
     id_user: int
     id_project: str
     id_rol: int = 1005
+
+class UserProjectUpdateSchema(BaseModel):
+    departamento: Optional[str] = None
+    cargo: Optional[str] = None
+    id_rol: Optional[int] = None

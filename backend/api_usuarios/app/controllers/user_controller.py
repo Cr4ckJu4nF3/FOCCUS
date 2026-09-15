@@ -592,7 +592,7 @@ def invite_users(correos: list, id_project: str, id_client: int, id_rol: int, db
 # GET USERS BY PROJECT
 # ==========================================
 def get_users_by_project(id_project: str, db: Session):
-    user_projects = db.query(User, UserProject.id_rol).join(
+    user_projects = db.query(User, UserProject.id_rol, UserProject.departamento, UserProject.cargo).join(
         UserProject, User.id_user == UserProject.id_user
     ).filter(UserProject.id_project == id_project).all()
 
@@ -605,11 +605,40 @@ def get_users_by_project(id_project: str, db: Session):
             "msisdn": user.msisdn,
             "estado": user.estado,
             "id_rol": rol,
+            "departamento": departamento,
+            "cargo": cargo,
             "id_project": id_project
         }
-        for user, rol in user_projects
+        for user, rol, departamento, cargo in user_projects
     ]
     return api_response(True, "Usuarios del proyecto", users_list)
+
+# ==========================================
+# UPDATE USER-PROJECT MEMBERSHIP (departamento / cargo / id_rol)
+# ==========================================
+def update_user_project_membership(id_user: int, id_project: str, data, db: Session):
+    membership = db.query(UserProject).filter(
+        UserProject.id_user == id_user,
+        UserProject.id_project == id_project
+    ).first()
+
+    if not membership:
+        return api_response(False, "El usuario no pertenece a este proyecto", error="MEMBERSHIP_NOT_FOUND")
+
+    update_data = data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(membership, key, value)
+
+    db.commit()
+    db.refresh(membership)
+
+    return api_response(True, "Miembro actualizado", {
+        "id_user": membership.id_user,
+        "id_project": membership.id_project,
+        "id_rol": membership.id_rol,
+        "departamento": membership.departamento,
+        "cargo": membership.cargo
+    })
 
 # ==========================================
 # GET PROJECTS BY USER

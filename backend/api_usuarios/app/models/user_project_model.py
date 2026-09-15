@@ -29,6 +29,14 @@ class UserProject(Base):
         default=1005
     )
 
+    departamento = Column(
+        String(80)
+    )  # Area/departamento dentro de ESTE proyecto (ej. "Camara y Fotografia")
+
+    cargo = Column(
+        String(80)
+    )  # Rol especifico dentro del departamento (ej. "Director/a de Fotografia")
+
     fecha_vinculacion = Column(
         DateTime,
         server_default=func.now()

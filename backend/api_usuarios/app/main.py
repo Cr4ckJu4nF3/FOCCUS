@@ -11,12 +11,17 @@ from app.routes.guion_routes import router as guion_router
 from app.routes.escena_routes import router as escena_router
 from app.routes.rodaje_routes import router as rodaje_router
 from app.routes.continuidad_routes import router as continuidad_router
+from app.routes.personaje_routes import router as personaje_router
+from app.routes.escenario_routes import router as escenario_router
+from app.routes.desglose_routes import router as desglose_router
 from app.config.database import Base, engine
 from app.models.user_project_model import UserProject
 from app.models.rodaje_model import Rodaje
 from app.models.proceso_rodaje_model import ProcesoRodaje
 from app.models.desglose_model import Desglose
+from app.models.desglose_requerimiento_model import DesgloseRequerimiento
 from app.models.personajes_model import Personaje
+from app.models.escenario_model import Escenario
  
 # CREATE TABLES
 Base.metadata.create_all(bind=engine)
@@ -57,6 +62,9 @@ app.include_router(guion_router)
 app.include_router(escena_router)
 app.include_router(rodaje_router)
 app.include_router(continuidad_router)
+app.include_router(personaje_router)
+app.include_router(escenario_router)
+app.include_router(desglose_router)
 
 # ARCHIVOS ESTATICOS
 # Sirve lo guardado por app/utils/file_storage.py (guiones subidos,

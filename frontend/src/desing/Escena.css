@@ -264,3 +264,336 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== Vista de un solo panel (lista / detalle) ===== */
+
+.escena-main--single {
+  display: block;
+}
+
+.escena-panel--wide {
+  width: 100%;
+}
+
+.escena-toolbar--row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.escena-toolbar--row label {
+  min-width: 220px;
+}
+
+.escena-button--ghost {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fafafa;
+}
+
+.escena-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Tabla de escenas (lista principal) ===== */
+
+.escena-table {
+  padding: 0.5rem 1.25rem 1.3rem;
+}
+
+.escena-table__head {
+  display: grid;
+  grid-template-columns: 90px 1fr 130px 130px 110px;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  color: #9ca3af;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.escena-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 130px 130px 110px;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.85rem 0.9rem;
+  border-radius: 0.7rem;
+  background: rgba(8, 12, 17, 0.75);
+  border: 1px solid rgba(250, 250, 250, 0.06);
+  margin-bottom: 0.55rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.escena-row:hover {
+  border-color: rgba(230, 126, 92, 0.5);
+  background: rgba(230, 126, 92, 0.06);
+}
+
+.escena-row__numero {
+  color: #9cc1ff;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.escena-row__encabezado {
+  color: #fafafa;
+  font-size: 0.9rem;
+}
+
+.escena-row__dia {
+  color: #b9c2cf;
+  font-size: 0.82rem;
+}
+
+.escena-row__actions {
+  display: flex;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.escena-row__actions button {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 6px;
+  display: flex;
+}
+
+.escena-row__actions button:hover {
+  color: #fafafa;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ===== Badge de estado de escena ===== */
+
+.escena-badge {
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.escena-badge--pendiente {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+}
+
+.escena-badge--en-proceso {
+  background: rgba(230, 126, 92, 0.18);
+  color: #fed7c9;
+}
+
+.escena-badge--finalizada {
+  background: rgba(16, 185, 129, 0.18);
+  color: #bbf7d0;
+}
+
+/* ===== Tabs del detalle de escena ===== */
+
+.escena-tabs {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.9rem 1.25rem 0;
+}
+
+.escena-tabs__tab {
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 0.6rem 0.2rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.escena-tabs__tab:hover {
+  color: #fafafa;
+}
+
+.escena-tabs__tab--active {
+  color: #e67e5c;
+  border-bottom-color: #e67e5c;
+}
+
+/* ===== Tab Información ===== */
+
+.escena-info-grid {
+  padding: 1.25rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.escena-info-grid > div {
+  background: rgba(8, 12, 17, 0.75);
+  border: 1px solid rgba(250, 250, 250, 0.07);
+  border-radius: 0.7rem;
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.escena-info-grid span {
+  color: #9ca3af;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.escena-info-grid strong {
+  color: #fafafa;
+  font-size: 0.92rem;
+}
+
+.escena-info-grid__full {
+  grid-column: 1 / -1;
+}
+
+.escena-info-grid__full p {
+  margin: 0;
+  color: #dfe8ff;
+  line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+  .escena-info-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .escena-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .escena-table__head {
+    display: none;
+  }
+
+  .escena-row {
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+  }
+
+  .escena-row__actions {
+    justify-content: flex-start;
+  }
+}
+
+/* ===== Tab Continuidad visual + galería de fotos ===== */
+
+.escena-continuidad {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.escena-fotos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.9rem;
+}
+
+.escena-foto-card {
+  display: block;
+  border-radius: 0.7rem;
+  overflow: hidden;
+  border: 1px solid rgba(250, 250, 250, 0.1);
+  background: rgba(8, 12, 17, 0.8);
+  text-decoration: none;
+}
+
+.escena-foto-card img {
+  width: 100%;
+  height: 130px;
+  object-fit: cover;
+  display: block;
+}
+
+.escena-foto-card__meta {
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.75rem;
+  color: #dfe8ff;
+}
+
+.escena-foto-card__tipo {
+  text-transform: capitalize;
+  color: #fed7c9;
+  font-weight: 600;
+}
+
+/* ===== Modales ===== */
+
+.escena-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 6, 9, 0.72);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 60;
+}
+
+.escena-modal {
+  width: 100%;
+  max-width: 560px;
+  max-height: 88vh;
+  overflow-y: auto;
+  background: rgba(15, 18, 22, 0.98);
+  border: 1px solid rgba(250, 250, 250, 0.12);
+  border-radius: 1rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  padding: 1.5rem;
+}
+
+.escena-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.escena-modal__header h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+}
+
+.escena-modal__close {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+}
+
+.escena-modal__close:hover {
+  color: #fafafa;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.escena-form--modal {
+  padding: 0;
+}
