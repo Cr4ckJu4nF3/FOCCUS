@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'login_screen.dart';
 
 class FoccusColors {
   static const background = Color(0xFF0A0A12);
@@ -39,6 +40,12 @@ class _LandingScreenState extends State<LandingScreen> {
         curve: Curves.easeOutCubic,
       );
     }
+  }
+
+  void _goToLogin() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
   }
 
   @override
@@ -169,7 +176,7 @@ class _LandingScreenState extends State<LandingScreen> {
             ),
           ),
           const SizedBox(height: 26),
-          _gradientButton('Comenzar gratis', () => _goTo(_contactKey)),
+          _gradientButton('Comenzar gratis', _goToLogin),
         ],
       ),
     );
@@ -216,7 +223,7 @@ class _LandingScreenState extends State<LandingScreen> {
       children: [
         _bodyText('Conoce cómo FOCCUS puede acompañar a tu equipo desde el guion hasta el rodaje.'),
         const SizedBox(height: 22),
-        _gradientButton('Empezar ahora', () {}),
+        _gradientButton('Empezar ahora', _goToLogin),
       ],
     );
   }
