@@ -40,6 +40,21 @@ function normalizarEstado(estado) {
     .replace(/\s+/g, "-");
 }
 
+// FastAPI a veces manda el error en "detail" como texto simple y otras
+// veces como una lista de objetos de validación (422), en cuyo caso
+// mostrar el objeto directo da "[object Object]". Esta función normaliza
+// ambos casos a un string legible.
+function extraerMensajeError(data, fallback) {
+  if (!data) return fallback;
+  if (typeof data.detail === "string") return data.detail;
+  if (Array.isArray(data.detail)) {
+    return data.detail
+      .map((item) => (typeof item === "string" ? item : item.msg || JSON.stringify(item)))
+      .join(", ");
+  }
+  return data.message || fallback;
+}
+
 export default function GuionScreen() {
   const navigate = useNavigate();
   const projectId = localStorage.getItem("projectId") || "";
@@ -108,7 +123,7 @@ export default function GuionScreen() {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.detail || data.message || "No se pudieron cargar los guiones");
+        throw new Error(extraerMensajeError(data, "No se pudieron cargar los guiones"));
       }
       setGuiones(Array.isArray(data.data) ? data.data : []);
     } catch (err) {
@@ -136,7 +151,7 @@ export default function GuionScreen() {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.detail || data.message || "No se pudieron cargar las versiones");
+        throw new Error(extraerMensajeError(data, "No se pudieron cargar las versiones"));
       }
       setVersiones(Array.isArray(data.data) ? data.data : []);
     } catch (err) {
@@ -200,7 +215,7 @@ export default function GuionScreen() {
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
-        throw new Error(data.detail || data.message || "No se pudo eliminar el guion");
+        throw new Error(extraerMensajeError(data, "No se pudo eliminar el guion"));
       }
       await fetchGuiones();
     } catch (err) {
@@ -239,7 +254,7 @@ export default function GuionScreen() {
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
-        throw new Error(data.message || data.detail || "No se pudo subir el guion");
+        throw new Error(extraerMensajeError(data, "No se pudo subir el guion"));
       }
       setSuccess("Guion subido correctamente");
       setUploadForm({ nombre: "", descripcion: "" });
@@ -393,7 +408,7 @@ export default function GuionScreen() {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.detail || data.message || "No se pudo crear el guion");
+        throw new Error(extraerMensajeError(data, "No se pudo crear el guion"));
       }
       setSuccess("Guion creado correctamente");
       setCeroForm({ nombre: "", descripcion: "" });
@@ -430,7 +445,7 @@ export default function GuionScreen() {
         });
         const data = await response.json();
         if (!response.ok || !data.success) {
-          throw new Error(data.detail || data.message || "No se pudo guardar la versión");
+          throw new Error(extraerMensajeError(data, "No se pudo guardar la versión"));
         }
         setSuccess("Versión guardada correctamente");
         setContenidoVersionTexto("");
@@ -462,7 +477,7 @@ export default function GuionScreen() {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.detail || data.message || "No se pudo subir la versión");
+        throw new Error(extraerMensajeError(data, "No se pudo subir la versión"));
       }
       setSuccess("Versión subida correctamente");
       setArchivoVersion(null);
