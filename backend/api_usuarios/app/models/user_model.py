@@ -79,6 +79,11 @@ class User(Base):
         nullable=True
     )
 
+    id_client = Column( ## llave foranea a la empresa (Client) creada en el registro
+        Integer,
+        nullable=True
+    )
+
     id_project = Column( ## llave foranea (opcional: se asigna despues, al crear/unirse a un proyecto)
         String(20),
         nullable=True

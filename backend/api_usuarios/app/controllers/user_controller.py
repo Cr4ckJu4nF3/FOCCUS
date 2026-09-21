@@ -60,6 +60,7 @@ def get_users(db: Session):
             "fecha_de_creacion": str(u.fecha_de_creacion),
             "ultimo_acceso": str(u.ultimo_acceso),
             "id_departamento": u.id_departamento,
+            "id_client": u.id_client,
             "id_project": u.id_project,
             "id_rol": u.id_rol
         }
@@ -90,6 +91,7 @@ def get_user(id: int, db: Session):
         "fecha_de_creacion": str(user.fecha_de_creacion),
         "ultimo_acceso": str(user.ultimo_acceso),
         "id_departamento": user.id_departamento,
+        "id_client": user.id_client,
         "id_project": user.id_project,
         "id_rol": user.id_rol
     })
@@ -247,12 +249,17 @@ def login_user(mail: str, contrasena: str, db: Session):
     if not pwd_context.verify(contrasena, user.contrasena):
         return api_response(False, "Contraseña incorrecta", error="INVALID_PASSWORD")
 
-    id_client = None
-    user_project = db.query(UserProject).filter(UserProject.id_user == user.id_user).first()
-    if user_project:
-        project = db.query(Project).filter(Project.id_project == user_project.id_project).first()
-        if project:
-            id_client = project.id_client
+    # id_client viene directo del usuario (se asigna en el registro). Si
+    # por algun motivo un usuario viejo no lo tiene (invitado antes de
+    # este fix, por ejemplo), se recurre al respaldo de mirar su primer
+    # proyecto, igual que antes.
+    id_client = user.id_client
+    if id_client is None:
+        user_project = db.query(UserProject).filter(UserProject.id_user == user.id_user).first()
+        if user_project:
+            project = db.query(Project).filter(Project.id_project == user_project.id_project).first()
+            if project:
+                id_client = project.id_client
 
     user.ultimo_acceso = func.now()
     db.commit()
@@ -368,6 +375,7 @@ def register(data, db: Session):
             ultimo_acceso=datetime.now(),
             contrasena=hashed_password,
             id_departamento=None,
+            id_client=new_client.id_cliente,
             id_project=None,
             id_rol=1001
         )
@@ -455,12 +463,13 @@ def verify_2fa_code(mail: str, codigo: str, device_id: str, db: Session):
     user.ultimo_acceso = func.now()
     db.commit()
 
-    id_client = None
-    user_project = db.query(UserProject).filter(UserProject.id_user == user.id_user).first()
-    if user_project:
-        project = db.query(Project).filter(Project.id_project == user_project.id_project).first()
-        if project:
-            id_client = project.id_client
+    id_client = user.id_client
+    if id_client is None:
+        user_project = db.query(UserProject).filter(UserProject.id_user == user.id_user).first()
+        if user_project:
+            project = db.query(Project).filter(Project.id_project == user_project.id_project).first()
+            if project:
+                id_client = project.id_client
 
     token = create_access_token({"id_user": user.id_user, "id_rol": user.id_rol})
 
