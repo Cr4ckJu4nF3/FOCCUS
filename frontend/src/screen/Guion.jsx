@@ -42,15 +42,21 @@ function normalizarEstado(estado) {
 
 // FastAPI a veces manda el error en "detail" como texto simple y otras
 // veces como una lista de objetos de validación (422), en cuyo caso
-// mostrar el objeto directo da "[object Object]". Esta función normaliza
-// ambos casos a un string legible.
+// mostrar el objeto directo da "[object Object]", y el "msg" solo (ej.
+// "Field required") no dice cuál campo. Esta función arma un mensaje
+// legible incluyendo el nombre del campo cuando está disponible.
 function extraerMensajeError(data, fallback) {
   if (!data) return fallback;
   if (typeof data.detail === "string") return data.detail;
   if (Array.isArray(data.detail)) {
     return data.detail
-      .map((item) => (typeof item === "string" ? item : item.msg || JSON.stringify(item)))
-      .join(", ");
+      .map((item) => {
+        if (typeof item === "string") return item;
+        const campo = Array.isArray(item.loc) ? item.loc[item.loc.length - 1] : null;
+        const msg = item.msg || JSON.stringify(item);
+        return campo ? `${campo}: ${msg}` : msg;
+      })
+      .join(" · ");
   }
   return data.message || fallback;
 }
