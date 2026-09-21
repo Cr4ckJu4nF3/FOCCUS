@@ -1,8 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/landing_screen.dart';
+import 'services/api_client.dart';
+import 'services/session.dart';
 
-void main() {
+Future<void> main() async {
+  // Necesario para poder usar SharedPreferences (Session.init) antes de
+  // que corra runApp.
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Sin esto, cualquier pantalla que toque Session (login, register, 2FA,
+  // project_selection...) explota con
+  // "StateError: Session.init() no fue llamado antes de usar la sesion"
+  // apenas el usuario presiona el boton, y la peticion nunca llega a
+  // salir hacia el backend.
+  await Session.init();
+
   runApp(const FoccusApp());
 }
 
@@ -12,6 +25,7 @@ class FoccusApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       title: 'FOCCUS',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -25,6 +39,9 @@ class FoccusApp extends StatelessWidget {
         ),
         textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
       ),
+      routes: {
+        '/login': (_) => const LandingScreen(),
+      },
       home: const LandingScreen(),
     );
   }

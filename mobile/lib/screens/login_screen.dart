@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../services/api_client.dart';
+import '../services/auth_service.dart';
+import 'register_form.dart';
+import 'two_factor_screen.dart';
+
 /// Colores exactos del Login web (Login.css). Ojo: son distintos a los
 /// de landing_screen.dart — el Login usa un acento naranja/terracota,
 /// no el violeta del resto de la app. Es intencional, así está en la web.
@@ -37,6 +42,10 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _loading = false;
   String? _errorMessage;
+  // Mensaje de "¡Registro completado!" que se muestra en el tab de
+  // Ingresar justo despues de registrarse, igual que registroExitoso
+  // en Login.jsx.
+  String? _registroExitoso;
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -48,18 +57,50 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  /// Mismo flujo que handleLogin() en frontend/src/screen/Login.jsx:
+  /// POST /users/login -> guardar token -> POST /users/2fa/check ->
+  /// si pide segundo factor, POST /users/2fa/send y pasar a la pantalla
+  /// de verificacion; si no, entrar a seleccion de proyecto.
   Future<void> _handleLogin() async {
+    if (_loading) return;
+
+    final mail = _emailController.text.trim();
+    final contrasena = _passwordController.text;
+
+    // Equivalente al `required` de los inputs del formulario web.
+    if (mail.isEmpty || contrasena.isEmpty) {
+      setState(() => _errorMessage = 'Ingresa tu correo y tu contraseña');
+      return;
+    }
+
     setState(() {
       _errorMessage = null;
       _loading = true;
     });
 
-    // TODO: conectar con POST /users/login (igual que api.js en la web)
-    // y seguir el mismo flujo de check 2FA que hace Login.jsx.
-    await Future.delayed(const Duration(milliseconds: 600));
+    try {
+      final result = await AuthService.login(mail, contrasena);
+      if (!mounted) return;
 
-    if (!mounted) return;
-    setState(() => _loading = false);
+      if (result.outcome == LoginOutcome.requires2fa) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => TwoFactorScreen(mail: result.mail ?? mail),
+          ),
+        );
+      } else if (result.outcome == LoginOutcome.authenticated) {
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil('/seleccion-proyecto', (_) => false);
+      } else {
+        setState(() =>
+            _errorMessage = result.message ?? 'Correo o contraseña incorrectos');
+      }
+    } on ApiConnectionException {
+      if (!mounted) return;
+      setState(() => _errorMessage = 'No se pudo conectar con el servidor');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -125,17 +166,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
-        Positioned(
-          right: -14,
-          bottom: 48,
-          child: Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0x8C0B4F8A)),
-            ),
-          ),
-        ),
         // Tarjeta principal con sombra dura desplazada (18px 18px 0), sin difuminar
         Container(
           decoration: BoxDecoration(
@@ -163,7 +193,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 _buildTabs(),
                 Padding(
                   padding: const EdgeInsets.all(26),
-                  child: _activeTabIsLogin ? _buildLoginForm() : _buildRegisterPlaceholder(),
+                  child: _activeTabIsLogin
+                      ? _buildLoginForm()
+                      : RegisterForm(onRegistered: _handleRegistered),
                 ),
               ],
             ),
@@ -215,6 +247,10 @@ class _LoginScreenState extends State<LoginScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (_registroExitoso != null) ...[
+          _messageBox(_registroExitoso!, isError: false),
+          const SizedBox(height: 16),
+        ],
         if (_errorMessage != null) ...[
           _messageBox(_errorMessage!, isError: true),
           const SizedBox(height: 16),
@@ -290,29 +326,16 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildRegisterPlaceholder() {
-    // El registro real en la web es un wizard de 3 pasos (empresa, usuario,
-    // seguridad). Se construye aparte en el siguiente paso — este placeholder
-    // solo mantiene el tab visualmente completo mientras tanto.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Registro de empresa',
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: LoginColors.accent,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'El formulario de registro (empresa, usuario y seguridad en 3 pasos) '
-          'se arma en el siguiente paso.',
-          style: GoogleFonts.inter(fontSize: 13, height: 1.6, color: LoginColors.textMuted),
-        ),
-      ],
-    );
+  /// Se llama cuando RegisterForm termina un registro exitoso. Replica lo
+  /// que hace handleRegister() en Login.jsx: precarga el correo, limpia la
+  /// contraseña, muestra el mensaje de exito y vuelve al tab de Ingresar.
+  void _handleRegistered(String mail) {
+    setState(() {
+      _emailController.text = mail;
+      _passwordController.clear();
+      _registroExitoso = '¡Registro completado! Ahora inicia sesión con tu correo y contraseña.';
+      _activeTabIsLogin = true;
+    });
   }
 
   Widget _messageBox(String message, {required bool isError}) {
