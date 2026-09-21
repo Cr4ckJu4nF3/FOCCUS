@@ -41,6 +41,12 @@ app.add_middleware(
         "http://localhost:4173",
         "http://127.0.0.1:4173",
     ],
+    # `flutter run -d chrome` levanta el modo debug en un puerto aleatorio
+    # cada vez (no siempre 5173/3000), asi que ademas de la lista fija de
+    # arriba (para el front de React) permitimos cualquier puerto de
+    # localhost/127.0.0.1 para que el Flutter web tambien pueda llamar a
+    # la API en desarrollo.
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -75,4 +81,3 @@ def home():
         "success": True,
         "message": "API funcionando correctamente"
     }
- 
