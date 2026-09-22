@@ -1,4 +1,4 @@
-from sqlalchemy import nullslast
+from sqlalchemy import case
 from sqlalchemy.orm import Session
 from app.models.desglose_model import Desglose
 from app.models.desglose_requerimiento_model import DesgloseRequerimiento
@@ -110,7 +110,11 @@ def get_desglose_by_guion(id_guion: int, db: Session):
     escenas = (
         db.query(Escena)
         .filter(Escena.id_guion == id_guion)
-        .order_by(nullslast(Escena.dia_dramatico.asc()), Escena.numero_de_escena.asc())
+        .order_by(
+            case((Escena.dia_dramatico.is_(None), 1), else_=0),
+            Escena.dia_dramatico.asc(),
+            Escena.numero_de_escena.asc()
+        )
         .all()
     )
 
