@@ -58,6 +58,11 @@ class Escena(Base):
         Integer
     )
 
+    estado = Column(
+        String(20),
+        default="Pendiente"
+    )  # Pendiente | En Proceso | Finalizada
+
     id_rodaje = Column(  ## llave foranea (tabla de cronograma de rodaje, fuera de este modulo)
         String(20),
         ForeignKey("rodaje.id_rodaje", ondelete="CASCADE")

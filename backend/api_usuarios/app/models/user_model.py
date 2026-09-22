@@ -74,14 +74,19 @@ class User(Base):
         nullable=False
     )
 
-    id_departamento = Column( ## llave foranea
+    id_departamento = Column( ## llave foranea (opcional: se asigna despues, al invitar/vincular a un proyecto)
         String(20),
-        nullable=False
+        nullable=True
     )
 
-    id_project = Column( ## llave foranea
+    id_client = Column( ## llave foranea a la empresa (Client) creada en el registro
+        Integer,
+        nullable=True
+    )
+
+    id_project = Column( ## llave foranea (opcional: se asigna despues, al crear/unirse a un proyecto)
         String(20),
-        nullable=False
+        nullable=True
     )
 
     id_rol = Column(

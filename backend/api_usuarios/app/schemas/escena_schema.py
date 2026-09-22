@@ -13,6 +13,7 @@ class EscenaSchema(BaseModel):
     pagina: Optional[int] = None
     fecha_de_grabacion: Optional[date] = None
     dia_dramatico: Optional[int] = None
+    estado: Optional[str] = "Pendiente"
     id_rodaje: Optional[str] = None
     id_desglose: Optional[str] = None
 
@@ -28,3 +29,4 @@ class EscenaUpdateSchema(BaseModel):
     dia_dramatico: Optional[int] = None
     id_rodaje: Optional[str] = None
     id_desglose: Optional[str] = None
+    estado: Optional[str] = None

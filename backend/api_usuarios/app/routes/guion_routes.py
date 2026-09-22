@@ -9,6 +9,7 @@ from app.controllers.guion_controller import (
     get_guion,
     create_guion,
     crear_guion_desde_cero,
+    crear_guion_desde_archivo,
     update_guion,
     delete_guion,
     subir_version,
@@ -59,6 +60,21 @@ def store_guion_desde_cero(
     current_user: dict = Depends(require_admin)
 ):
     return crear_guion_desde_cero(data, current_user["id_user"], db)
+
+# SUBIR GUION (PDF/Word/FDX) - maestro + primera version en un solo
+# paso, igual que /guiones/texto pero con archivo en vez de contenido
+# escrito. El numero de version siempre queda en 1, asignado por el
+# backend (nunca lo elige quien sube el archivo).
+@router.post("/guiones/archivo")
+def store_guion_desde_archivo(
+    nombre: str = Form(...),
+    descripcion: Optional[str] = Form(None),
+    id_project: str = Form(...),
+    archivo: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    return crear_guion_desde_archivo(nombre, descripcion, id_project, archivo, current_user["id_user"], db)
 
 @router.patch("/guiones/{id_guion}")
 def patch_guion(

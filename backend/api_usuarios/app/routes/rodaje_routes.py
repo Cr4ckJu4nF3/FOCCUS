@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, UploadFile, File
 from sqlalchemy.orm import Session
+import tempfile
+import os
 from app.config.database import get_db
 from app.utils.auth import get_current_user, require_admin
 from app.controllers.rodaje_controller import (
@@ -8,6 +10,10 @@ from app.controllers.rodaje_controller import (
     create_rodaje,
     update_rodaje,
     delete_rodaje,
+    asignar_escena,
+    quitar_escena,
+    get_escenas_disponibles,
+    importar_rodaje_pdf,
     get_procesos_by_rodaje,
     create_proceso,
     update_proceso,
@@ -20,6 +26,10 @@ router = APIRouter()
 @router.get("/projects/{id_project}/rodajes")
 def rodajes_del_proyecto(id_project: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     return get_rodajes_by_project(id_project, db)
+
+@router.get("/projects/{id_project}/escenas-disponibles")
+def escenas_disponibles_del_proyecto(id_project: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    return get_escenas_disponibles(id_project, db)
 
 @router.get("/rodajes/{id_rodaje}")
 def rodaje(id_rodaje: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
@@ -36,6 +46,36 @@ def patch_rodaje(id_rodaje: str, data: RodajeUpdateSchema, db: Session = Depends
 @router.delete("/rodajes/{id_rodaje}")
 def destroy_rodaje(id_rodaje: str, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
     return delete_rodaje(id_rodaje, db)
+
+# Asignar / quitar escenas de un dia (para armar el cronograma a mano)
+@router.post("/rodajes/{id_rodaje}/escenas/{id_escena}")
+def store_escena_en_rodaje(id_rodaje: str, id_escena: str, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
+    return asignar_escena(id_rodaje, id_escena, db)
+
+@router.delete("/rodajes/{id_rodaje}/escenas/{id_escena}")
+def destroy_escena_de_rodaje(id_rodaje: str, id_escena: str, db: Session = Depends(get_db), current_user: dict = Depends(require_admin)):
+    return quitar_escena(id_rodaje, id_escena, db)
+
+# Importar un PDF de plan de rodaje (mismo formato Semana > Dia > Escena)
+@router.post("/projects/{id_project}/rodajes/importar")
+def importar_rodaje(
+    id_project: str,
+    archivo: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    suffix = os.path.splitext(archivo.filename or "")[1] or ".pdf"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(archivo.file.read())
+        ruta_temporal = tmp.name
+
+    try:
+        return importar_rodaje_pdf(id_project, ruta_temporal, db)
+    finally:
+        try:
+            os.remove(ruta_temporal)
+        except OSError:
+            pass
 
 @router.get("/rodajes/{id_rodaje}/procesos")
 def procesos_del_rodaje(id_rodaje: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
