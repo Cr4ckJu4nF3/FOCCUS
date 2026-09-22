@@ -1,3 +1,4 @@
+from datetime import date
 from sqlalchemy.orm import Session
 from sqlalchemy import func as sqlfunc
 from fastapi import UploadFile
@@ -18,22 +19,34 @@ from app.utils.file_storage import guardar_archivo, EXTENSIONES_GUION
 
 # GET ALL GUIONES (filtrable por proyecto con ?id_project=)
 
+def _serializar_guion_con_version_actual(g: Guion, db: Session):
+    version_actual = None
+    if g.id_guion_version_actual:
+        version_actual = (
+            db.query(GuionVersion)
+            .filter(GuionVersion.id_guion_version == g.id_guion_version_actual)
+            .first()
+        )
+
+    return {
+        "id_guion": g.id_guion,
+        "nombre": g.nombre,
+        "descripcion": g.descripcion,
+        "id_project": g.id_project,
+        "id_guion_version_actual": g.id_guion_version_actual,
+        "estado_actual": version_actual.estado if version_actual else None,
+        "numero_de_version_actual": version_actual.numero_de_version if version_actual else None,
+        "origen_actual": "texto" if (version_actual and version_actual.contenido) else "archivo" if version_actual else None
+    }
+
+
 def get_guiones(db: Session, id_project: str = None):
     query = db.query(Guion)
     if id_project:
         query = query.filter(Guion.id_project == id_project)
     guiones = query.order_by(Guion.id_guion.desc()).all()
 
-    guiones_list = [
-        {
-            "id_guion": g.id_guion,
-            "nombre": g.nombre,
-            "descripcion": g.descripcion,
-            "id_project": g.id_project,
-            "id_guion_version_actual": g.id_guion_version_actual
-        }
-        for g in guiones
-    ]
+    guiones_list = [_serializar_guion_con_version_actual(g, db) for g in guiones]
     return api_response(True, "Lista de guiones", guiones_list)
 
 
@@ -45,13 +58,7 @@ def get_guion(id_guion: int, db: Session):
     if not guion:
         return api_response(False, "Guion no encontrado")
 
-    return api_response(True, "Guion encontrado", {
-        "id_guion": guion.id_guion,
-        "nombre": guion.nombre,
-        "descripcion": guion.descripcion,
-        "id_project": guion.id_project,
-        "id_guion_version_actual": guion.id_guion_version_actual
-    })
+    return api_response(True, "Guion encontrado", _serializar_guion_con_version_actual(guion, db))
 
 
 # CREATE GUION (solo crea el registro maestro; la primera version se
@@ -112,6 +119,57 @@ def crear_guion_desde_cero(data: GuionDesdeCeroSchema, id_user: int, db: Session
         "id_project": new_guion.id_project,
         "id_guion_version": primera_version.id_guion_version,
         "numero_de_version": primera_version.numero_de_version
+    })
+
+
+# SUBIR GUION (crea el maestro + primera version en un solo paso, a
+# partir de un archivo PDF/Word/FDX subido. Equivalente a
+# crear_guion_desde_cero pero para el flujo "Subir guion" en vez de
+# "Crear desde cero". La version siempre queda como numero 1 y el
+# usuario nunca elige el numero de version manualmente.)
+
+def crear_guion_desde_archivo(nombre: str, descripcion: str, id_project: str, archivo: UploadFile, id_user: int, db: Session):
+    new_guion = Guion(
+        nombre=nombre,
+        descripcion=descripcion,
+        id_project=id_project
+    )
+    db.add(new_guion)
+    db.flush()  # asigna id_guion antes del commit
+
+    try:
+        ruta_archivo = guardar_archivo(
+            archivo, subcarpeta=f"guiones/{new_guion.id_guion}", extensiones_permitidas=EXTENSIONES_GUION
+        )
+    except ValueError as e:
+        db.rollback()
+        return api_response(False, str(e), error="INVALID_FILE")
+
+    primera_version = GuionVersion(
+        id_guion=new_guion.id_guion,
+        numero_de_version=1,
+        archivo=ruta_archivo,
+        contenido=None,
+        fecha_de_emision=date.today(),
+        estado="Borrador",
+        comentario_cambio="Version inicial subida al sistema",
+        creado_por=id_user
+    )
+    db.add(primera_version)
+    db.flush()
+
+    new_guion.id_guion_version_actual = primera_version.id_guion_version
+    db.commit()
+    db.refresh(new_guion)
+    db.refresh(primera_version)
+
+    return api_response(True, "Guion subido correctamente", {
+        "id_guion": new_guion.id_guion,
+        "nombre": new_guion.nombre,
+        "id_project": new_guion.id_project,
+        "id_guion_version": primera_version.id_guion_version,
+        "numero_de_version": primera_version.numero_de_version,
+        "archivo": primera_version.archivo
     })
 
 

@@ -5,17 +5,16 @@ from app.config.database import Base
 
 class Rodaje(Base):
     __tablename__ = "rodaje"
-    __table_args__ = {"mysql_collate": "utf8mb4_unicode_ci"}
 
     id_rodaje = Column(
-        String(20, collation="utf8mb4_unicode_ci"),
+        String(20),
         primary_key=True,
         index=True,
         nullable=False
     )
 
     id_project = Column(
-        String(20, collation="utf8mb4_unicode_ci"),
+        String(20),
         ForeignKey("projects.id_project", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -37,8 +36,20 @@ class Rodaje(Base):
 
     fecha_fin = Column(
         Date,
-        nullable=False
+        nullable=True
     )
+
+    dia_dramatico = Column(
+        Integer
+    )  # "Día N" del cronograma (mismo numero que Escena.dia_dramatico)
+
+    semana = Column(
+        Integer
+    )  # agrupacion "Semana N" en pantalla
+
+    llamado = Column(
+        String(20)
+    )  # hora de llamado general del dia, ej "5:30 AM"
 
     locacion = Column(
         String(255)

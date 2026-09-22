@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, UserPlus, Users, Mail, X, CheckCircle } from "lucide-react";
+import { ArrowLeft, UserPlus, Users, Mail, X, CheckCircle, Check } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
 import { apiFetch } from "../api";
 import "../desing/Roles.css";
@@ -32,9 +32,15 @@ export default function RolesScreen() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // Edicion en linea de Area/Departamento y Rol (cargo)
+  const [editingCell, setEditingCell] = useState(null); // { idUser, field } | null
+  const [editValue, setEditValue] = useState("");
+
   const projectName = localStorage.getItem("projectName") || "Proyecto";
   const idProject = localStorage.getItem("projectId") || localStorage.getItem("id_project") || "";
   const idClient = localStorage.getItem("id_client") || "";
+  const idRolPropio = Number(localStorage.getItem("id_rol")) || 0;
+  const esAdmin = idRolPropio === 1001;
 
   // Cargar usuarios del proyecto
   const fetchUsuarios = async () => {
@@ -71,6 +77,47 @@ export default function RolesScreen() {
   useEffect(() => {
     fetchUsuarios();
   }, []);
+
+  // Edicion en linea: Area/Departamento y Rol (cargo)
+  const startEdit = (idUser, field, valorActual) => {
+    if (!esAdmin) return;
+    setEditingCell({ idUser, field });
+    setEditValue(valorActual || "");
+  };
+
+  const cancelEdit = () => {
+    setEditingCell(null);
+    setEditValue("");
+  };
+
+  const saveEdit = async () => {
+    if (!editingCell) return;
+    const { idUser, field } = editingCell;
+    const valorAnterior = usuarios.find((u) => u.id_user === idUser)?.[field] || "";
+
+    if (editValue.trim() === valorAnterior.trim()) {
+      cancelEdit();
+      return;
+    }
+
+    try {
+      const response = await apiFetch(`/users/${idUser}/project/${idProject}`, {
+        method: "PATCH",
+        body: JSON.stringify({ [field]: editValue.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.detail || data.message || "No se pudo actualizar");
+      }
+      setUsuarios((prev) =>
+        prev.map((u) => (u.id_user === idUser ? { ...u, [field]: editValue.trim() } : u))
+      );
+    } catch (err) {
+      setError(err.message || "No se pudo guardar el cambio");
+    } finally {
+      cancelEdit();
+    }
+  };
 
   // Enviar invitaciones
   const handleInvite = async (e) => {
@@ -150,13 +197,15 @@ export default function RolesScreen() {
             <Users className="rs-title-icon" />
             <h1 className="rs-title">Roles y Equipo</h1>
           </div>
-          <button
-            onClick={() => { setShowInviteModal(true); setError(""); }}
-            className="rs-invite-button"
-          >
-            <UserPlus className="rs-icon-sm" />
-            Invitar Miembro
-          </button>
+          {esAdmin && (
+            <button
+              onClick={() => { setShowInviteModal(true); setError(""); }}
+              className="rs-invite-button"
+            >
+              <UserPlus className="rs-icon-sm" />
+              Invitar Miembro
+            </button>
+          )}
         </div>
 
         {/* Mensajes */}
@@ -190,50 +239,109 @@ export default function RolesScreen() {
               <p className="rs-list-state-text">No hay miembros en este proyecto. Invita a tu equipo.</p>
             </div>
           ) : (
-            <div className="rs-list">
-              {usuarios.map((user, index) => {
-                const rol = user.id_rol || 1005;
-                return (
-                  <div key={user.id_user || index} className="rs-list-item">
-                    <div className="rs-list-item-left">
-                      <div className="rs-avatar"
-                        style={{ backgroundColor: rolColors[rol] || "#6B6B6B" }}
-                      >
-                        {(user.nombre || "?")[0]}{(user.apellido || "?")[0]}
-                      </div>
-                      <div>
-                        <p className="rs-user-name">
-                          {user.nombre} {user.apellido}
-                        </p>
-                        <p className="rs-user-mail">{user.mail}</p>
-                      </div>
-                    </div>
-                    <div className="rs-list-item-right">
-                      <span
-                        className="rs-role-badge"
-                        style={{
-                          backgroundColor: (rolColors[rol] || "#6B6B6B") + "20",
-                          color: rolColors[rol] || "#6B6B6B",
-                          border: `1px solid ${(rolColors[rol] || "#6B6B6B")}40`,
-                        }}
-                      >
-                        {rolLabels[rol] || "Sin rol"}
-                      </span>
-                      {user.id_user !== Number(localStorage.getItem("id_user")) && (
-                        <button
-                          type="button"
-                          className="rs-remove-btn"
-                          title="Quitar del proyecto"
-                          onClick={() => handleRemoveUser(user.id_user, `${user.nombre} ${user.apellido}`)}
+            <>
+              <div className="rs-table-head">
+                <span>Nombre completo</span>
+                <span>Área / Departamento</span>
+                <span>Rol</span>
+                <span>Estado</span>
+                <span />
+              </div>
+              <div className="rs-list">
+                {usuarios.map((user, index) => {
+                  const rol = user.id_rol || 1005;
+                  const esActivo = (user.estado || "").toLowerCase() === "activo";
+                  const editandoDepartamento = editingCell?.idUser === user.id_user && editingCell?.field === "departamento";
+                  const editandoCargo = editingCell?.idUser === user.id_user && editingCell?.field === "cargo";
+
+                  return (
+                    <div key={user.id_user || index} className="rs-list-item">
+                      <div className="rs-list-item-left">
+                        <div className="rs-avatar"
+                          style={{ backgroundColor: rolColors[rol] || "#6B6B6B" }}
                         >
-                          <X size={16} />
-                        </button>
-                      )}
+                          {(user.nombre || "?")[0]}{(user.apellido || "?")[0]}
+                        </div>
+                        <div>
+                          <p className="rs-user-name">
+                            {user.nombre} {user.apellido}
+                          </p>
+                          <p className="rs-user-mail">{user.mail}</p>
+                        </div>
+                      </div>
+
+                      <div className="rs-editable-cell" onClick={() => !editandoDepartamento && startEdit(user.id_user, "departamento", user.departamento)}>
+                        {editandoDepartamento ? (
+                          <div className="rs-editable-input-row">
+                            <input
+                              autoFocus
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && saveEdit()}
+                              placeholder="Ej. Cámara y Fotografía"
+                            />
+                            <button type="button" onClick={saveEdit}><Check size={14} /></button>
+                          </div>
+                        ) : (
+                          <span className={user.departamento ? "" : "rs-editable-cell--empty"}>
+                            {user.departamento || (esAdmin ? "Asignar área" : "Sin asignar")}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="rs-editable-cell" onClick={() => !editandoCargo && startEdit(user.id_user, "cargo", user.cargo)}>
+                        {editandoCargo ? (
+                          <div className="rs-editable-input-row">
+                            <input
+                              autoFocus
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && saveEdit()}
+                              placeholder="Ej. Director/a de Fotografía"
+                            />
+                            <button type="button" onClick={saveEdit}><Check size={14} /></button>
+                          </div>
+                        ) : (
+                          <span className={user.cargo ? "" : "rs-editable-cell--empty"}>
+                            {user.cargo || (esAdmin ? "Asignar rol" : "Sin asignar")}
+                          </span>
+                        )}
+                      </div>
+
+                      <span className={`rs-state-badge ${esActivo ? "rs-state-badge--activo" : "rs-state-badge--pendiente"}`}>
+                        {esActivo ? "Activo" : "Pendiente"}
+                      </span>
+
+                      <div className="rs-list-item-right">
+                        <span
+                          className="rs-role-badge"
+                          style={{
+                            backgroundColor: (rolColors[rol] || "#6B6B6B") + "20",
+                            color: rolColors[rol] || "#6B6B6B",
+                            border: `1px solid ${(rolColors[rol] || "#6B6B6B")}40`,
+                          }}
+                        >
+                          {rolLabels[rol] || "Sin rol"}
+                        </span>
+                        {esAdmin && user.id_user !== Number(localStorage.getItem("id_user")) && (
+                          <button
+                            type="button"
+                            className="rs-remove-btn"
+                            title="Quitar del proyecto"
+                            onClick={() => handleRemoveUser(user.id_user, `${user.nombre} ${user.apellido}`)}
+                          >
+                            <X size={16} />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+              {esAdmin && (
+                <p className="rs-list-footnote">Haz clic en el área o el rol de un miembro para editarlo directamente.</p>
+              )}
+            </>
           )}
         </div>
       </main>
