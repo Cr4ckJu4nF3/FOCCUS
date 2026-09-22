@@ -172,7 +172,7 @@ def get_escenas_disponibles(id_project: str, db: Session):
     escenas = (
         db.query(Escena)
         .join(Guion, Escena.id_guion == Guion.id_guion)
-        .filter(Guion.id_project == id_project)
+        .filter(Guion.id_project == id_project, Escena.id_rodaje.is_(None))
         .order_by(Escena.numero_de_escena.asc())
         .all()
     )
