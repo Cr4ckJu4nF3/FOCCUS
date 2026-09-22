@@ -99,9 +99,19 @@ export default function ProjectSelectionScreen() {
       });
 
       if (response.ok) {
+        const data = await response.json();
+        const nuevoProjectId = data.data?.id_project;
+
         setShowCreateModal(false);
         setFormData({ project_name: "", formato_de_produccion: "", genero: "", sinopsis: "", director: "" });
-        navigate("/proyecto-dashboard", { state: { projectName: formData.project_name } });
+
+        if (nuevoProjectId) {
+          localStorage.setItem("projectId", nuevoProjectId);
+          localStorage.setItem("id_project", nuevoProjectId);
+        }
+        localStorage.setItem("projectName", formData.project_name);
+
+        navigate("/proyecto-dashboard", { state: { projectName: formData.project_name, projectId: nuevoProjectId } });
       } else {
         const errorData = await response.json();
         const mensaje = typeof errorData.detail === "string"
