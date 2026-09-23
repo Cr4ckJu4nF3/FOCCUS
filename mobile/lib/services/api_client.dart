@@ -37,7 +37,8 @@ class ApiResponse {
     final detail = body['detail'];
     if (detail is List && detail.isNotEmpty) {
       return detail
-          .map((item) => item is Map ? (item['msg'] ?? '').toString() : item.toString())
+          .map((item) =>
+              item is Map ? (item['msg'] ?? '').toString() : item.toString())
           .where((msg) => msg.isNotEmpty)
           .join(', ');
     }
@@ -84,12 +85,30 @@ class ApiClient {
     );
   }
 
+  static Future<ApiResponse> patch(
+    String path, {
+    Map<String, dynamic>? body,
+    Map<String, String>? headers,
+  }) {
+    return _send(
+      (uri, h) => http.patch(uri, headers: h, body: json.encode(body ?? {})),
+      path,
+      headers,
+    );
+  }
+
+  static Future<ApiResponse> delete(String path,
+      {Map<String, String>? headers}) {
+    return _send((uri, h) => http.delete(uri, headers: h), path, headers);
+  }
+
   static Future<ApiResponse> get(String path, {Map<String, String>? headers}) {
     return _send((uri, h) => http.get(uri, headers: h), path, headers);
   }
 
   static Future<ApiResponse> _send(
-    Future<http.Response> Function(Uri uri, Map<String, String> headers) request,
+    Future<http.Response> Function(Uri uri, Map<String, String> headers)
+        request,
     String path,
     Map<String, String>? extraHeaders,
   ) async {
@@ -103,14 +122,16 @@ class ApiClient {
 
     http.Response response;
     try {
-      response = await request(ApiConfig.resolve(path), headers).timeout(_timeout);
+      response =
+          await request(ApiConfig.resolve(path), headers).timeout(_timeout);
     } catch (e) {
       throw ApiConnectionException(e);
     }
 
     if (response.statusCode == 401) {
       await Session.clear();
-      appNavigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (_) => false);
+      appNavigatorKey.currentState
+          ?.pushNamedAndRemoveUntil('/login', (_) => false);
     }
 
     return ApiResponse(
