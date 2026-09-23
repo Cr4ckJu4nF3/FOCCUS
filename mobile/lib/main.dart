@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/landing_screen.dart';
+import 'screens/project_selection_screen.dart';
 import 'services/api_client.dart';
 import 'services/session.dart';
 
@@ -41,6 +42,7 @@ class FoccusApp extends StatelessWidget {
       ),
       routes: {
         '/login': (_) => const LandingScreen(),
+        '/seleccion-proyecto': (_) => const ProjectSelectionScreen(),
       },
       home: const LandingScreen(),
     );
