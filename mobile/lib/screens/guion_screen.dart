@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../config/api_config.dart';
 import '../services/api_client.dart';
 import '../services/session.dart';
 import 'login_screen.dart' show LoginColors;
@@ -33,6 +36,10 @@ class _GuionScreenState extends State<GuionScreen> {
   final _contentController = TextEditingController();
   final _versionContentController = TextEditingController();
   final _commentController = TextEditingController();
+  String? _scriptFilePath;
+  String? _scriptFileName;
+  String? _versionFilePath;
+  String? _versionFileName;
 
   List<dynamic> _scripts = const [];
   List<dynamic> _versions = const [];
@@ -41,6 +48,8 @@ class _GuionScreenState extends State<GuionScreen> {
   bool _loadingVersions = false;
   bool _saving = false;
   bool _creatingVersion = false;
+  bool _uploadingScript = false;
+  bool _uploadingVersion = false;
   String? _error;
   String? _success;
   String _view = 'list';
@@ -205,6 +214,132 @@ class _GuionScreenState extends State<GuionScreen> {
     }
   }
 
+  Future<void> _pickFile({required bool version}) async {
+    final files = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'docx', 'fdx'],
+    );
+    if (!mounted || files.isEmpty || files.first.path == null) return;
+
+    final file = files.first;
+    setState(() {
+      if (version) {
+        _versionFilePath = file.path;
+        _versionFileName = file.name;
+      } else {
+        _scriptFilePath = file.path;
+        _scriptFileName = file.name;
+      }
+      _error = null;
+    });
+  }
+
+  Future<void> _uploadScript() async {
+    if (_titleController.text.trim().isEmpty) {
+      setState(() => _error = 'El título del guion es obligatorio');
+      return;
+    }
+    final filePath = _scriptFilePath;
+    if (filePath == null) {
+      setState(() => _error = 'Selecciona un archivo PDF, DOCX o FDX');
+      return;
+    }
+
+    setState(() {
+      _uploadingScript = true;
+      _error = null;
+      _success = null;
+    });
+    try {
+      final response = await ApiClient.uploadMultipart(
+        '/guiones/archivo',
+        filePath: filePath,
+        fileField: 'archivo',
+        fields: {
+          'nombre': _titleController.text.trim(),
+          'descripcion': _descriptionController.text.trim(),
+          'id_project': widget.projectId,
+        },
+      );
+      if (!mounted) return;
+      if (response.ok && response.success) {
+        _clearComposer();
+        setState(() {
+          _view = 'list';
+          _scriptFilePath = null;
+          _scriptFileName = null;
+          _success = 'Guion subido correctamente';
+        });
+        await _loadScripts();
+      } else {
+        setState(
+            () => _error = response.errorMessage('No se pudo subir el guion'));
+      }
+    } on ApiConnectionException {
+      if (mounted) {
+        setState(() => _error = 'No se pudo conectar con el servidor');
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingScript = false);
+    }
+  }
+
+  Future<void> _uploadVersion() async {
+    final scriptId = _activeScript?['id_guion'];
+    final filePath = _versionFilePath;
+    if (scriptId == null || filePath == null) {
+      setState(() => _error = 'Selecciona un archivo para la nueva versión');
+      return;
+    }
+
+    setState(() {
+      _uploadingVersion = true;
+      _error = null;
+      _success = null;
+    });
+    try {
+      final response = await ApiClient.uploadMultipart(
+        '/guiones/$scriptId/versiones',
+        filePath: filePath,
+        fileField: 'archivo',
+        fields: {
+          'fecha_de_emision': _today(),
+          'estado': _versionState,
+          'comentario_cambio': _commentController.text.trim(),
+        },
+      );
+      if (!mounted) return;
+      if (response.ok && response.success) {
+        setState(() {
+          _versionFilePath = null;
+          _versionFileName = null;
+          _commentController.clear();
+          _success = 'Versión subida correctamente';
+        });
+        await _loadVersions(scriptId);
+        await _loadScripts();
+      } else {
+        setState(() =>
+            _error = response.errorMessage('No se pudo subir la versión'));
+      }
+    } on ApiConnectionException {
+      if (mounted) {
+        setState(() => _error = 'No se pudo conectar con el servidor');
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingVersion = false);
+    }
+  }
+
+  Future<void> _openFile(String? storedPath) async {
+    if (storedPath == null || storedPath.isEmpty) return;
+    final uri = ApiConfig.resolve('/assets/$storedPath');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
+        mounted) {
+      setState(() => _error = 'No se pudo abrir el archivo');
+    }
+  }
+
   Future<void> _deleteScript(Map<String, dynamic> script) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -243,6 +378,8 @@ class _GuionScreenState extends State<GuionScreen> {
     _titleController.clear();
     _descriptionController.clear();
     _contentController.clear();
+    _scriptFilePath = null;
+    _scriptFileName = null;
   }
 
   void _backToList() {
@@ -292,6 +429,7 @@ class _GuionScreenState extends State<GuionScreen> {
                       if (_success != null) _message(_success!, true),
                       if (_view == 'list') _buildList(),
                       if (_view == 'create') _buildComposer(),
+                      if (_view == 'upload') _buildFileComposer(),
                       if (_view == 'detail') _buildDetail(),
                     ],
                   ),
@@ -343,12 +481,18 @@ class _GuionScreenState extends State<GuionScreen> {
               if (value == 'create') {
                 setState(() => _view = 'create');
               }
+              if (value == 'upload') {
+                setState(() => _view = 'upload');
+              }
               if (value == 'list') _backToList();
             },
             itemBuilder: (context) => [
               if (_isAdmin)
                 const PopupMenuItem(
                     value: 'create', child: Text('Crear desde cero')),
+              if (_isAdmin)
+                const PopupMenuItem(
+                    value: 'upload', child: Text('Subir archivo')),
               const PopupMenuItem(
                   value: 'list', child: Text('Lista de guiones')),
             ],
@@ -513,6 +657,40 @@ class _GuionScreenState extends State<GuionScreen> {
     );
   }
 
+  Widget _buildFileComposer() {
+    return _panel(
+      title: 'Subir guion',
+      icon: Icons.upload_file_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _field('Título del guion', _titleController),
+          _field('Descripción', _descriptionController, maxLines: 2),
+          _filePickerTile(
+            fileName: _scriptFileName,
+            onPick: () => _pickFile(version: false),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              OutlinedButton(
+                onPressed: _uploadingScript ? null : _backToList,
+                child: const Text('Cancelar'),
+              ),
+              const SizedBox(width: 10),
+              FilledButton.icon(
+                onPressed: _uploadingScript ? null : _uploadScript,
+                icon: const Icon(Icons.cloud_upload_outlined),
+                label: Text(_uploadingScript ? 'Subiendo...' : 'Subir archivo'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDetail() {
     final script = _activeScript;
     if (script == null) return const SizedBox.shrink();
@@ -582,6 +760,11 @@ class _GuionScreenState extends State<GuionScreen> {
         ),
         const SizedBox(height: 12),
         _field('Comentario del cambio', _commentController, maxLines: 2),
+        _filePickerTile(
+          fileName: _versionFileName,
+          onPick: () => _pickFile(version: true),
+        ),
+        const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
               color: Colors.white, borderRadius: BorderRadius.circular(10)),
@@ -605,6 +788,15 @@ class _GuionScreenState extends State<GuionScreen> {
                 icon: const Icon(Icons.save_outlined),
                 label: Text(
                     _creatingVersion ? 'Guardando...' : 'Guardar versión'))),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: OutlinedButton.icon(
+            onPressed: _uploadingVersion ? null : _uploadVersion,
+            icon: const Icon(Icons.cloud_upload_outlined),
+            label: Text(_uploadingVersion ? 'Subiendo...' : 'Subir archivo'),
+          ),
+        ),
       ],
     );
   }
@@ -647,8 +839,11 @@ class _GuionScreenState extends State<GuionScreen> {
                         fontSize: 12))),
           ] else if (version['archivo'] != null) ...[
             const SizedBox(height: 10),
-            Text('Versión cargada desde archivo',
-                style: GoogleFonts.inter(fontSize: 12, color: Colors.white60)),
+            OutlinedButton.icon(
+              onPressed: () => _openFile(version['archivo']?.toString()),
+              icon: const Icon(Icons.picture_as_pdf_outlined, size: 17),
+              label: const Text('Abrir archivo'),
+            ),
           ],
         ],
       ),
@@ -689,6 +884,36 @@ class _GuionScreenState extends State<GuionScreen> {
             style: const TextStyle(color: Colors.white),
             decoration: _decoration(label)),
       );
+
+  Widget _filePickerTile(
+      {required String? fileName, required VoidCallback onPick}) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0x1FE67E5C),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: LoginColors.accent.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.attach_file, color: LoginColors.accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              fileName ?? 'PDF, DOCX o FDX',
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(fontSize: 12, color: Colors.white70),
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: onPick,
+            icon: const Icon(Icons.folder_open_outlined, size: 16),
+            label: Text(fileName == null ? 'Seleccionar' : 'Cambiar'),
+          ),
+        ],
+      ),
+    );
+  }
 
   InputDecoration _decoration(String label) => InputDecoration(
         labelText: label,

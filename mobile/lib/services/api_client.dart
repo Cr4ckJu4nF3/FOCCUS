@@ -102,6 +102,40 @@ class ApiClient {
     return _send((uri, h) => http.delete(uri, headers: h), path, headers);
   }
 
+  static Future<ApiResponse> uploadMultipart(
+    String path, {
+    required String filePath,
+    required String fileField,
+    Map<String, String> fields = const {},
+  }) async {
+    final request = http.MultipartRequest('POST', ApiConfig.resolve(path));
+    final token = Session.getToken();
+    if (token != null && token.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+    request.fields.addAll(fields);
+    request.files.add(await http.MultipartFile.fromPath(fileField, filePath));
+
+    http.StreamedResponse streamedResponse;
+    try {
+      streamedResponse = await request.send().timeout(_timeout);
+    } catch (e) {
+      throw ApiConnectionException(e);
+    }
+
+    final response = await http.Response.fromStream(streamedResponse);
+    if (response.statusCode == 401) {
+      await Session.clear();
+      appNavigatorKey.currentState
+          ?.pushNamedAndRemoveUntil('/login', (_) => false);
+    }
+
+    return ApiResponse(
+      statusCode: response.statusCode,
+      body: _decode(response.body),
+    );
+  }
+
   static Future<ApiResponse> get(String path, {Map<String, String>? headers}) {
     return _send((uri, h) => http.get(uri, headers: h), path, headers);
   }
