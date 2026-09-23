@@ -1,0 +1,29 @@
+name: foccus_mobile
+description: FOCCUS - Continuidad para producciones audiovisuales
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  google_fonts: ^6.2.1
+  shared_preferences: ^2.5.5
+  http: ^1.2.2
+  file_picker: ^13.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/landing.jpeg
+    - assets/foccus_logo_white.png
+    - assets/foccus_wordmark_white.png
+    - assets/login_background.jpeg
+    - assets/login_logo.png
