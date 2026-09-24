@@ -237,6 +237,24 @@ def importar_desglose_pdf(id_guion: int, ruta_temporal: str, db: Session):
     escenas_actualizadas = 0
     requerimientos_creados = 0
 
+    # Calculamos el siguiente numero de requerimiento UNA sola vez, antes
+    # del bucle. Antes se llamaba a _generar_id_requerimiento(db) (que
+    # consulta la base) por cada item del PDF, con un db.flush() despues
+    # de cada uno para que la siguiente consulta viera el anterior - con
+    # un PDF de muchas escenas eso eran decenas de viajes de red a
+    # Railway uno detras de otro, lento como para que el navegador diera
+    # la conexion por perdida aunque el backend terminara bien igual.
+    # Ahora se calcula el numero de partida una vez y se incrementa en
+    # memoria, sin volver a tocar la base hasta el commit final.
+    ultimo_req = db.query(DesgloseRequerimiento).order_by(DesgloseRequerimiento.id_requerimiento.desc()).first()
+    if ultimo_req and ultimo_req.id_requerimiento.startswith("req"):
+        try:
+            siguiente_num_req = int(ultimo_req.id_requerimiento.replace("req", "")) + 1
+        except ValueError:
+            siguiente_num_req = 1
+    else:
+        siguiente_num_req = 1
+
     for data in escenas_parseadas:
         escena = (
             db.query(Escena)
@@ -279,14 +297,14 @@ def importar_desglose_pdf(id_guion: int, ruta_temporal: str, db: Session):
 
         for req in data["requerimientos"]:
             nuevo_req = DesgloseRequerimiento(
-                id_requerimiento=_generar_id_requerimiento(db),
+                id_requerimiento=f"req{siguiente_num_req:04d}",
                 id_desglose=desglose.id_desglose,
                 departamento=req["departamento"],
                 etiqueta=req["etiqueta"],
                 cantidad=req["cantidad"],
             )
             db.add(nuevo_req)
-            db.flush()
+            siguiente_num_req += 1
             requerimientos_creados += 1
 
     db.commit()
