@@ -64,8 +64,12 @@ def update_personaje(id_personaje: str, data: PersonajeUpdateSchema, db: Session
     if not personaje:
         return api_response(False, "Personaje no encontrado")
 
-    for key, value in data.model_dump(exclude_unset=True).items():
-        setattr(personaje, key, value)
+    cambios = data.model_dump(exclude_unset=True)
+    if "nombre" in cambios and not (cambios["nombre"] or "").strip():
+        return api_response(False, "El nombre del personaje no puede estar vacío")
+
+    for key, value in cambios.items():
+        setattr(personaje, key, value.strip() if key == "nombre" else value)
 
     db.commit()
     db.refresh(personaje)
