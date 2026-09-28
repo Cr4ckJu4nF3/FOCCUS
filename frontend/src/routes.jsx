@@ -11,6 +11,7 @@ import Landing from "./screen/Landing";
 import Roles from "./screen/Roles";
 import Guion from "./screen/Guion";
 import Escena from "./screen/Escena";
+import Personajes from "./screen/Personajes";
 import Rodaje from "./screen/Rodaje";
 import Desglose from "./screen/Desglose";
 import ProtectedRoute from "./screen/ProtectedRoute";
@@ -65,6 +66,10 @@ export const router = createBrowserRouter([
   {
     path: "/escenas",
     element: <ProtectedRoute><Escena /></ProtectedRoute>,
+  },
+  {
+    path: "/personajes",
+    element: <ProtectedRoute><Personajes /></ProtectedRoute>,
   },
   {
     path: "/rodaje",

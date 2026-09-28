@@ -136,8 +136,7 @@ export default function ProjectDashboardScreen() {
   const menuOptions = [
     "Guión",
     "Crear Escenas",
-    "Crear Personajes",
-    "Crew List",
+    "Personajes",
     "Plan de Rodaje",
     "Desglose",
     "Galería",
@@ -158,6 +157,11 @@ export default function ProjectDashboardScreen() {
 
     if (option === "Escenas" || option === "Crear Escenas") {
       navigate("/escenas", { state: { projectName, projectId } });
+      return;
+    }
+
+    if (option === "Personajes") {
+      navigate("/personajes", { state: { projectName, projectId } });
       return;
     }
 

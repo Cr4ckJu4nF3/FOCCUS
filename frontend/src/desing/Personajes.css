@@ -1,0 +1,599 @@
+.personajes-page {
+  min-height: 100vh;
+  background-image: linear-gradient(135deg, rgba(7, 10, 15, 0.92), rgba(15, 17, 22, 0.8)),
+    url("../assets/dashboard.jpeg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  color: #fafafa;
+}
+
+.personajes-header {
+  border-bottom: 1px solid rgba(230, 126, 92, 0.28);
+  background: rgba(13, 17, 22, 0.82);
+  backdrop-filter: blur(5px);
+}
+
+.personajes-header__inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.personajes-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: 1px solid rgba(230, 126, 92, 0.35);
+  color: #fafafa;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+}
+
+.personajes-header__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  background: rgba(11, 79, 138, 0.18);
+  border: 1px solid rgba(11, 79, 138, 0.28);
+  color: #dfeeff;
+  padding: 0.5rem 0.9rem;
+  font-weight: 600;
+}
+
+.personajes-main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 1.5rem;
+}
+
+.personajes-panel {
+  background: rgba(17, 20, 25, 0.9);
+  border: 1px solid rgba(250, 250, 250, 0.12);
+  border-radius: 1rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.personajes-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(250, 250, 250, 0.08);
+  background: rgba(230, 126, 92, 0.08);
+}
+
+.personajes-panel__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.personajes-panel__title-row h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.personajes-panel__header span {
+  color: #9ca3af;
+  font-size: 0.78rem;
+}
+
+.personajes-toolbar {
+  padding: 1.25rem 1.5rem 0.5rem;
+}
+
+.personajes-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: #f1f5f9;
+  font-size: 0.9rem;
+}
+
+.personajes-toolbar select,
+.personajes-form input,
+.personajes-form textarea,
+.personajes-form select {
+  width: 100%;
+  border: 1px solid rgba(250, 250, 250, 0.12);
+  border-radius: 0.6rem;
+  background: rgba(9, 13, 18, 0.85);
+  color: #fafafa;
+  padding: 0.8rem 0.9rem;
+  font: inherit;
+}
+
+.personajes-toolbar select:focus,
+.personajes-form input:focus,
+.personajes-form textarea:focus,
+.personajes-form select:focus {
+  outline: none;
+  border-color: #e67e5c;
+  box-shadow: 0 0 0 2px rgba(230, 126, 92, 0.18);
+}
+
+.personajes-list {
+  padding: 1rem 1.25rem 1.3rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.9rem;
+}
+
+.personajes-card {
+  background: rgba(8, 12, 17, 0.8);
+  border: 1px solid rgba(250, 250, 250, 0.08);
+  border-radius: 0.8rem;
+  padding: 1rem;
+}
+
+.personajes-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.personajes-card__number {
+  color: #9cc1ff;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.personajes-card__meta-tag {
+  border-radius: 999px;
+  background: rgba(11, 79, 138, 0.18);
+  color: #dfeeff;
+  font-size: 0.7rem;
+  padding: 0.25rem 0.55rem;
+}
+
+.personajes-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.personajes-card p {
+  margin: 0;
+  color: #bcc7d4;
+  line-height: 1.6;
+}
+
+.personajes-card__info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.8rem;
+  color: #dfe8ff;
+  font-size: 0.75rem;
+}
+
+.personajes-empty {
+  color: #b7bec9;
+  padding: 1.25rem 1.5rem;
+}
+
+.personajes-message {
+  margin: 1rem 1.5rem 0;
+  padding: 0.8rem 1rem;
+  border-radius: 0.7rem;
+  border: 1px solid transparent;
+  font-size: 0.88rem;
+}
+
+.personajes-message--error {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+.personajes-message--success {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #bbf7d0;
+}
+
+.personajes-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.personajes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.personajes-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: #f1f5f9;
+  font-size: 0.9rem;
+}
+
+.personajes-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  border-radius: 0.7rem;
+  background: linear-gradient(135deg, #e67e5c, #d86646);
+  color: #fff;
+  padding: 0.85rem 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.personajes-button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+
+@media (max-width: 980px) {
+  .personajes-main {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .personajes-header__inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .personajes-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Vista de un solo panel (lista / detalle) ===== */
+
+.personajes-main--single {
+  display: block;
+}
+
+.personajes-panel--wide {
+  width: 100%;
+}
+
+.personajes-toolbar--row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.personajes-toolbar--row label {
+  min-width: 220px;
+}
+
+.personajes-button--ghost {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fafafa;
+}
+
+.personajes-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Tabla de escenas (lista principal) ===== */
+
+.personajes-table {
+  padding: 0.5rem 1.25rem 1.3rem;
+}
+
+.personajes-table__head {
+  display: grid;
+  grid-template-columns: 90px 1fr 130px 130px 110px;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  color: #9ca3af;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.personajes-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 130px 130px 110px;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.85rem 0.9rem;
+  border-radius: 0.7rem;
+  background: rgba(8, 12, 17, 0.75);
+  border: 1px solid rgba(250, 250, 250, 0.06);
+  margin-bottom: 0.55rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.personajes-row:hover {
+  border-color: rgba(230, 126, 92, 0.5);
+  background: rgba(230, 126, 92, 0.06);
+}
+
+.personajes-row__numero {
+  color: #9cc1ff;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.personajes-row__encabezado {
+  color: #fafafa;
+  font-size: 0.9rem;
+}
+
+.personajes-row__dia {
+  color: #b9c2cf;
+  font-size: 0.82rem;
+}
+
+.personajes-row__actions {
+  display: flex;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.personajes-row__actions button {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 6px;
+  display: flex;
+}
+
+.personajes-row__actions button:hover {
+  color: #fafafa;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ===== Badge de estado de escena ===== */
+
+.personajes-badge {
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.personajes-badge--pendiente {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+}
+
+.personajes-badge--en-proceso {
+  background: rgba(230, 126, 92, 0.18);
+  color: #fed7c9;
+}
+
+.personajes-badge--finalizada {
+  background: rgba(16, 185, 129, 0.18);
+  color: #bbf7d0;
+}
+
+/* ===== Tabs del detalle de escena ===== */
+
+.personajes-tabs {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.9rem 1.25rem 0;
+}
+
+.personajes-tabs__tab {
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 0.6rem 0.2rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.personajes-tabs__tab:hover {
+  color: #fafafa;
+}
+
+.personajes-tabs__tab--active {
+  color: #e67e5c;
+  border-bottom-color: #e67e5c;
+}
+
+/* ===== Tab Información ===== */
+
+.personajes-info-grid {
+  padding: 1.25rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.personajes-info-grid > div {
+  background: rgba(8, 12, 17, 0.75);
+  border: 1px solid rgba(250, 250, 250, 0.07);
+  border-radius: 0.7rem;
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.personajes-info-grid span {
+  color: #9ca3af;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.personajes-info-grid strong {
+  color: #fafafa;
+  font-size: 0.92rem;
+}
+
+.personajes-info-grid__full {
+  grid-column: 1 / -1;
+}
+
+.personajes-info-grid__full p {
+  margin: 0;
+  color: #dfe8ff;
+  line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+  .personajes-info-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .personajes-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .personajes-table__head {
+    display: none;
+  }
+
+  .personajes-row {
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+  }
+
+  .personajes-row__actions {
+    justify-content: flex-start;
+  }
+}
+
+/* ===== Tab Continuidad visual + galería de fotos ===== */
+
+.personajes-continuidad {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.personajes-fotos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.9rem;
+}
+
+.personajes-foto-card {
+  display: block;
+  border-radius: 0.7rem;
+  overflow: hidden;
+  border: 1px solid rgba(250, 250, 250, 0.1);
+  background: rgba(8, 12, 17, 0.8);
+  text-decoration: none;
+}
+
+.personajes-foto-card img {
+  width: 100%;
+  height: 130px;
+  object-fit: cover;
+  display: block;
+}
+
+.personajes-foto-card__meta {
+  padding: 0.5rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.75rem;
+  color: #dfe8ff;
+}
+
+.personajes-foto-card__tipo {
+  text-transform: capitalize;
+  color: #fed7c9;
+  font-weight: 600;
+}
+
+/* ===== Modales ===== */
+
+.personajes-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 6, 9, 0.72);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 60;
+}
+
+.personajes-modal {
+  width: 100%;
+  max-width: 560px;
+  max-height: 88vh;
+  overflow-y: auto;
+  background: rgba(15, 18, 22, 0.98);
+  border: 1px solid rgba(250, 250, 250, 0.12);
+  border-radius: 1rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  padding: 1.5rem;
+}
+
+.personajes-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.personajes-modal__header h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+}
+
+.personajes-modal__close {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+}
+
+.personajes-modal__close:hover {
+  color: #fafafa;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.personajes-form--modal {
+  padding: 0;
+}
