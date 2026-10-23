@@ -74,6 +74,7 @@ export default function LoginScreen() {
         localStorage.setItem("mail", data.mail);
         localStorage.setItem("id_rol", data.id_rol);
         localStorage.setItem("id_client", data.id_client);
+        const dashboardPath = Number(data.id_rol) === 1001 ? "/admin-dashboard" : "/proyecto-dashboard";
 
         // Verificar si necesita 2FA
         const deviceId = getDeviceId();
@@ -97,10 +98,10 @@ export default function LoginScreen() {
             }
             navigate("/verificacion", { state: { mail: normalizedMail }, replace: true });
           } else {
-            navigate("/seleccion-proyecto", { replace: true });
+            navigate(dashboardPath, { replace: true });
           }
         } else {
-          navigate("/seleccion-proyecto", { replace: true });
+          navigate(dashboardPath, { replace: true });
         }
       } else {
         const detail = Array.isArray(result.detail)

@@ -35,7 +35,10 @@ export default function TwoFactorScreen() {
         if (data?.access_token) {
           setToken(data.access_token);
         }
-        navigate("/seleccion-proyecto");
+        const dashboardPath = Number(localStorage.getItem("id_rol")) === 1001
+          ? "/admin-dashboard"
+          : "/proyecto-dashboard";
+        navigate(dashboardPath, { replace: true });
       } else {
         setError(result.detail || result.message || result.error || "Código incorrecto o expirado");
       }
