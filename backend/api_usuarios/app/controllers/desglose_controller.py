@@ -1,10 +1,18 @@
 from sqlalchemy import case
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 from app.models.desglose_model import Desglose
 from app.models.desglose_requerimiento_model import DesgloseRequerimiento
 from app.models.escena_model import Escena
+from app.models.escena_galeria_item_model import EscenaGaleriaItem
+from app.models.galeria_model import GaleriaItem
+from app.models.galeria_lugar_personaje_model import GaleriaLugarPersonaje
+from app.models.Guion import Guion
 from app.models.rodaje_model import Rodaje
-from app.schemas.desglose_schema import DesgloseRequerimientoSchema, DesgloseRequerimientoUpdateSchema
+from app.schemas.desglose_schema import (
+    DesgloseRequerimientoSchema,
+    DesgloseRequerimientoUpdateSchema,
+    EscenaGaleriaItemSchema,
+)
 from app.utils.response import api_response
 from app.utils.desglose_parser import parse_desglose_pdf, extraer_texto_pdf
 
@@ -58,6 +66,67 @@ def _serializar_rodaje_breve(r: Rodaje):
     }
 
 
+def _serializar_elemento_vinculado(
+    link: EscenaGaleriaItem,
+    item: GaleriaItem,
+    personajes_vinculados: list[dict] | None = None,
+):
+    return {
+        "id_galeria": item.id_galeria,
+        "tipo": item.tipo,
+        "categoria": item.categoria,
+        "nombre": item.nombre,
+        "archivo_path": item.archivo_path,
+        "foto_pendiente": not bool(item.archivo_path),
+        "etiquetas": link.etiquetas,
+        "notas": link.notas,
+        "personajes_vinculados": personajes_vinculados or [],
+    }
+
+
+def _obtener_elementos_vinculados(id_escena: str, db: Session):
+    rows = db.query(EscenaGaleriaItem, GaleriaItem).join(
+        GaleriaItem, EscenaGaleriaItem.id_galeria == GaleriaItem.id_galeria
+    ).filter(
+        EscenaGaleriaItem.id_escena == id_escena
+    ).order_by(GaleriaItem.tipo, GaleriaItem.nombre).all()
+    linked_characters = {}
+    location_ids = [item.id_galeria for _, item in rows if item.tipo == "lugar"]
+    if location_ids:
+        character_item = aliased(GaleriaItem)
+        for id_location, id_character, name in db.query(
+            GaleriaLugarPersonaje.id_lugar_galeria,
+            character_item.id_galeria,
+            character_item.nombre,
+        ).join(
+            character_item,
+            GaleriaLugarPersonaje.id_personaje_galeria == character_item.id_galeria,
+        ).filter(
+            GaleriaLugarPersonaje.id_lugar_galeria.in_(location_ids),
+        ).order_by(character_item.nombre).all():
+            linked_characters.setdefault(id_location, []).append({
+                "id_galeria": id_character,
+                "nombre": name,
+            })
+    return [
+        _serializar_elemento_vinculado(
+            link,
+            item,
+            linked_characters.get(item.id_galeria, []),
+        )
+        for link, item in rows
+    ]
+
+
+def _obtener_escena_del_proyecto(id_escena: str, id_project: str, db: Session):
+    return db.query(Escena).join(
+        Guion, Escena.id_guion == Guion.id_guion
+    ).filter(
+        Escena.id_escena == id_escena,
+        Guion.id_project == id_project,
+    ).first()
+
+
 def _obtener_o_crear_desglose(escena: Escena, db: Session) -> Desglose:
     if escena.id_desglose:
         desglose = db.query(Desglose).filter(Desglose.id_desglose == escena.id_desglose).first()
@@ -78,10 +147,12 @@ def _obtener_o_crear_desglose(escena: Escena, db: Session) -> Desglose:
 
 # Desglose de UNA escena puntual (para el panel de detalle)
 
-def get_desglose_by_escena(id_escena: str, db: Session):
+def get_desglose_by_escena(id_escena: str, db: Session, id_project: str | None = None):
     escena = db.query(Escena).filter(Escena.id_escena == id_escena).first()
     if not escena:
         return api_response(False, "Escena no encontrada")
+    if id_project and not _obtener_escena_del_proyecto(id_escena, id_project, db):
+        return api_response(False, "La escena no pertenece a este proyecto", error="INVALID_SCENE")
 
     requerimientos = []
     if escena.id_desglose:
@@ -98,7 +169,8 @@ def get_desglose_by_escena(id_escena: str, db: Session):
         "id_escena": escena.id_escena,
         "id_desglose": escena.id_desglose,
         "rodaje": _serializar_rodaje_breve(rodaje),
-        "requerimientos": [_serializar_requerimiento(r) for r in requerimientos]
+        "requerimientos": [_serializar_requerimiento(r) for r in requerimientos],
+        "elementos_galeria": _obtener_elementos_vinculados(id_escena, db),
     })
 
 
@@ -106,10 +178,18 @@ def get_desglose_by_escena(id_escena: str, db: Session):
 # resumen de conteos por departamento (para las etiquetas de la lista
 # principal, ej. "Props (3) SFX (1)")
 
-def get_desglose_by_guion(id_guion: int, db: Session):
+def get_desglose_by_guion(id_guion: int, db: Session, id_project: str | None = None):
+    escenas_query = db.query(Escena).filter(Escena.id_guion == id_guion)
+    if id_project:
+        guion = db.query(Guion.id_guion).filter(
+            Guion.id_guion == id_guion,
+            Guion.id_project == id_project,
+        ).first()
+        if not guion:
+            return api_response(False, "El guion no pertenece a este proyecto", error="INVALID_SCRIPT")
+
     escenas = (
-        db.query(Escena)
-        .filter(Escena.id_guion == id_guion)
+        escenas_query
         .order_by(
             case((Escena.dia_dramatico.is_(None), 1), else_=0),
             Escena.dia_dramatico.asc(),
@@ -125,6 +205,17 @@ def get_desglose_by_guion(id_guion: int, db: Session):
     if ids_rodaje:
         for r in db.query(Rodaje).filter(Rodaje.id_rodaje.in_(ids_rodaje)).all():
             rodajes_por_id[r.id_rodaje] = r
+
+    elementos_por_escena = {}
+    ids_escena = [escena.id_escena for escena in escenas]
+    if ids_escena:
+        rows = db.query(EscenaGaleriaItem, GaleriaItem).join(
+            GaleriaItem, EscenaGaleriaItem.id_galeria == GaleriaItem.id_galeria
+        ).filter(EscenaGaleriaItem.id_escena.in_(ids_escena)).all()
+        for link, item in rows:
+            elementos_por_escena.setdefault(link.id_escena, []).append(
+                _serializar_elemento_vinculado(link, item)
+            )
 
     resultado = []
     for escena in escenas:
@@ -150,12 +241,69 @@ def get_desglose_by_guion(id_guion: int, db: Session):
             "estado": escena.estado or "Pendiente",
             "rodaje": _serializar_rodaje_breve(rodajes_por_id.get(escena.id_rodaje)),
             "total_requerimientos": len(requerimientos),
+            "elementos_galeria": elementos_por_escena.get(escena.id_escena, []),
             "resumen_departamentos": [
                 {"departamento": dep, "cantidad": cant} for dep, cant in resumen.items()
             ]
         })
 
     return api_response(True, "Desglose del guion", resultado)
+
+
+def add_gallery_item_to_scene(
+    id_escena: str,
+    id_project: str,
+    data: EscenaGaleriaItemSchema,
+    db: Session,
+):
+    scene = _obtener_escena_del_proyecto(id_escena, id_project, db)
+    if not scene:
+        return api_response(False, "La escena no pertenece a este proyecto", error="INVALID_SCENE")
+    item = db.query(GaleriaItem).filter(
+        GaleriaItem.id_project == id_project,
+        GaleriaItem.id_galeria == data.id_galeria,
+    ).first()
+    if not item:
+        return api_response(False, "El elemento no pertenece a la galería de este proyecto", error="INVALID_ITEM")
+
+    link = db.query(EscenaGaleriaItem).filter(
+        EscenaGaleriaItem.id_escena == id_escena,
+        EscenaGaleriaItem.id_galeria == data.id_galeria,
+    ).first()
+    if link:
+        link.etiquetas = data.etiquetas
+        link.notas = data.notas
+    else:
+        link = EscenaGaleriaItem(
+            id_escena=id_escena,
+            id_galeria=data.id_galeria,
+            etiquetas=data.etiquetas,
+            notas=data.notas,
+        )
+        db.add(link)
+
+    db.commit()
+    db.refresh(link)
+    return api_response(True, "Elemento vinculado a la escena", _serializar_elemento_vinculado(link, item))
+
+
+def remove_gallery_item_from_scene(id_escena: str, id_galeria: int, id_project: str, db: Session):
+    if not _obtener_escena_del_proyecto(id_escena, id_project, db):
+        return api_response(False, "La escena no pertenece a este proyecto", error="INVALID_SCENE")
+
+    link = db.query(EscenaGaleriaItem).join(
+        GaleriaItem, EscenaGaleriaItem.id_galeria == GaleriaItem.id_galeria
+    ).filter(
+        EscenaGaleriaItem.id_escena == id_escena,
+        EscenaGaleriaItem.id_galeria == id_galeria,
+        GaleriaItem.id_project == id_project,
+    ).first()
+    if not link:
+        return api_response(False, "El elemento no está vinculado a esta escena", error="NOT_FOUND")
+
+    db.delete(link)
+    db.commit()
+    return api_response(True, "Elemento desvinculado de la escena")
 
 
 # ---------- Mutaciones sobre requerimientos ----------

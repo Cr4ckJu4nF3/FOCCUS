@@ -10,6 +10,8 @@ import {
   UploadCloud,
   CalendarDays,
   Link2Off,
+  Link2,
+  CameraOff,
 } from "lucide-react";
 import { apiFetch, getActiveRole, getProjectHeaders, getToken } from "../api";
 import API_URL from "../api";
@@ -80,8 +82,26 @@ export default function DesgloseScreen() {
   // panel de detalle (requerimientos de una escena)
   const [escenaActiva, setEscenaActiva] = useState(null);
   const [requerimientos, setRequerimientos] = useState([]);
+  const [elementosGaleria, setElementosGaleria] = useState([]);
+  const [galeriaProyecto, setGaleriaProyecto] = useState([]);
   const [loadingRequerimientos, setLoadingRequerimientos] = useState(false);
   const [rodajeAsignado, setRodajeAsignado] = useState(null);
+  const [mostrarVincularElemento, setMostrarVincularElemento] = useState(false);
+  const [mostrarCrearElemento, setMostrarCrearElemento] = useState(false);
+  const [elementoSeleccionado, setElementoSeleccionado] = useState("");
+  const [etiquetasElemento, setEtiquetasElemento] = useState("");
+  const [notasElemento, setNotasElemento] = useState("");
+  const [nuevoElemento, setNuevoElemento] = useState({
+    tipo: "personaje",
+    nombre: "",
+    categoria: "",
+    descripcion: "",
+    etiquetas: "",
+    notas: "",
+    personajes_vinculados: [],
+  });
+  const [fotoNuevoElemento, setFotoNuevoElemento] = useState(null);
+  const [guardandoElemento, setGuardandoElemento] = useState(false);
 
   // dias de rodaje del proyecto (para poder asignar la escena a uno)
   const [diasRodaje, setDiasRodaje] = useState([]);
@@ -147,9 +167,26 @@ export default function DesgloseScreen() {
     }
   };
 
+  const fetchGaleria = async () => {
+    if (!projectId) return;
+    try {
+      const response = await apiFetch(`/projects/${encodeURIComponent(projectId)}/galeria`);
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.detail || data.message || "No se pudo cargar la galería");
+      }
+      setGaleriaProyecto(Array.isArray(data.data) ? data.data : []);
+    } catch (err) {
+      setError(err.message || "No se pudo cargar la galería del proyecto");
+    }
+  };
+
   useEffect(() => {
+    // Loading state is set as the project's asynchronous data requests start.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchGuiones();
     fetchDiasRodaje();
+    fetchGaleria();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
@@ -162,6 +199,7 @@ export default function DesgloseScreen() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || data.message || "No se pudo cargar el desglose de la escena");
       setRequerimientos(data.data?.requerimientos || []);
+      setElementosGaleria(data.data?.elementos_galeria || []);
       setRodajeAsignado(data.data?.rodaje || null);
     } catch (err) {
       setError(err.message || "Error al cargar la escena");
@@ -175,7 +213,115 @@ export default function DesgloseScreen() {
     setRequerimientos([]);
     setRodajeAsignado(null);
     setShowForm(false);
+    setMostrarVincularElemento(false);
+    setMostrarCrearElemento(false);
     fetchDesglose(selectedGuionId);
+  };
+
+  const recargarElementosEscena = async () => {
+    if (!escenaActiva) return;
+    const response = await apiFetch(`/escenas/${escenaActiva.id_escena}/desglose`);
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(data.detail || data.message || "No se pudieron actualizar los elementos de la escena");
+    }
+    setElementosGaleria(data.data?.elementos_galeria || []);
+    await fetchDesglose(selectedGuionId);
+  };
+
+  const handleVincularElemento = async (event) => {
+    event.preventDefault();
+    setError("");
+    if (!elementoSeleccionado || !escenaActiva) return;
+    setGuardandoElemento(true);
+    try {
+      const response = await apiFetch(`/escenas/${escenaActiva.id_escena}/desglose/galeria`, {
+        method: "POST",
+        body: JSON.stringify({
+          id_galeria: Number(elementoSeleccionado),
+          etiquetas: etiquetasElemento.trim() || null,
+          notas: notasElemento.trim() || null,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.detail || data.message || "No se pudo vincular el elemento");
+      }
+      setElementoSeleccionado("");
+      setEtiquetasElemento("");
+      setNotasElemento("");
+      setMostrarVincularElemento(false);
+      setSuccess("Elemento vinculado a la escena");
+      await recargarElementosEscena();
+    } catch (linkError) {
+      setError(linkError.message || "No se pudo vincular el elemento");
+    } finally {
+      setGuardandoElemento(false);
+    }
+  };
+
+  const handleCrearElementoVinculado = async (event) => {
+    event.preventDefault();
+    setError("");
+    setGuardandoElemento(true);
+    try {
+      const formData = new FormData();
+      formData.append("tipo", nuevoElemento.tipo);
+      formData.append("nombre", nuevoElemento.nombre.trim());
+      formData.append("categoria", nuevoElemento.categoria.trim());
+      formData.append("descripcion", nuevoElemento.descripcion.trim());
+      formData.append("etiquetas", nuevoElemento.etiquetas.trim());
+      formData.append("notas", nuevoElemento.notas.trim());
+      (nuevoElemento.personajes_vinculados || []).forEach((idGaleria) => {
+        formData.append("personajes_vinculados", String(idGaleria));
+      });
+      if (fotoNuevoElemento) formData.append("foto", fotoNuevoElemento);
+
+      const response = await apiFetch(
+        `/escenas/${escenaActiva.id_escena}/desglose/galeria/nuevo`,
+        { method: "POST", headers: {}, body: formData },
+      );
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.detail || data.message || "No se pudo crear y vincular el elemento");
+      }
+      setNuevoElemento({
+        tipo: "personaje",
+        nombre: "",
+        categoria: "",
+        descripcion: "",
+        etiquetas: "",
+        notas: "",
+        personajes_vinculados: [],
+      });
+      setFotoNuevoElemento(null);
+      setMostrarCrearElemento(false);
+      setSuccess("Elemento creado en Galería y vinculado a la escena");
+      await Promise.all([fetchGaleria(), recargarElementosEscena()]);
+    } catch (createError) {
+      setError(createError.message || "No se pudo crear el elemento");
+    } finally {
+      setGuardandoElemento(false);
+    }
+  };
+
+  const handleDesvincularElemento = async (idGaleria) => {
+    if (!escenaActiva || !window.confirm("¿Desvincular este elemento de la escena? Seguirá guardado en Galería.")) return;
+    setError("");
+    try {
+      const response = await apiFetch(
+        `/escenas/${escenaActiva.id_escena}/desglose/galeria/${idGaleria}`,
+        { method: "DELETE" },
+      );
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.detail || data.message || "No se pudo desvincular el elemento");
+      }
+      setSuccess("Elemento desvinculado; la ficha sigue en Galería");
+      await recargarElementosEscena();
+    } catch (removeError) {
+      setError(removeError.message || "No se pudo desvincular el elemento");
+    }
   };
 
   const handleAsignarDia = async () => {
@@ -385,6 +531,11 @@ export default function DesgloseScreen() {
                             </span>
                           ))
                         )}
+                        {(escena.elementos_galeria || []).map((item) => (
+                          <span key={item.id_galeria} className="dsg-tag dsg-tag--gallery">
+                            {item.tipo}: {item.nombre}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   ))}
@@ -455,6 +606,217 @@ export default function DesgloseScreen() {
                 ))}
               </div>
             )}
+
+            <section className="dsg-gallery-links">
+              <div className="dsg-gallery-links__header">
+                <div>
+                  <h4>Elementos vinculados</h4>
+                  <p>Personajes, lugares y objetos usados en esta escena desde Galería.</p>
+                </div>
+                <span>{elementosGaleria.length}</span>
+              </div>
+              {elementosGaleria.length === 0 ? (
+                <p className="dsg-empty dsg-gallery-links__empty">Todavía no hay fichas vinculadas a esta escena.</p>
+              ) : (
+                <div className="dsg-gallery-items">
+                  {elementosGaleria.map((item) => (
+                    <article className="dsg-gallery-item" key={item.id_galeria}>
+                      {item.archivo_path ? (
+                        <img src={`${API_URL}/assets/${item.archivo_path}`} alt="" />
+                      ) : (
+                        <span className="dsg-gallery-item__placeholder"><CameraOff size={18} /></span>
+                      )}
+                      <div className="dsg-gallery-item__content">
+                        <span className={`dsg-gallery-item__type dsg-gallery-item__type--${item.tipo}`}>
+                          {item.tipo}
+                        </span>
+                        <strong>{item.nombre}</strong>
+                        {item.categoria && <small>{item.categoria}</small>}
+                        {item.etiquetas && <span className="dsg-gallery-item__tags">{item.etiquetas}</span>}
+                        {item.personajes_vinculados?.length > 0 && (
+                          <small>Personajes: {item.personajes_vinculados.map((character) => character.nombre).join(", ")}</small>
+                        )}
+                        {item.notas && <p>{item.notas}</p>}
+                        {item.foto_pendiente && <small className="dsg-gallery-item__pending">Imagen pendiente de agregar en Galería</small>}
+                      </div>
+                      {esAdmin && (
+                        <button
+                          type="button"
+                          className="dsg-req-item__delete"
+                          onClick={() => handleDesvincularElemento(item.id_galeria)}
+                          title="Desvincular de la escena"
+                        >
+                          <Link2Off size={15} />
+                        </button>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
+              {esAdmin && (
+                <div className="dsg-gallery-links__actions">
+                  <button
+                    type="button"
+                    className="dsg-button dsg-button--ghost"
+                    onClick={() => {
+                      setMostrarCrearElemento(false);
+                      setMostrarVincularElemento((visible) => !visible);
+                    }}
+                  >
+                    <Link2 size={15} /> Vincular de Galería
+                  </button>
+                  <button
+                    type="button"
+                    className="dsg-button"
+                    onClick={() => {
+                      setMostrarVincularElemento(false);
+                      setMostrarCrearElemento((visible) => !visible);
+                    }}
+                  >
+                    <Plus size={15} /> Crear aquí
+                  </button>
+                </div>
+              )}
+              {esAdmin && mostrarVincularElemento && (
+                <form className="dsg-form dsg-gallery-form" onSubmit={handleVincularElemento}>
+                  <label>
+                    Ficha existente
+                    <select
+                      value={elementoSeleccionado}
+                      onChange={(event) => setElementoSeleccionado(event.target.value)}
+                      required
+                    >
+                      <option value="">Selecciona un personaje, lugar u objeto</option>
+                      {galeriaProyecto
+                        .filter((item) => !elementosGaleria.some((linked) => String(linked.id_galeria) === String(item.id_galeria)))
+                        .map((item) => (
+                          <option key={item.id_galeria} value={item.id_galeria}>
+                            {item.tipo} · {item.nombre}{item.categoria ? ` (${item.categoria})` : ""}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <label>
+                    Etiquetas de uso
+                    <input
+                      value={etiquetasElemento}
+                      onChange={(event) => setEtiquetasElemento(event.target.value)}
+                      placeholder="Ej. protagonista, vestuario rojo"
+                      maxLength={255}
+                    />
+                  </label>
+                  <label>
+                    Notas de esta escena
+                    <textarea rows={2} value={notasElemento} onChange={(event) => setNotasElemento(event.target.value)} />
+                  </label>
+                  <div className="dsg-form__actions">
+                    <button type="button" className="dsg-button dsg-button--ghost" onClick={() => setMostrarVincularElemento(false)}>Cancelar</button>
+                    <button type="submit" className="dsg-button" disabled={guardandoElemento}>
+                      <Link2 size={15} /> {guardandoElemento ? "Vinculando…" : "Vincular a escena"}
+                    </button>
+                  </div>
+                </form>
+              )}
+              {esAdmin && mostrarCrearElemento && (
+                <form className="dsg-form dsg-gallery-form" onSubmit={handleCrearElementoVinculado}>
+                  <div className="dsg-grid">
+                    <label>
+                      Tipo de ficha
+                      <select
+                        value={nuevoElemento.tipo}
+                        onChange={(event) => setNuevoElemento((current) => ({ ...current, tipo: event.target.value }))}
+                      >
+                        <option value="personaje">Personaje</option>
+                        <option value="lugar">Lugar</option>
+                        <option value="objeto">Objeto</option>
+                      </select>
+                    </label>
+                    <label>
+                      Categoría
+                      <input
+                        value={nuevoElemento.categoria}
+                        onChange={(event) => setNuevoElemento((current) => ({ ...current, categoria: event.target.value }))}
+                        placeholder="Ej. Protagonista, Interior, Utilería"
+                        maxLength={80}
+                      />
+                    </label>
+                  </div>
+                  <label>
+                    Nombre
+                    <input
+                      value={nuevoElemento.nombre}
+                      onChange={(event) => setNuevoElemento((current) => ({ ...current, nombre: event.target.value }))}
+                      maxLength={150}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Descripción
+                    <textarea
+                      rows={3}
+                      value={nuevoElemento.descripcion}
+                      onChange={(event) => setNuevoElemento((current) => ({ ...current, descripcion: event.target.value }))}
+                      required
+                    />
+                  </label>
+                  {nuevoElemento.tipo === "lugar" && (
+                    <label>
+                      Personajes vinculados a este lugar
+                      <select
+                        multiple
+                        value={(nuevoElemento.personajes_vinculados || []).map(String)}
+                        onChange={(event) => setNuevoElemento((current) => ({
+                          ...current,
+                          personajes_vinculados: Array.from(
+                            event.target.selectedOptions,
+                            (option) => Number(option.value),
+                          ),
+                        }))}
+                      >
+                        {elementosGaleria
+                          .filter((item) => item.tipo === "personaje")
+                          .map((item) => (
+                            <option key={item.id_galeria} value={item.id_galeria}>{item.nombre}</option>
+                          ))}
+                      </select>
+                      <small>Los personajes vinculados a la escena aparecen aquí; mantén Ctrl/Cmd para elegir varios. Crea primero las fichas nuevas.</small>
+                    </label>
+                  )}
+                  <div className="dsg-grid">
+                    <label>
+                      Etiquetas de uso
+                      <input
+                        value={nuevoElemento.etiquetas}
+                        onChange={(event) => setNuevoElemento((current) => ({ ...current, etiquetas: event.target.value }))}
+                        placeholder="Ej. protagonista, interior"
+                        maxLength={255}
+                      />
+                    </label>
+                    <label>
+                      Foto opcional
+                      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setFotoNuevoElemento(event.target.files?.[0] || null)} />
+                    </label>
+                  </div>
+                  <label>
+                    Notas para esta escena
+                    <textarea
+                      rows={2}
+                      value={nuevoElemento.notas}
+                      onChange={(event) => setNuevoElemento((current) => ({ ...current, notas: event.target.value }))}
+                    />
+                  </label>
+                  <p className="dsg-gallery-form__hint">
+                    Se guardará la ficha en Galería y quedará vinculada a esta escena. Si no agregas una foto, podrás subirla después desde Galería.
+                  </p>
+                  <div className="dsg-form__actions">
+                    <button type="button" className="dsg-button dsg-button--ghost" onClick={() => setMostrarCrearElemento(false)}>Cancelar</button>
+                    <button type="submit" className="dsg-button" disabled={guardandoElemento}>
+                      <Plus size={15} /> {guardandoElemento ? "Guardando…" : "Crear y vincular"}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </section>
 
             {esAdmin && !showForm && (
               <button type="button" className="dsg-button" onClick={() => setShowForm(true)}>

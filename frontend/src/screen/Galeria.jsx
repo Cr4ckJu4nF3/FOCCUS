@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -35,6 +35,7 @@ const emptyForm = {
   lugar_apariencia: "",
   lugar_objetos: "",
   lugar_personajes: "",
+  personajes_vinculados: [],
   ultimo_uso: "",
   estado: "Disponible",
 };
@@ -110,6 +111,7 @@ const parseResult = async (response, fallback) => {
 export function GalleryModal({
   item,
   characters,
+  galleryCharacters,
   locations,
   scripts,
   scenes,
@@ -132,6 +134,7 @@ export function GalleryModal({
         : item.tipo === "lugar"
           ? item.lugar_apariencia || item.descripcion
           : item.descripcion,
+      personajes_vinculados: (item.personajes_vinculados || []).map((character) => character.id_galeria),
     };
   });
   const [photo, setPhoto] = useState(null);
@@ -329,7 +332,23 @@ export function GalleryModal({
                 )}
                 {field("lugar_detalle_ubicacion", "Ubicación detallada", "Dirección, zona, accesos o referencias…", 2)}
                 {field("lugar_objetos", "Objetos usados en el lugar", "Vestuario, utilería, maquillaje u otros elementos…", 2)}
-                {field("lugar_personajes", "Personajes que aparecen en el lugar", "Nombres y detalles de uso o interacción…", 2)}
+                <label className="gallery-field gallery-field--wide">
+                  <span>Personajes vinculados a este lugar</span>
+                  <select
+                    multiple
+                    value={(form.personajes_vinculados || []).map(String)}
+                    onChange={(event) => setForm((current) => ({
+                      ...current,
+                      personajes_vinculados: Array.from(event.target.selectedOptions, (option) => Number(option.value)),
+                    }))}
+                  >
+                    {galleryCharacters.map((character) => (
+                      <option key={character.value} value={character.value}>{character.label}</option>
+                    ))}
+                  </select>
+                  <small>Para vincular varios, mantén Ctrl/Cmd al seleccionar. Crea primero las fichas nuevas de personaje.</small>
+                </label>
+                {field("lugar_personajes", "Notas sobre personajes en el lugar", "Detalles de interacción o uso…", 2)}
               </>
             )}
 
@@ -415,6 +434,7 @@ function GalleryDetails({ item, characters, locations, scripts, scenes, isAdmin,
     ["Descripción del intérprete", item.interprete_descripcion],
     ["Ubicación detallada", item.lugar_detalle_ubicacion],
     ["Objetos usados en el lugar", item.lugar_objetos],
+    ["Fichas de personajes vinculadas", (item.personajes_vinculados || []).map((linked) => linked.nombre).join(", ")],
     ["Personajes en el lugar", item.lugar_personajes],
     ["Último uso", item.ultimo_uso],
   ].filter(([, value]) => value);
@@ -481,7 +501,14 @@ function GalleryDetails({ item, characters, locations, scripts, scenes, isAdmin,
           </div>
           <button type="button" className="gallery-icon-button" onClick={onClose} aria-label="Cerrar"><X size={19} /></button>
         </header>
-        <img className="gallery-details__image" src={`${API_URL}/assets/${item.archivo_path}`} alt={item.nombre} />
+        {item.archivo_path ? (
+          <img className="gallery-details__image" src={`${API_URL}/assets/${item.archivo_path}`} alt={item.nombre} />
+        ) : (
+          <div className="gallery-details__image-placeholder" role="img" aria-label="Fotografía pendiente">
+            <CameraOff size={28} />
+            <span>Fotografía pendiente</span>
+          </div>
+        )}
         <div className="gallery-details__body">
           <p>{getDescription(item)}</p>
           <span className={`gallery-status gallery-status--${item.estado.toLowerCase().replace(/\s+/g, "-")}`}>{item.estado}</span>
@@ -586,7 +613,7 @@ export default function GaleriaScreen() {
   const [editorItem, setEditorItem] = useState(null);
   const [detailsItem, setDetailsItem] = useState(null);
 
-  const loadGallery = async () => {
+  const loadGallery = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -616,15 +643,17 @@ export default function GaleriaScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
     if (!projectId) {
       navigate("/seleccion-proyecto", { replace: true });
       return;
     }
+    // Loading state is set as the asynchronous data request starts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadGallery();
-  }, [projectId]);
+  }, [loadGallery, navigate, projectId]);
 
   const filteredItems = useMemo(() => items.filter((item) => {
     const matchesType = filter === "todos" || item.tipo === filter;
@@ -653,6 +682,7 @@ export default function GaleriaScreen() {
       values.lugar_detalle_ubicacion = null;
       values.lugar_objetos = null;
       values.lugar_personajes = null;
+      delete values.personajes_vinculados;
     }
     if (values.tipo === "personaje") values.id_escenario = null;
     if (values.tipo === "lugar") values.id_personaje = null;
@@ -677,7 +707,11 @@ export default function GaleriaScreen() {
       } else {
         const formData = new FormData();
         Object.entries(values).forEach(([key, value]) => {
-          if (value !== null && value !== "") formData.append(key, String(value));
+          if (Array.isArray(value)) {
+            value.forEach((entry) => formData.append(key, String(entry)));
+          } else if (value !== null && value !== "") {
+            formData.append(key, String(value));
+          }
         });
         formData.append("foto", photo);
         const response = await apiFetch(`/projects/${encodeURIComponent(projectId)}/galeria`, {
@@ -773,7 +807,14 @@ export default function GaleriaScreen() {
             {filteredItems.map((item) => (
               <article className="gallery-card" key={item.id_galeria}>
                 <button type="button" className="gallery-card__image-button" onClick={() => setDetailsItem(item)} aria-label={`Ver detalles de ${item.nombre}`}>
-                  <img src={`${API_URL}/assets/${item.archivo_path}`} alt={item.nombre} loading="lazy" />
+                  {item.archivo_path ? (
+                    <img src={`${API_URL}/assets/${item.archivo_path}`} alt={item.nombre} loading="lazy" />
+                  ) : (
+                    <span className="gallery-card__image-placeholder">
+                      <CameraOff size={24} />
+                      <small>Imagen pendiente</small>
+                    </span>
+                  )}
                   <span className="gallery-card__type">{tipoLabels[item.tipo]}</span>
                 </button>
                 <div className="gallery-card__body">
@@ -821,6 +862,9 @@ export default function GaleriaScreen() {
           key={editorItem.id_galeria || "new"}
           item={editorItem.id_galeria ? editorItem : null}
           characters={characters}
+          galleryCharacters={items
+            .filter((item) => item.tipo === "personaje")
+            .map((item) => ({ value: item.id_galeria, label: item.nombre }))}
           locations={locations}
           scripts={scripts}
           scenes={scenes}

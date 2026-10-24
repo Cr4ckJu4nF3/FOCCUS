@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import Login from "./screen/Login";
 import TwoFactor from "./screen/TwoFactor";
 import CompleteInvitation from "./screen/CompleteInvitation";
@@ -12,7 +12,6 @@ import Landing from "./screen/Landing";
 import Roles from "./screen/Roles";
 import Guion from "./screen/Guion";
 import Escena from "./screen/Escena";
-import Personajes from "./screen/Personajes";
 import Rodaje from "./screen/Rodaje";
 import Desglose from "./screen/Desglose";
 import Galeria from "./screen/Galeria";
@@ -79,7 +78,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/personajes",
-    element: <ProtectedRoute><Personajes /></ProtectedRoute>,
+    element: <ProtectedRoute><Navigate to="/galeria" replace /></ProtectedRoute>,
   },
   {
     path: "/rodaje",

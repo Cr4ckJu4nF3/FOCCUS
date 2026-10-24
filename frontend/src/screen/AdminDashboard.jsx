@@ -390,9 +390,6 @@ export default function AdminDashboardScreen() {
           <button className="admin-navigation__item" disabled={!projectId} onClick={() => navigateToModule("/escenas")} type="button">
             <Film size={18} /> Escenas
           </button>
-          <button className="admin-navigation__item" disabled={!projectId} onClick={() => navigateToModule("/personajes")} type="button">
-            <UserRound size={18} /> Personajes
-          </button>
           <button className="admin-navigation__item" disabled={!projectId} onClick={() => navigateToModule("/rodaje")} type="button">
             <CalendarDays size={18} /> Plan de rodaje
           </button>

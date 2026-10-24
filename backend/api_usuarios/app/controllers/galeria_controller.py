@@ -6,12 +6,14 @@ from typing import Optional
 
 from fastapi import UploadFile
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.models.Guion import Guion
 from app.models.escena_model import Escena
+from app.models.escena_galeria_item_model import EscenaGaleriaItem
 from app.models.escenario_model import Escenario
 from app.models.galeria_model import GaleriaItem
+from app.models.galeria_lugar_personaje_model import GaleriaLugarPersonaje
 from app.models.galeria_version_model import GaleriaVersion
 from app.models.galeria_version_foto_model import GaleriaVersionFoto
 from app.models.personajes_model import Personaje
@@ -28,6 +30,7 @@ def _serialize(
     item: GaleriaItem,
     version_count: int = 0,
     pending_photo_count: int = 0,
+    personajes_vinculados: Optional[list[dict]] = None,
 ) -> dict:
     return {
         "id_galeria": item.id_galeria,
@@ -37,6 +40,7 @@ def _serialize(
         "nombre": item.nombre,
         "descripcion": item.descripcion,
         "archivo_path": item.archivo_path,
+        "foto_pendiente": not bool(item.archivo_path),
         "id_personaje": item.id_personaje,
         "id_escenario": item.id_escenario,
         "id_escena": item.id_escena,
@@ -48,6 +52,7 @@ def _serialize(
         "lugar_apariencia": item.lugar_apariencia,
         "lugar_objetos": item.lugar_objetos,
         "lugar_personajes": item.lugar_personajes,
+        "personajes_vinculados": personajes_vinculados or [],
         "ultimo_uso": item.ultimo_uso.isoformat() if item.ultimo_uso else None,
         "estado": item.estado,
         "total_versiones": version_count,
@@ -55,6 +60,56 @@ def _serialize(
         "fecha_creacion": item.fecha_creacion.isoformat() if item.fecha_creacion else None,
         "fecha_actualizacion": item.fecha_actualizacion.isoformat() if item.fecha_actualizacion else None,
     }
+
+
+def _get_linked_characters(id_lugar_galeria: int, db: Session) -> list[dict]:
+    personaje_item = aliased(GaleriaItem)
+    rows = db.query(
+        personaje_item.id_galeria,
+        personaje_item.nombre,
+    ).join(
+        GaleriaLugarPersonaje,
+        GaleriaLugarPersonaje.id_personaje_galeria == personaje_item.id_galeria,
+    ).filter(
+        GaleriaLugarPersonaje.id_lugar_galeria == id_lugar_galeria,
+    ).order_by(personaje_item.nombre).all()
+    return [{"id_galeria": id_galeria, "nombre": nombre} for id_galeria, nombre in rows]
+
+
+def _validate_linked_characters(
+    id_project: str,
+    id_character_items: Optional[list[int]],
+    db: Session,
+) -> tuple[list[int], Optional[str]]:
+    if not id_character_items:
+        return [], None
+
+    character_ids = list(dict.fromkeys(id_character_items))
+    items = db.query(GaleriaItem).filter(
+        GaleriaItem.id_project == id_project,
+        GaleriaItem.id_galeria.in_(character_ids),
+        GaleriaItem.tipo == "personaje",
+    ).all()
+    if len(items) != len(character_ids):
+        return [], "Selecciona fichas de personaje de la galería de este proyecto"
+    return character_ids, None
+
+
+def _sync_linked_characters(
+    id_lugar_galeria: int,
+    id_character_items: list[int],
+    db: Session,
+) -> None:
+    db.query(GaleriaLugarPersonaje).filter(
+        GaleriaLugarPersonaje.id_lugar_galeria == id_lugar_galeria,
+    ).delete(synchronize_session=False)
+    db.add_all(
+        GaleriaLugarPersonaje(
+            id_lugar_galeria=id_lugar_galeria,
+            id_personaje_galeria=id_character,
+        )
+        for id_character in id_character_items
+    )
 
 
 def _get_item(id_project: str, id_galeria: int, db: Session) -> Optional[GaleriaItem]:
@@ -234,6 +289,24 @@ def get_items(id_project: str, db: Session):
         .group_by(GaleriaVersion.id_galeria)
         .all()
     )
+    linked_characters = {}
+    if items:
+        character_item = aliased(GaleriaItem)
+        rows = db.query(
+            GaleriaLugarPersonaje.id_lugar_galeria,
+            character_item.id_galeria,
+            character_item.nombre,
+        ).join(
+            character_item,
+            GaleriaLugarPersonaje.id_personaje_galeria == character_item.id_galeria,
+        ).filter(
+            GaleriaLugarPersonaje.id_lugar_galeria.in_([item.id_galeria for item in items]),
+        ).order_by(character_item.nombre).all()
+        for id_location, id_character, character_name in rows:
+            linked_characters.setdefault(id_location, []).append({
+                "id_galeria": id_character,
+                "nombre": character_name,
+            })
     return api_response(
         True,
         "Galería del proyecto",
@@ -242,6 +315,7 @@ def get_items(id_project: str, db: Session):
                 item,
                 version_counts.get(item.id_galeria, 0),
                 pending_photo_counts.get(item.id_galeria, 0),
+                linked_characters.get(item.id_galeria, []),
             )
             for item in items
         ],
@@ -391,8 +465,9 @@ def upload_item_version_photo(
 def create_item(
     id_project: str,
     values: dict,
-    photo: UploadFile,
+    photo: Optional[UploadFile],
     db: Session,
+    scene_link: Optional[dict] = None,
 ):
     if values.get("tipo") not in TIPOS_GALERIA:
         return api_response(False, "Tipo de galería no válido", error="INVALID_TYPE")
@@ -401,9 +476,17 @@ def create_item(
     if values["tipo"] in {"personaje", "lugar"} and len(values["nombre"].strip()) > 100:
         return api_response(False, "El nombre no puede superar los 100 caracteres para vincularlo al proyecto", error="INVALID_DATA")
 
-    photo_error = _validate_photo(photo)
-    if photo_error:
-        return api_response(False, photo_error, error="INVALID_PHOTO")
+    character_ids = values.pop("personajes_vinculados", [])
+    if character_ids and values["tipo"] != "lugar":
+        return api_response(False, "Solo las fichas de lugar pueden vincular personajes", error="INVALID_RELATION")
+    character_ids, relation_error = _validate_linked_characters(id_project, character_ids, db)
+    if relation_error:
+        return api_response(False, relation_error, error="INVALID_RELATION")
+
+    if photo:
+        photo_error = _validate_photo(photo)
+        if photo_error:
+            return api_response(False, photo_error, error="INVALID_PHOTO")
     linked_entity = None
     entity_created = False
     try:
@@ -426,10 +509,14 @@ def create_item(
         db.rollback()
         return api_response(False, reference_error, error="INVALID_REFERENCE")
 
-    relative_path = guardar_archivo(
-        photo,
-        subcarpeta=f"galeria/{id_project}",
-        extensiones_permitidas=EXTENSIONES_FOTO,
+    relative_path = (
+        guardar_archivo(
+            photo,
+            subcarpeta=f"galeria/{id_project}",
+            extensiones_permitidas=EXTENSIONES_FOTO,
+        )
+        if photo
+        else ""
     )
     item = GaleriaItem(
         id_project=id_project,
@@ -438,6 +525,16 @@ def create_item(
     )
     try:
         db.add(item)
+        db.flush()
+        if character_ids:
+            _sync_linked_characters(item.id_galeria, character_ids, db)
+        if scene_link:
+            db.add(EscenaGaleriaItem(
+                id_escena=scene_link["id_escena"],
+                id_galeria=item.id_galeria,
+                etiquetas=scene_link.get("etiquetas"),
+                notas=scene_link.get("notas"),
+            ))
         db.commit()
         db.refresh(item)
     except Exception:
@@ -445,12 +542,47 @@ def create_item(
         _remove_uploaded_file(relative_path)
         raise
 
-    response_data = _serialize(item)
+    response_data = _serialize(item, personajes_vinculados=_get_linked_characters(item.id_galeria, db))
     response_data.update({
         "entidad_vinculada": linked_entity,
         "entidad_creada": entity_created,
     })
     return api_response(True, "Elemento agregado a la galería", response_data)
+
+
+def create_item_for_scene(
+    id_project: str,
+    id_escena: str,
+    values: dict,
+    photo: Optional[UploadFile],
+    etiquetas: Optional[str],
+    notas: Optional[str],
+    db: Session,
+):
+    scene = db.query(Escena).join(
+        Guion, Escena.id_guion == Guion.id_guion
+    ).filter(
+        Escena.id_escena == id_escena,
+        Guion.id_project == id_project,
+    ).first()
+    if not scene:
+        return api_response(False, "La escena no pertenece a este proyecto", error="INVALID_SCENE")
+
+    values.update({
+        "id_escena": scene.id_escena,
+        "id_guion": scene.id_guion,
+    })
+    return create_item(
+        id_project,
+        values,
+        photo,
+        db,
+        scene_link={
+            "id_escena": scene.id_escena,
+            "etiquetas": etiquetas,
+            "notas": notas,
+        },
+    )
 
 
 def update_item(id_project: str, id_galeria: int, data: GaleriaUpdateSchema, db: Session):
@@ -459,6 +591,19 @@ def update_item(id_project: str, id_galeria: int, data: GaleriaUpdateSchema, db:
         return api_response(False, "Elemento de galería no encontrado", error="NOT_FOUND")
 
     updates = data.model_dump(exclude_unset=True)
+    linked_character_ids = updates.pop("personajes_vinculados", None)
+    target_type = updates.get("tipo", item.tipo)
+    if linked_character_ids is not None:
+        if target_type != "lugar":
+            return api_response(False, "Solo las fichas de lugar pueden vincular personajes", error="INVALID_RELATION")
+        linked_character_ids, relation_error = _validate_linked_characters(
+            id_project,
+            linked_character_ids,
+            db,
+        )
+        if relation_error:
+            return api_response(False, relation_error, error="INVALID_RELATION")
+
     reference_values = {
         key: getattr(item, key)
         for key in ("id_personaje", "id_escenario", "id_escena", "id_guion")
@@ -470,9 +615,17 @@ def update_item(id_project: str, id_galeria: int, data: GaleriaUpdateSchema, db:
 
     for key, value in updates.items():
         setattr(item, key, value)
+    if linked_character_ids is not None:
+        _sync_linked_characters(item.id_galeria, linked_character_ids, db)
+    elif target_type != "lugar":
+        _sync_linked_characters(item.id_galeria, [], db)
     db.commit()
     db.refresh(item)
-    return api_response(True, "Elemento actualizado", _serialize(item))
+    return api_response(
+        True,
+        "Elemento actualizado",
+        _serialize(item, personajes_vinculados=_get_linked_characters(item.id_galeria, db)),
+    )
 
 
 def replace_photo(id_project: str, id_galeria: int, photo: UploadFile, db: Session):

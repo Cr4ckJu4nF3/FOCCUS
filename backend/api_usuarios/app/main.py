@@ -23,6 +23,9 @@ from app.models.desglose_model import Desglose
 from app.models.desglose_requerimiento_model import DesgloseRequerimiento
 from app.models.personajes_model import Personaje
 from app.models.escenario_model import Escenario
+from app.models.galeria_model import GaleriaItem
+from app.models.escena_galeria_item_model import EscenaGaleriaItem
+from app.models.galeria_lugar_personaje_model import GaleriaLugarPersonaje
  
 # CREATE TABLES
 Base.metadata.create_all(bind=engine)

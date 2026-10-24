@@ -1,18 +1,25 @@
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 import tempfile
 import os
 from app.config.database import get_db
 from app.utils.auth import get_current_user, require_project_admin, require_project_member
+from app.controllers.galeria_controller import create_item_for_scene
 from app.controllers.desglose_controller import (
     get_desglose_by_guion,
     get_desglose_by_escena,
     create_requerimiento,
     update_requerimiento,
     delete_requerimiento,
+    add_gallery_item_to_scene,
+    remove_gallery_item_from_scene,
     importar_desglose_pdf,
 )
-from app.schemas.desglose_schema import DesgloseRequerimientoSchema, DesgloseRequerimientoUpdateSchema
+from app.schemas.desglose_schema import (
+    DesgloseRequerimientoSchema,
+    DesgloseRequerimientoUpdateSchema,
+    EscenaGaleriaItemSchema,
+)
 
 router = APIRouter()
 
@@ -21,13 +28,74 @@ router = APIRouter()
 # por departamento (para la lista principal de Desglose)
 @router.get("/guiones/{id_guion}/desglose")
 def desglose_del_guion(id_guion: int, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
-    return get_desglose_by_guion(id_guion, db)
+    return get_desglose_by_guion(id_guion, db, current_user["id_project"])
 
 
 # Detalle de UNA escena: sus requerimientos completos por departamento
 @router.get("/escenas/{id_escena}/desglose")
 def desglose_de_escena(id_escena: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
-    return get_desglose_by_escena(id_escena, db)
+    return get_desglose_by_escena(id_escena, db, current_user["id_project"])
+
+@router.post("/escenas/{id_escena}/desglose/galeria")
+def vincular_elemento_galeria(
+    id_escena: str,
+    data: EscenaGaleriaItemSchema,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_project_admin),
+):
+    return add_gallery_item_to_scene(id_escena, current_user["id_project"], data, db)
+
+
+@router.delete("/escenas/{id_escena}/desglose/galeria/{id_galeria}")
+def desvincular_elemento_galeria(
+    id_escena: str,
+    id_galeria: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_project_admin),
+):
+    return remove_gallery_item_from_scene(
+        id_escena,
+        id_galeria,
+        current_user["id_project"],
+        db,
+    )
+
+
+@router.post("/escenas/{id_escena}/desglose/galeria/nuevo")
+def crear_elemento_galeria_vinculado(
+    id_escena: str,
+    tipo: str = Form(...),
+    nombre: str = Form(...),
+    descripcion: str = Form(...),
+    categoria: str | None = Form(None),
+    etiquetas: str | None = Form(None),
+    notas: str | None = Form(None),
+    personajes_vinculados: list[int] = Form([]),
+    foto: UploadFile | None = File(None),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_project_admin),
+):
+    values = {
+        "tipo": tipo,
+        "categoria": categoria,
+        "nombre": nombre.strip(),
+        "descripcion": descripcion.strip(),
+        "id_personaje": None,
+        "id_escenario": None,
+        "personaje_sinopsis": descripcion.strip() if tipo == "personaje" else None,
+        "lugar_apariencia": descripcion.strip() if tipo == "lugar" else None,
+        "personajes_vinculados": personajes_vinculados,
+        "estado": "Disponible",
+    }
+    return create_item_for_scene(
+        current_user["id_project"],
+        id_escena,
+        values,
+        foto,
+        etiquetas.strip() or None if etiquetas else None,
+        notas.strip() or None if notas else None,
+        db,
+    )
 
 
 @router.post("/escenas/{id_escena}/desglose/requerimientos")

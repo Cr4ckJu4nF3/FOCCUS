@@ -23,6 +23,7 @@ class GaleriaUpdateSchema(BaseModel):
     lugar_apariencia: Optional[str] = None
     lugar_objetos: Optional[str] = None
     lugar_personajes: Optional[str] = None
+    personajes_vinculados: Optional[list[int]] = None
     ultimo_uso: Optional[date] = None
     estado: Optional[str] = None
 
