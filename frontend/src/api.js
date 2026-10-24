@@ -14,18 +14,44 @@ export function getDeviceId() {
 // ==========================================
 
 export function getToken() {
-  return localStorage.getItem("access_token");
+  return sessionStorage.getItem("access_token") || localStorage.getItem("access_token");
 }
 
-export function setToken(token) {
+export function getActiveRole() {
+  const projectId = localStorage.getItem("projectId");
+  const roleProjectId = localStorage.getItem("project_role_project_id");
+  if (projectId && projectId === roleProjectId) {
+    return Number(localStorage.getItem("project_role")) || 0;
+  }
+  return Number(localStorage.getItem("id_rol")) || 0;
+}
+
+export function setActiveProject(project) {
+  const projectId = String(project.id_project);
+  localStorage.setItem("projectId", projectId);
+  localStorage.setItem("id_project", projectId);
+  localStorage.setItem("projectName", project.project_name || "");
+  localStorage.setItem("project_role", String(project.id_rol ?? localStorage.getItem("id_rol") ?? 0));
+  localStorage.setItem("project_role_project_id", projectId);
+}
+
+export function getProjectHeaders() {
+  const projectId = localStorage.getItem("projectId");
+  return projectId ? { "X-Project-Id": projectId } : {};
+}
+
+export function setToken(token, rememberMe = false) {
   if (token) {
-    localStorage.setItem("access_token", token);
+    sessionStorage.removeItem("access_token");
+    localStorage.removeItem("access_token");
+    (rememberMe ? localStorage : sessionStorage).setItem("access_token", token);
   }
 }
 
 export function clearSession() {
   const theme = localStorage.getItem("foccus-theme");
   localStorage.clear();
+  sessionStorage.clear();
   if (theme) localStorage.setItem("foccus-theme", theme);
 }
 
@@ -50,9 +76,11 @@ export function isTokenValid(token = getToken()) {
 // inválido). Uso: apiFetch("/users/login", { method: "POST", ... })
 export async function apiFetch(path, options = {}) {
   const token = getToken();
+  const isFormData = options.body instanceof FormData;
 
   const headers = {
-    "Content-Type": "application/json",
+    ...(!isFormData ? { "Content-Type": "application/json" } : {}),
+    ...getProjectHeaders(),
     ...(options.headers || {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 import tempfile
 import os
 from app.config.database import get_db
-from app.utils.auth import get_current_user, require_admin
+from app.utils.auth import get_current_user, require_project_admin, require_project_member
 from app.controllers.desglose_controller import (
     get_desglose_by_guion,
     get_desglose_by_escena,
@@ -20,13 +20,13 @@ router = APIRouter()
 # Vista resumen: todas las escenas de un guion + conteo de requerimientos
 # por departamento (para la lista principal de Desglose)
 @router.get("/guiones/{id_guion}/desglose")
-def desglose_del_guion(id_guion: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+def desglose_del_guion(id_guion: int, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
     return get_desglose_by_guion(id_guion, db)
 
 
 # Detalle de UNA escena: sus requerimientos completos por departamento
 @router.get("/escenas/{id_escena}/desglose")
-def desglose_de_escena(id_escena: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+def desglose_de_escena(id_escena: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
     return get_desglose_by_escena(id_escena, db)
 
 
@@ -35,7 +35,7 @@ def store_requerimiento(
     id_escena: str,
     data: DesgloseRequerimientoSchema,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_project_admin)
 ):
     return create_requerimiento(id_escena, data, db)
 
@@ -45,7 +45,7 @@ def patch_requerimiento(
     id_requerimiento: str,
     data: DesgloseRequerimientoUpdateSchema,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_project_admin)
 ):
     return update_requerimiento(id_requerimiento, data, db)
 
@@ -54,7 +54,7 @@ def patch_requerimiento(
 def destroy_requerimiento(
     id_requerimiento: str,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_project_admin)
 ):
     return delete_requerimiento(id_requerimiento, db)
 
@@ -67,7 +67,7 @@ def importar_desglose(
     id_guion: int,
     archivo: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_project_admin)
 ):
     suffix = os.path.splitext(archivo.filename or "")[1] or ".pdf"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:

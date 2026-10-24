@@ -65,8 +65,8 @@ export default function ProfileScreen() {
             identificacion: data.identificacion || "",
             id_identificacion: data.id_identificacion || "",
             direccion: data.direccion || "",
-            fecha_de_nacimiento: data.fecha_de_nacimiento ? data.fecha_de_nacimiento.split("T")[0] : "",
-            fecha_de_creacion: data.fecha_de_creacion ? data.fecha_de_creacion.split("T")[0] : "",
+            fecha_de_nacimiento: data.fecha_de_nacimiento ? data.fecha_de_nacimiento.slice(0, 10) : "",
+            fecha_de_creacion: data.fecha_de_creacion ? data.fecha_de_creacion.slice(0, 10) : "",
             id_departamento: data.id_departamento || "",
           });
         }

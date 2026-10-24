@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { FolderOpen, Plus, ChevronRight, X, Film, Clapperboard, LogOut } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
-import { apiFetch, clearSession } from "../api";
+import { apiFetch, clearSession, setActiveProject } from "../api";
 import "../desing/ProjectSelection.css";
 
 const formatOptions = [
@@ -72,11 +72,10 @@ export default function ProjectSelectionScreen() {
 
 
   const handleSelectProject = (project) => {
-  localStorage.setItem("projectId", project.id_project);
-  localStorage.setItem("id_project", project.id_project);
-  localStorage.setItem("projectName", project.project_name);
-  navigate("/proyecto-dashboard", { state: { projectName: project.project_name, projectId: project.id_project } });
-};
+    setActiveProject(project);
+    const dashboardPath = Number(project.id_rol) === 1001 ? "/admin-dashboard" : "/proyecto-dashboard";
+    navigate(dashboardPath, { state: { projectName: project.project_name, projectId: project.id_project } });
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -106,12 +105,15 @@ export default function ProjectSelectionScreen() {
         setFormData({ project_name: "", formato_de_produccion: "", genero: "", sinopsis: "", director: "" });
 
         if (nuevoProjectId) {
-          localStorage.setItem("projectId", nuevoProjectId);
-          localStorage.setItem("id_project", nuevoProjectId);
+          setActiveProject({
+            id_project: nuevoProjectId,
+            project_name: formData.project_name,
+            id_rol: 1001,
+          });
         }
         localStorage.setItem("projectName", formData.project_name);
 
-        navigate("/proyecto-dashboard", { state: { projectName: formData.project_name, projectId: nuevoProjectId } });
+        navigate("/admin-dashboard", { state: { projectName: formData.project_name, projectId: nuevoProjectId } });
       } else {
         const errorData = await response.json();
         const mensaje = typeof errorData.detail === "string"

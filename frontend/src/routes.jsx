@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import Login from "./screen/Login";
 import TwoFactor from "./screen/TwoFactor";
+import CompleteInvitation from "./screen/CompleteInvitation";
 import ForgotPassword from "./screen/ForgotPassword";
 import ProjectSelection from "./screen/ProjectSelection";
 import ProjectDashboard from "./screen/ProjectDashboard";
@@ -14,6 +15,7 @@ import Escena from "./screen/Escena";
 import Personajes from "./screen/Personajes";
 import Rodaje from "./screen/Rodaje";
 import Desglose from "./screen/Desglose";
+import Galeria from "./screen/Galeria";
 import ProtectedRoute from "./screen/ProtectedRoute";
 
 export const router = createBrowserRouter([
@@ -29,6 +31,10 @@ export const router = createBrowserRouter([
   {
     path: "/verificacion",
     element: <ProtectedRoute><TwoFactor /></ProtectedRoute>,
+  },
+  {
+    path: "/completar-cuenta",
+    element: <ProtectedRoute><CompleteInvitation /></ProtectedRoute>,
   },
 
   {
@@ -82,5 +88,9 @@ export const router = createBrowserRouter([
   {
     path: "/desglose",
     element: <ProtectedRoute><Desglose /></ProtectedRoute>,
+  },
+  {
+    path: "/galeria",
+    element: <ProtectedRoute><Galeria /></ProtectedRoute>,
   },
 ]);

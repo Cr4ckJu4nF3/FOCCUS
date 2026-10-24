@@ -493,3 +493,39 @@
     grid-template-columns: 1fr;
   }
 }
+
+.dsg-page {
+  background:
+    radial-gradient(ellipse at 15% 0, rgba(73, 111, 166, 0.2), transparent 42%),
+    #172337;
+}
+
+.dsg-header {
+  border-color: rgba(255, 255, 255, 0.09);
+  background: rgba(23, 35, 55, 0.92);
+}
+
+.dsg-panel,
+.dsg-modal {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #1d2a3d;
+}
+
+.dsg-panel__header {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.dsg-scene-row,
+.dsg-req-item {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: #202f43;
+}
+
+.dsg-guion-select select,
+.dsg-rodaje-block__assign select,
+.dsg-form input,
+.dsg-form select,
+.dsg-form textarea {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #152236;
+}

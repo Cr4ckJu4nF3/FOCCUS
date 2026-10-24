@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   CalendarDays,
+  Camera,
   ChevronDown,
   ChevronRight,
   Clapperboard,
@@ -12,12 +13,14 @@ import {
   FolderOpen,
   LayoutDashboard,
   LoaderCircle,
+  LogOut,
   Plus,
+  UserRound,
   Users,
   X,
 } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
-import { apiFetch } from "../api";
+import { apiFetch, clearSession, getActiveRole, setActiveProject as persistActiveProject } from "../api";
 import "../desing/AdminDashboard.css";
 
 const formatOptions = [
@@ -52,7 +55,7 @@ const statusProgress = (value) => {
   if (["finalizado", "finalizada", "completado", "completada", "aprobado", "aprobada", "terminado", "terminada"].includes(status)) {
     return 1;
   }
-  if (["en-progreso", "en-rodaje", "revision", "confirmado", "confirmada"].includes(status)) {
+  if (["en-progreso", "en-rodaje", "revision", "en-revision", "confirmado", "confirmada"].includes(status)) {
     return 0.5;
   }
   return 0;
@@ -89,15 +92,24 @@ export default function AdminDashboardScreen() {
   }));
   const projectName = activeProject.name || "Selecciona un proyecto";
   const projectId = activeProject.id;
-  const isAdmin = Number(localStorage.getItem("id_rol")) === 1001;
+  const isAdmin = getActiveRole() === 1001;
+  const isGlobalAdmin = Number(localStorage.getItem("id_rol")) === 1001;
   const [projects, setProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [projectsError, setProjectsError] = useState("");
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [showCenterProjectPicker, setShowCenterProjectPicker] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [projectForm, setProjectForm] = useState(emptyProjectForm);
   const [creatingProject, setCreatingProject] = useState(false);
-  const [dashboardData, setDashboardData] = useState({ scripts: [], scenes: [], shootDays: [] });
+  const [dashboardData, setDashboardData] = useState({
+    scripts: [],
+    scenes: [],
+    shootDays: [],
+    teamMembers: [],
+    breakdownScenes: [],
+  });
   const [loading, setLoading] = useState(Boolean(projectId));
   const [error, setError] = useState("");
 
@@ -136,13 +148,19 @@ export default function AdminDashboardScreen() {
       setLoading(true);
       setError("");
       try {
-        const [scripts, shootDays] = await Promise.all([
+        const [scripts, shootDays, teamMembers] = await Promise.all([
           getItems(`/guiones?id_project=${encodeURIComponent(projectId)}`, "No se pudieron cargar los guiones"),
           getItems(`/projects/${encodeURIComponent(projectId)}/rodajes`, "No se pudo cargar el plan de rodaje"),
+          getItems(`/users/project/${encodeURIComponent(projectId)}`, "No se pudo cargar el equipo del proyecto"),
         ]);
         const scenesByScript = await Promise.all(
           scripts.map((script) =>
             getItems(`/guiones/${encodeURIComponent(script.id_guion)}/escenas`, "No se pudieron cargar las escenas"),
+          ),
+        );
+        const breakdownByScript = await Promise.all(
+          scripts.map((script) =>
+            getItems(`/guiones/${encodeURIComponent(script.id_guion)}/desglose`, "No se pudieron cargar las estadísticas del desglose"),
           ),
         );
 
@@ -151,11 +169,13 @@ export default function AdminDashboardScreen() {
             scripts,
             scenes: scenesByScript.flat(),
             shootDays,
+            teamMembers,
+            breakdownScenes: breakdownByScript.flat(),
           });
         }
       } catch (loadError) {
         if (isCurrent) {
-          setDashboardData({ scripts: [], scenes: [], shootDays: [] });
+          setDashboardData({ scripts: [], scenes: [], shootDays: [], teamMembers: [], breakdownScenes: [] });
           setError(loadError.message || "No se pudo cargar el resumen del proyecto");
         }
       } finally {
@@ -172,11 +192,40 @@ export default function AdminDashboardScreen() {
     };
   }, [projectId]);
 
+  const breakdownStats = useMemo(() => {
+    const departments = new Map();
+    let totalRequirements = 0;
+    let totalDepartmentItems = 0;
+    let coveredScenes = 0;
+
+    dashboardData.breakdownScenes.forEach((scene) => {
+      totalRequirements += Number(scene.total_requerimientos) || 0;
+      if ((Number(scene.total_requerimientos) || 0) > 0) coveredScenes += 1;
+      (scene.resumen_departamentos || []).forEach(({ departamento, cantidad }) => {
+        const count = Number(cantidad) || 0;
+        departments.set(departamento, (departments.get(departamento) || 0) + count);
+        totalDepartmentItems += count;
+      });
+    });
+
+    return {
+      totalRequirements,
+      totalDepartmentItems,
+      coveredScenes,
+      scenesWithoutRequirements: dashboardData.breakdownScenes.length - coveredScenes,
+      departments: [...departments.entries()]
+        .map(([name, count]) => ({ name, count }))
+        .sort((first, second) => second.count - first.count || first.name.localeCompare(second.name)),
+    };
+  }, [dashboardData.breakdownScenes]);
+
   const selectProject = (project) => {
-    const selected = { id: project.id_project, name: project.project_name };
-    localStorage.setItem("projectId", selected.id);
-    localStorage.setItem("id_project", selected.id);
-    localStorage.setItem("projectName", selected.name);
+    const selected = { id: String(project.id_project), name: project.project_name };
+    persistActiveProject(project);
+    if (Number(project.id_rol) !== 1001) {
+      navigate("/proyecto-dashboard", { state: { projectName: selected.name, projectId: selected.id } });
+      return;
+    }
     setActiveProject(selected);
     setProjectMenuOpen(false);
   };
@@ -209,6 +258,7 @@ export default function AdminDashboardScreen() {
       const project = {
         id_project: createdProject.id_project,
         project_name: createdProject.project_name || projectForm.project_name,
+        id_rol: 1001,
         formato_de_produccion: createdProject.formato_de_produccion || projectForm.formato_de_produccion,
         genero: createdProject.genero || projectForm.genero,
         director: createdProject.director || projectForm.director,
@@ -270,6 +320,10 @@ export default function AdminDashboardScreen() {
 
     return { areas, progress, completeCount, total: allItems.length };
   }, [dashboardData]);
+  const totalScriptVersions = dashboardData.scripts.reduce(
+    (total, script) => total + (Number(script.numero_de_version_actual) || 0),
+    0,
+  );
 
   const statusSummary = useMemo(() => {
     const items = [
@@ -314,13 +368,17 @@ export default function AdminDashboardScreen() {
   if (!isAdmin) return <Navigate to="/proyecto-dashboard" replace />;
 
   const navigateToModule = (path) => navigate(path, { state: { projectName, projectId } });
+  const handleLogout = () => {
+    clearSession();
+    navigate("/", { replace: true });
+  };
 
   return (
     <div className="admin-dashboard">
       <aside className="admin-sidebar">
-        <Link to="/admin-dashboard" className="admin-brand" aria-label="Panel administrativo">
+        <button type="button" onClick={handleLogout} className="admin-brand" aria-label="Cerrar sesión y volver al inicio">
           <img src={logo} alt="FOCCUS" />
-        </Link>
+        </button>
         <p className="admin-sidebar__label">Panel de control</p>
         <nav className="admin-navigation" aria-label="Navegación administrativa">
           <button className="admin-navigation__item admin-navigation__item--active" type="button">
@@ -332,8 +390,17 @@ export default function AdminDashboardScreen() {
           <button className="admin-navigation__item" disabled={!projectId} onClick={() => navigateToModule("/escenas")} type="button">
             <Film size={18} /> Escenas
           </button>
+          <button className="admin-navigation__item" disabled={!projectId} onClick={() => navigateToModule("/personajes")} type="button">
+            <UserRound size={18} /> Personajes
+          </button>
           <button className="admin-navigation__item" disabled={!projectId} onClick={() => navigateToModule("/rodaje")} type="button">
             <CalendarDays size={18} /> Plan de rodaje
+          </button>
+          <button className="admin-navigation__item" disabled={!projectId} onClick={() => navigateToModule("/desglose")} type="button">
+            <ClipboardList size={18} /> Desglose
+          </button>
+          <button className="admin-navigation__item" disabled={!projectId} onClick={() => navigateToModule("/galeria")} type="button">
+            <Camera size={18} /> Galería
           </button>
           <button className="admin-navigation__item" disabled={!projectId} onClick={() => navigateToModule("/roles")} type="button">
             <Users size={18} /> Equipo y roles
@@ -376,7 +443,7 @@ export default function AdminDashboardScreen() {
                 <p className="admin-project-menu__empty">Aún no tienes proyectos.</p>
               )}
               {projectsError && <p className="admin-project-menu__error" role="alert">{projectsError}</p>}
-              <button
+              {isGlobalAdmin && <button
                 className="admin-project-menu__create"
                 onClick={() => {
                   setProjectMenuOpen(false);
@@ -386,10 +453,10 @@ export default function AdminDashboardScreen() {
                 type="button"
               >
                 <Plus size={16} /> Crear proyecto
-              </button>
+              </button>}
             </div>
           )}
-          <button
+          {isGlobalAdmin && <button
             className="admin-project-create"
             onClick={() => {
               setProjectsError("");
@@ -398,13 +465,44 @@ export default function AdminDashboardScreen() {
             type="button"
           >
             <Plus size={15} /> Crear proyecto
-          </button>
+          </button>}
         </div>
       </aside>
 
       <div className="admin-dashboard__workspace">
         <header className="admin-topbar">
-          <div className="admin-topbar__context"><span>FOCCUS</span><span>/</span><strong>Administración</strong></div>
+          <div className="admin-topbar__context">
+            <span title={projectId ? projectName : "FOCCUS"}>{projectId ? projectName : "FOCCUS"}</span>
+            <span>/</span>
+            <strong>Administrador</strong>
+          </div>
+          <div className="admin-profile">
+            <button
+              type="button"
+              className="admin-profile__trigger"
+              onClick={() => setProfileMenuOpen((open) => !open)}
+              aria-expanded={profileMenuOpen}
+              aria-haspopup="menu"
+            >
+              <span className="admin-profile__avatar"><UserRound size={17} /></span>
+              <span className="admin-profile__name">{localStorage.getItem("nombre") || "Mi perfil"}</span>
+              <ChevronDown size={15} />
+            </button>
+            {profileMenuOpen && (
+              <div className="admin-profile__menu" role="menu">
+                <div className="admin-profile__summary">
+                  <strong>{[localStorage.getItem("nombre"), localStorage.getItem("apellido")].filter(Boolean).join(" ") || "Administrador"}</strong>
+                  <span>{localStorage.getItem("mail") || ""}</span>
+                </div>
+                <button type="button" role="menuitem" onClick={() => navigate("/perfil")}>
+                  <UserRound size={16} /> Ver perfil
+                </button>
+                <button type="button" role="menuitem" onClick={handleLogout}>
+                  <LogOut size={16} /> Cerrar sesión
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
         <main className="admin-main">
@@ -428,9 +526,54 @@ export default function AdminDashboardScreen() {
               <p>Elige un proyecto desde “Proyecto activo” en el menú lateral para consultar su avance, o crea uno nuevo para comenzar.</p>
               {projectsError && <div className="admin-error" role="alert">{projectsError}</div>}
               <div className="admin-project-empty__actions">
-                <button type="button" onClick={() => setProjectMenuOpen(true)}><FolderOpen size={17} /> Escoger proyecto</button>
-                <button type="button" onClick={() => setCreateProjectOpen(true)}><Plus size={17} /> Crear proyecto</button>
+                <button
+                  type="button"
+                  aria-expanded={showCenterProjectPicker}
+                  onClick={() => {
+                    setProjectMenuOpen(true);
+                    setShowCenterProjectPicker(true);
+                  }}
+                >
+                  <FolderOpen size={17} /> Escoger proyecto
+                </button>
+                {isGlobalAdmin && <button type="button" onClick={() => setCreateProjectOpen(true)}><Plus size={17} /> Crear proyecto</button>}
               </div>
+              {showCenterProjectPicker && (
+                <div className="admin-project-picker" aria-live="polite">
+                  <div className="admin-project-picker__heading">
+                    <div>
+                      <span className="admin-eyebrow">TUS PROYECTOS</span>
+                      <h3>¿En cuál quieres trabajar?</h3>
+                    </div>
+                    {!projectsLoading && <span>{projects.length} {projects.length === 1 ? "proyecto" : "proyectos"}</span>}
+                  </div>
+                  {projectsLoading ? (
+                    <div className="admin-project-picker__state"><LoaderCircle size={19} /> Cargando tus proyectos…</div>
+                  ) : projectsError ? (
+                    <p className="admin-project-picker__empty">No se pudo cargar la lista de proyectos. Consulta el aviso para ver más detalles.</p>
+                  ) : projects.length ? (
+                    <div className="admin-project-picker__grid">
+                      {projects.map((project) => (
+                        <button
+                          className="admin-project-picker__card"
+                          key={project.id_project}
+                          onClick={() => selectProject(project)}
+                          type="button"
+                        >
+                          <span className="admin-project-picker__icon"><Clapperboard size={19} /></span>
+                          <span className="admin-project-picker__details">
+                            <strong>{project.project_name}</strong>
+                            <small>{project.formato_de_produccion || "Proyecto audiovisual"}{project.genero ? ` · ${project.genero}` : ""}</small>
+                          </span>
+                          <ChevronRight size={18} />
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="admin-project-picker__empty">Todavía no tienes proyectos. Crea uno para comenzar a organizar tu producción.</p>
+                  )}
+                </div>
+              )}
             </section>
           ) : (
             <>
@@ -450,9 +593,9 @@ export default function AdminDashboardScreen() {
                 </article>
                 <article className="admin-kpi">
                   <div className="admin-kpi__icon admin-kpi__icon--blue"><FileText size={20} /></div>
-                  <p>Guiones</p>
-                  <strong>{dashboardData.scripts.length}</strong>
-                  <span>Registrados en el proyecto</span>
+                  <p>Versiones del guion</p>
+                  <strong>{totalScriptVersions}</strong>
+                  <span>En {dashboardData.scripts.length} guiones</span>
                 </article>
                 <article className="admin-kpi">
                   <div className="admin-kpi__icon admin-kpi__icon--purple"><Film size={20} /></div>
@@ -465,6 +608,18 @@ export default function AdminDashboardScreen() {
                   <p>Jornadas</p>
                   <strong>{dashboardData.shootDays.length}</strong>
                   <span>{dashboardData.shootDays.filter((day) => statusProgress(day.estado) === 1).length} finalizadas</span>
+                </article>
+                <article className="admin-kpi">
+                  <div className="admin-kpi__icon admin-kpi__icon--green"><Users size={20} /></div>
+                  <p>Personas</p>
+                  <strong>{dashboardData.teamMembers.length}</strong>
+                  <span>Vinculadas al proyecto</span>
+                </article>
+                <article className="admin-kpi">
+                  <div className="admin-kpi__icon admin-kpi__icon--teal"><ClipboardList size={20} /></div>
+                  <p>Desglose</p>
+                  <strong>{breakdownStats.totalRequirements}</strong>
+                  <span>Requerimientos registrados</span>
                 </article>
               </section>
 
@@ -521,6 +676,45 @@ export default function AdminDashboardScreen() {
                 </article>
               </section>
 
+              <section className="admin-panel admin-breakdown" aria-labelledby="admin-breakdown-title">
+                <div className="admin-panel__heading">
+                  <div>
+                    <p className="admin-eyebrow">ELEMENTOS DE PRODUCCIÓN</p>
+                    <h2 id="admin-breakdown-title">Estadísticas del desglose</h2>
+                  </div>
+                  <button type="button" onClick={() => navigateToModule("/desglose")}>
+                    Ver desglose <ArrowLeft size={15} />
+                  </button>
+                </div>
+                <div className="admin-breakdown__summary">
+                  <div><strong>{dashboardData.breakdownScenes.length}</strong><span>Escenas revisadas</span></div>
+                  <div><strong>{breakdownStats.coveredScenes}</strong><span>Con requerimientos</span></div>
+                  <div><strong>{breakdownStats.scenesWithoutRequirements}</strong><span>Sin requerimientos</span></div>
+                </div>
+                {breakdownStats.departments.length ? (
+                  <div className="admin-breakdown__departments">
+                    {breakdownStats.departments.map((department) => {
+                      const percentage = breakdownStats.totalDepartmentItems
+                        ? Math.round(department.count / breakdownStats.totalDepartmentItems * 100)
+                        : 0;
+                      return (
+                        <div className="admin-breakdown__department" key={department.name}>
+                          <div className="admin-breakdown__department-heading">
+                            <strong>{department.name}</strong>
+                            <span>{department.count} elementos · {percentage}%</span>
+                          </div>
+                          <div className="admin-breakdown__track" role="progressbar" aria-label={`Requerimientos de ${department.name}`} aria-valuenow={percentage} aria-valuemin="0" aria-valuemax="100">
+                            <span style={{ width: `${percentage}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="admin-recent__empty">Aún no hay requerimientos de desglose registrados en las escenas.</p>
+                )}
+              </section>
+
               <section className="admin-panel admin-recent">
                 <div className="admin-panel__heading">
                   <div><p className="admin-eyebrow">ACTIVIDAD DEL PROYECTO</p><h2>Elementos recientes</h2></div>
@@ -551,7 +745,7 @@ export default function AdminDashboardScreen() {
           )}
         </main>
       </div>
-      {createProjectOpen && (
+      {createProjectOpen && isGlobalAdmin && (
         <div className="admin-project-modal" role="presentation" onMouseDown={(event) => {
           if (event.target === event.currentTarget && !creatingProject) setCreateProjectOpen(false);
         }}>

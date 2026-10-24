@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { Menu, User, LogOut, Trash2, ChartNoAxesCombined } from "lucide-react";
+import { Menu, User, LogOut, Trash2, ChartNoAxesCombined, FolderOpen } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
-import { apiFetch, clearSession } from "../api";
+import { apiFetch, clearSession, getActiveRole, setActiveProject } from "../api";
 import "../desing/ProjectDashboard.css";
 
 const modules = [
@@ -27,8 +27,9 @@ function ProjectDashboardScreen() {
 
   const nombre = localStorage.getItem("nombre") || "";
   const apellido = localStorage.getItem("apellido") || "";
-  const idRol = parseInt(localStorage.getItem("id_rol")) || 0;
+  const idRol = getActiveRole();
   const esAdmin = idRol === 1001;
+  const esAdminGlobal = Number(localStorage.getItem("id_rol")) === 1001;
   const rolLabel = esAdmin ? "Administrador" : "Usuario";
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -45,9 +46,14 @@ function ProjectDashboardScreen() {
       localStorage.setItem("projectName", location.state.projectName);
     }
     if (location.state?.projectId) {
-      localStorage.setItem("projectId", location.state.projectId);
+      const currentRole = getActiveRole();
+      setActiveProject({
+        id_project: location.state.projectId,
+        project_name: location.state.projectName || projectName,
+        id_rol: currentRole,
+      });
     }
-  }, [location.state]);
+  }, [location.state, projectName]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -172,6 +178,11 @@ function ProjectDashboardScreen() {
 
     if (option === "Desglose") {
       navigate("/desglose", { state: { projectName, projectId } });
+      return;
+    }
+
+    if (option === "Galería") {
+      navigate("/galeria", { state: { projectName, projectId } });
     }
   };
 
@@ -290,6 +301,21 @@ function ProjectDashboardScreen() {
             <h1 className="pds-project-title">{projectName}</h1>
           </div>
           <div className="pds-project-actions">
+            {esAdminGlobal && !esAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  ["projectId", "id_project", "projectName", "project_role", "project_role_project_id"].forEach((key) =>
+                    localStorage.removeItem(key),
+                  );
+                  navigate("/admin-dashboard", { replace: true });
+                }}
+                className="pds-admin-dashboard-button"
+              >
+                <FolderOpen size={18} />
+                <span>Cambiar proyecto</span>
+              </button>
+            )}
             {esAdmin && (
               <button
                 type="button"
@@ -422,7 +448,7 @@ function ProjectDashboardScreen() {
 }
 
 export default function ProjectDashboard() {
-  if (Number(localStorage.getItem("id_rol")) === 1001) {
+  if (getActiveRole() === 1001) {
     return <Navigate to="/admin-dashboard" replace />;
   }
   return <ProjectDashboardScreen />;

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { ExternalLink, Mail, MapPin, Navigation, Phone } from "lucide-react";
 import bgImage from "../assets/landing.jpeg";
 import isologo from "../assets/FoccusLGWhite.png";
 import logo from "../assets/Logo.png";
@@ -53,7 +54,9 @@ export default function FoccusLanding() {
       { threshold: 0.1, rootMargin: "0px 0px -100px 0px" }
     );
     document
-      .querySelectorAll(".root .card, .root .valor-card, .root .text-block")
+      .querySelectorAll(
+        ".root .card, .root .valor-card, .root .text-block, .root .section-header, .root .form-contact, .root .map-container"
+      )
       .forEach((el) => observer.observe(el));
     return () => observer.disconnect();
   }, []);
@@ -134,6 +137,8 @@ export default function FoccusLanding() {
           className="hamburger"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Menú"
+          aria-expanded={menuOpen}
+          aria-controls="landing-mobile-menu"
         >
           ☰
         </button>
@@ -141,7 +146,7 @@ export default function FoccusLanding() {
 
       {/* Mobile dropdown */}
       {menuOpen && (
-        <div className="mobile-menu">
+        <div className="mobile-menu" id="landing-mobile-menu">
           {navLinks.map((link) => (
             <a
               key={link.id}
@@ -360,20 +365,50 @@ export default function FoccusLanding() {
             {enviando ? "Enviando..." : "Enviar Mensaje"}
           </button>
         </form>
-        <div className="text-block mt-xl text-center">
-          <h3 className="color-accent mb-md">Información de Contacto</h3>
-          <p><strong>Email:</strong>{" "}<a href="mailto:foccuscompany.org@gmail.com" className="color-accent-2">foccuscompany.org@gmail.com</a></p>
-          <p><strong>Teléfono:</strong>{" "}<a href="tel:+573024699797" className="color-accent-2">+57 302 469 9797</a></p>
-          <p><strong>Dirección:</strong><br />Parque Central de Fontibón I PH<br />Calle 16 F # 99-72<br />Bogotá, Colombia</p>
-        </div>
-        <div className="map-container">
-          <iframe
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3867.828912209627!2d-74.15078851397652!3d4.67080033514895!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8e3f9d82185c81af%3A0xec4a25bde3ffcb50!2sConjunto%20Parque%20Central%20Fontib%C3%B3n%201!5e0!3m2!1sen!2sco!4v1781998812765!5m2!1sen!2sco"
-            allowFullScreen=""
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            title="Ubicación FOCCUS"
-          />
+        <div className="contact-location">
+          <article className="location-card">
+            <span className="location-card__eyebrow">Visítanos</span>
+            <h3>Estamos en Bogotá</h3>
+            <p className="location-card__intro">Conversemos sobre tu próximo proyecto audiovisual.</p>
+            <div className="location-card__address">
+              <span className="location-card__icon"><MapPin size={20} /></span>
+              <div>
+                <span className="location-card__label">Nuestra ubicación</span>
+                <address>Barrio Gran Granada<br />Cra. 119 # 77-50<br />Bogotá, Colombia</address>
+              </div>
+            </div>
+            <a className="location-card__contact" href="mailto:foccuscompany.org@gmail.com">
+              <Mail size={17} />
+              <span>foccuscompany.org@gmail.com</span>
+            </a>
+            <a className="location-card__contact" href="tel:+573223751228">
+              <Phone size={17} />
+              <span>+57 322 375 1228</span>
+            </a>
+            <a className="location-card__contact" href="tel:+573219986037">
+              <Phone size={17} />
+              <span>+57 321 998 6037</span>
+            </a>
+            <a
+              className="location-card__directions"
+              href="https://www.google.com/maps/search/?api=1&query=Cra.%20119%20%2377-50%2C%20Barrio%20Gran%20Granada%2C%20Bogot%C3%A1%2C%20Colombia"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Navigation size={17} />
+              Cómo llegar
+              <ExternalLink size={15} />
+            </a>
+          </article>
+          <div className="map-container location-map">
+            <iframe
+              src="https://maps.google.com/maps?q=Cra.%20119%20%2377-50%2C%20Barrio%20Gran%20Granada%2C%20Bogot%C3%A1%2C%20Colombia&z=16&output=embed"
+              allowFullScreen=""
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              title="Mapa: Barrio Gran Granada, Cra. 119 # 77-50, Bogotá"
+            />
+          </div>
         </div>
       </section>
 

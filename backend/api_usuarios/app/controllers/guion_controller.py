@@ -10,11 +10,13 @@ from app.schemas.guion_schema import (
     GuionUpdateSchema,
     GuionVersionSchema,
     GuionVersionTextoSchema,
+    GuionVersionEstadoSchema,
     GuionDesdeCeroSchema,
     GuionNotaSchema
 )
 from app.utils.response import api_response
 from app.utils.file_storage import guardar_archivo, EXTENSIONES_GUION
+from app.utils.guion_content import extraer_contenido_guion
 
 
 # GET ALL GUIONES (filtrable por proyecto con ?id_project=)
@@ -145,11 +147,12 @@ def crear_guion_desde_archivo(nombre: str, descripcion: str, id_project: str, ar
         db.rollback()
         return api_response(False, str(e), error="INVALID_FILE")
 
+    contenido, mensaje_extraccion = extraer_contenido_guion(ruta_archivo)
     primera_version = GuionVersion(
         id_guion=new_guion.id_guion,
         numero_de_version=1,
         archivo=ruta_archivo,
-        contenido=None,
+        contenido=contenido,
         fecha_de_emision=date.today(),
         estado="Borrador",
         comentario_cambio="Version inicial subida al sistema",
@@ -169,7 +172,8 @@ def crear_guion_desde_archivo(nombre: str, descripcion: str, id_project: str, ar
         "id_project": new_guion.id_project,
         "id_guion_version": primera_version.id_guion_version,
         "numero_de_version": primera_version.numero_de_version,
-        "archivo": primera_version.archivo
+        "archivo": primera_version.archivo,
+        "mensaje_extraccion": mensaje_extraccion
     })
 
 
@@ -224,6 +228,7 @@ def subir_version(id_guion: int, data: GuionVersionSchema, archivo: UploadFile, 
     except ValueError as e:
         return api_response(False, str(e), error="INVALID_FILE")
 
+    contenido, mensaje_extraccion = extraer_contenido_guion(ruta_archivo)
     ultima_version = (
         db.query(sqlfunc.max(GuionVersion.numero_de_version))
         .filter(GuionVersion.id_guion == id_guion)
@@ -234,6 +239,7 @@ def subir_version(id_guion: int, data: GuionVersionSchema, archivo: UploadFile, 
         id_guion=id_guion,
         numero_de_version=ultima_version + 1,
         archivo=ruta_archivo,
+        contenido=contenido,
         fecha_de_emision=data.fecha_de_emision,
         estado=data.estado,
         comentario_cambio=data.comentario_cambio,
@@ -251,7 +257,8 @@ def subir_version(id_guion: int, data: GuionVersionSchema, archivo: UploadFile, 
         "id_guion_version": nueva_version.id_guion_version,
         "numero_de_version": nueva_version.numero_de_version,
         "archivo": nueva_version.archivo,
-        "estado": nueva_version.estado
+        "estado": nueva_version.estado,
+        "mensaje_extraccion": mensaje_extraccion
     })
 
 
@@ -305,21 +312,56 @@ def get_versiones(id_guion: int, db: Session):
         .all()
     )
 
-    versiones_list = [
-        {
+    versiones_list = []
+    for v in versiones:
+        contenido = v.contenido
+        mensaje_extraccion = None
+        if v.archivo and not contenido:
+            contenido, mensaje_extraccion = extraer_contenido_guion(v.archivo)
+        versiones_list.append({
             "id_guion_version": v.id_guion_version,
             "numero_de_version": v.numero_de_version,
             "archivo": v.archivo,
-            "contenido": v.contenido,
+            "contenido": contenido,
             "fecha_de_emision": str(v.fecha_de_emision),
             "estado": v.estado,
             "comentario_cambio": v.comentario_cambio,
             "creado_por": v.creado_por,
-            "fecha_creacion": str(v.fecha_creacion)
-        }
-        for v in versiones
-    ]
+            "fecha_creacion": str(v.fecha_creacion),
+            "mensaje_extraccion": mensaje_extraccion
+        })
     return api_response(True, "Versiones del guion", versiones_list)
+
+
+def actualizar_estado_version(
+    id_guion: int,
+    id_guion_version: int,
+    id_project: str,
+    data: GuionVersionEstadoSchema,
+    db: Session,
+):
+    version = (
+        db.query(GuionVersion)
+        .join(Guion, Guion.id_guion == GuionVersion.id_guion)
+        .filter(
+            GuionVersion.id_guion_version == id_guion_version,
+            GuionVersion.id_guion == id_guion,
+            Guion.id_project == id_project,
+        )
+        .first()
+    )
+    if not version:
+        return api_response(False, "Versión del guion no encontrada")
+
+    version.estado = data.estado
+    db.commit()
+    db.refresh(version)
+    return api_response(True, "Estado de versión actualizado", {
+        "id_guion": id_guion,
+        "id_guion_version": version.id_guion_version,
+        "numero_de_version": version.numero_de_version,
+        "estado": version.estado,
+    })
 
 
 # AGREGAR NOTA A UNA VERSION

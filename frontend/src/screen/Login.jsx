@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { KeyRound, Eye, EyeOff } from "lucide-react";
 import logo from "../assets/Logo.png";
 import FondoLogin from "../assets/FondoLogin.jpeg";
-import { apiFetch, getDeviceId, setToken } from "../api";
+import { apiFetch, getActiveRole, getDeviceId, isTokenValid, setToken } from "../api";
 import "../desing/Login.css";
 
 export default function LoginScreen() {
@@ -18,6 +18,7 @@ export default function LoginScreen() {
   // Campos del login
   const [mail, setMail] = useState("");
   const [contrasena, setContrasena] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
 
   // Campos del registro (RegisterSchema: empresa + usuario)
   const [registro, setRegistro] = useState({
@@ -35,6 +36,7 @@ export default function LoginScreen() {
     apellido: "",
     mail: "",
     msisdn: "",
+    fecha_de_nacimiento: "",
     contrasena: "",
     confirmarContrasena: "",
   });
@@ -58,7 +60,7 @@ export default function LoginScreen() {
       const normalizedMail = mail.trim().toLowerCase();
       const response = await apiFetch("/users/login", {
         method: "POST",
-        body: JSON.stringify({ mail: normalizedMail, contrasena }),
+        body: JSON.stringify({ mail: normalizedMail, contrasena, remember_me: rememberMe }),
       });
 
       const result = await response.json();
@@ -67,14 +69,22 @@ export default function LoginScreen() {
         const data = result.data;
 
         // Guardar el token de sesión y los datos del usuario
-        setToken(data.access_token);
+        ["projectId", "id_project", "projectName", "project_role", "project_role_project_id"].forEach((key) =>
+          localStorage.removeItem(key),
+        );
         localStorage.setItem("id_user", data.id_user);
         localStorage.setItem("nombre", data.nombre);
         localStorage.setItem("apellido", data.apellido);
         localStorage.setItem("mail", data.mail);
         localStorage.setItem("id_rol", data.id_rol);
         localStorage.setItem("id_client", data.id_client);
-        const dashboardPath = Number(data.id_rol) === 1001 ? "/admin-dashboard" : "/proyecto-dashboard";
+        const needsProfileCompletion = (data.estado || "").toLowerCase() === "pendiente";
+        if (needsProfileCompletion) {
+          localStorage.setItem("needs_profile_completion", "true");
+        } else {
+          localStorage.removeItem("needs_profile_completion");
+        }
+        const dashboardPath = Number(data.id_rol) === 1001 ? "/admin-dashboard" : "/seleccion-proyecto";
 
         // Verificar si necesita 2FA
         const deviceId = getDeviceId();
@@ -96,12 +106,17 @@ export default function LoginScreen() {
               setError(send2faResult.message || "No se pudo enviar el código de verificación");
               return;
             }
-            navigate("/verificacion", { state: { mail: normalizedMail }, replace: true });
+            navigate("/verificacion", {
+              state: { mail: normalizedMail, rememberMe, needsProfileCompletion },
+              replace: true,
+            });
           } else {
-            navigate(dashboardPath, { replace: true });
+            setToken(data.access_token, rememberMe);
+            navigate(needsProfileCompletion ? "/completar-cuenta" : dashboardPath, { replace: true });
           }
         } else {
-          navigate(dashboardPath, { replace: true });
+          setToken(data.access_token, rememberMe);
+          navigate(needsProfileCompletion ? "/completar-cuenta" : dashboardPath, { replace: true });
         }
       } else {
         const detail = Array.isArray(result.detail)
@@ -180,12 +195,25 @@ export default function LoginScreen() {
     setError("");
     setRegistroPaso(siguientePaso);
   };
+
   // Para poder ver la contraseña que estoy escribiendo en el login
   const [verContrasena, setVerContrasena] = useState(false);
 
   // Para poder ver la contraseña que estoy escribiendo en el registro
   const [verContrasenaReg, setVerContrasenaReg] = useState(false);
   const [verConfirmarReg, setVerConfirmarReg] = useState(false);
+
+  if (isTokenValid()) {
+    const projectId = localStorage.getItem("projectId");
+    const dashboardPath = localStorage.getItem("needs_profile_completion") === "true"
+      ? "/completar-cuenta"
+      : getActiveRole() === 1001
+      ? "/admin-dashboard"
+      : projectId
+        ? "/proyecto-dashboard"
+        : "/seleccion-proyecto";
+    return <Navigate to={dashboardPath} replace />;
+  }
 
   return (
     <div className="login-page">
@@ -267,6 +295,18 @@ export default function LoginScreen() {
                     </button>
                   </div>
                 </div>
+
+                <label className="login-remember">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(event) => setRememberMe(event.target.checked)}
+                  />
+                  <span>
+                    <strong>Mantener sesión iniciada</strong>
+                    <small>En este dispositivo durante 30 días. No guardaremos tu contraseña.</small>
+                  </span>
+                </label>
 
                 <button
                   type="submit"
@@ -467,6 +507,17 @@ export default function LoginScreen() {
                         onChange={handleRegistroChange}
                         className="field__input"
                         placeholder="Tu número de celular"
+                        required
+                      />
+                    </div>
+                    <div className="field">
+                      <label className="field__label">Fecha de nacimiento</label>
+                      <input
+                        type="date"
+                        name="fecha_de_nacimiento"
+                        value={registro.fecha_de_nacimiento}
+                        onChange={handleRegistroChange}
+                        className="field__input"
                         required
                       />
                     </div>

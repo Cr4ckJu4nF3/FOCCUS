@@ -25,11 +25,25 @@ import {
   AlignCenter,
   AlignRight,
   Clapperboard,
+  House,
+  Image,
+  Moon,
+  Package,
+  Search,
+  Sun,
+  Trees,
 } from "lucide-react";
-import API_URL, { getToken } from "../api";
+import API_URL, { getActiveRole, getProjectHeaders, getToken } from "../api";
+import { GalleryModal } from "./Galeria";
 import "../desing/Guion.css";
 
-const ESTADOS_VERSION = ["Borrador", "Revision", "Aprobado", "En Rodaje", "Archivado"];
+const fetchWithProject = (url, options = {}) =>
+  globalThis.fetch(url, {
+    ...options,
+    headers: { ...(options.headers || {}), ...getProjectHeaders() },
+  });
+
+const ESTADOS_VERSION = ["Borrador", "Pendiente", "En revisión", "Aprobado", "En Rodaje", "Completado", "Finalizado", "Archivado"];
 
 // Normaliza "En Rodaje" -> "en-rodaje", "Revisión" -> "revision", etc.
 // para poder mapear el estado directo a una clase CSS.
@@ -67,7 +81,7 @@ export default function GuionScreen() {
   const navigate = useNavigate();
   const projectId = localStorage.getItem("projectId") || "";
   const projectName = localStorage.getItem("projectName") || "Proyecto";
-  const idRol = Number(localStorage.getItem("id_rol")) || 0;
+  const idRol = getActiveRole();
   const esAdmin = idRol === 1001;
 
   // vista principal: lista de guiones | editor "crear desde cero" | detalle de un guion
@@ -107,6 +121,23 @@ export default function GuionScreen() {
   const [escenarios, setEscenarios] = useState([]);
   const [nuevoPersonaje, setNuevoPersonaje] = useState("");
   const [nuevoEscenario, setNuevoEscenario] = useState("");
+  const [galleryItems, setGalleryItems] = useState([]);
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [galleryError, setGalleryError] = useState("");
+  const [galleryPickerType, setGalleryPickerType] = useState(null);
+  const [gallerySearch, setGallerySearch] = useState("");
+  const [galleryEditorType, setGalleryEditorType] = useState(null);
+  const [galleryInitialName, setGalleryInitialName] = useState("");
+  const [galleryFormError, setGalleryFormError] = useState("");
+  const [savingGalleryForm, setSavingGalleryForm] = useState(false);
+  const [lugarPendiente, setLugarPendiente] = useState(null);
+  const [tipoEscenaLugar, setTipoEscenaLugar] = useState("INT.");
+  const [momentoEscenaLugar, setMomentoEscenaLugar] = useState("DÍA");
+  const [fichaPendienteDeUso, setFichaPendienteDeUso] = useState(null);
+  const [detallesUso, setDetallesUso] = useState("");
+  const [usoSinCambios, setUsoSinCambios] = useState(false);
+  const [guardandoVersionUso, setGuardandoVersionUso] = useState(false);
+  const [errorVersionUso, setErrorVersionUso] = useState("");
   // Edicion en linea de un personaje/escenario existente (id + valor en edicion)
   const [editandoPersonajeId, setEditandoPersonajeId] = useState(null);
   const [editandoPersonajeNombre, setEditandoPersonajeNombre] = useState("");
@@ -118,7 +149,12 @@ export default function GuionScreen() {
   const [tabDetalle, setTabDetalle] = useState("contenido"); // contenido | versiones
   const [versiones, setVersiones] = useState([]);
   const [loadingVersiones, setLoadingVersiones] = useState(false);
-  const [versionesExpandidas, setVersionesExpandidas] = useState({});
+  const [versionStatusUpdating, setVersionStatusUpdating] = useState({});
+  const [versionLectorId, setVersionLectorId] = useState(null);
+  const [editandoContenido, setEditandoContenido] = useState(false);
+  const [contenidoEditado, setContenidoEditado] = useState("");
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  const [generandoPdf, setGenerandoPdf] = useState(false);
 
   // modal Nueva versión (dentro del detalle)
   const [showVersionModal, setShowVersionModal] = useState(false);
@@ -140,7 +176,7 @@ export default function GuionScreen() {
     setError("");
     try {
       const token = getToken();
-      const response = await fetch(`${API_URL}/guiones?id_project=${projectId}`, {
+      const response = await fetchWithProject(`${API_URL}/guiones?id_project=${projectId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -153,6 +189,27 @@ export default function GuionScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const limpiarHtmlGuion = (html) => {
+    const contenedor = document.createElement("div");
+    contenedor.innerHTML = html || "";
+    contenedor.querySelectorAll("script, style, iframe, object, embed, link, meta").forEach((nodo) => nodo.remove());
+    const etiquetasPermitidas = new Set(["P", "DIV", "BR", "HR", "H1", "H2", "H3", "UL", "OL", "LI", "B", "STRONG", "I", "EM", "U", "SPAN"]);
+    const limpiarNodo = (nodo) => {
+      Array.from(nodo.children).forEach(limpiarNodo);
+      if (!etiquetasPermitidas.has(nodo.tagName)) {
+        nodo.replaceWith(...nodo.childNodes);
+        return;
+      }
+      Array.from(nodo.attributes).forEach((atributo) => {
+        if (atributo.name !== "style" || !/^text-align:\s*(left|center|right|justify)\s*;?$/i.test(atributo.value)) {
+          nodo.removeAttribute(atributo.name);
+        }
+      });
+    };
+    Array.from(contenedor.children).forEach(limpiarNodo);
+    return contenedor.innerHTML;
   };
 
   useEffect(() => {
@@ -168,7 +225,7 @@ export default function GuionScreen() {
     setLoadingVersiones(true);
     try {
       const token = getToken();
-      const response = await fetch(`${API_URL}/guiones/${idGuion}/versiones`, {
+      const response = await fetchWithProject(`${API_URL}/guiones/${idGuion}/versiones`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -183,11 +240,44 @@ export default function GuionScreen() {
     }
   };
 
+  const handleCambiarEstadoVersion = async (version, estado) => {
+    if (!guionActivo || !version || version.estado === estado) return;
+    setError("");
+    setSuccess("");
+    setVersionStatusUpdating((current) => ({ ...current, [version.id_guion_version]: true }));
+    try {
+      const token = getToken();
+      const response = await fetchWithProject(
+        `${API_URL}/guiones/${guionActivo.id_guion}/versiones/${version.id_guion_version}/estado`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ estado }),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(extraerMensajeError(data, "No se pudo actualizar el estado de la versión"));
+      }
+      setVersiones((current) =>
+        current.map((item) =>
+          item.id_guion_version === version.id_guion_version ? { ...item, estado: data.data.estado } : item,
+        ),
+      );
+      setSuccess(`Versión ${version.numero_de_version} actualizada a «${data.data.estado}»`);
+      await fetchGuiones();
+    } catch (err) {
+      setError(err.message || "No se pudo actualizar el estado de la versión");
+    } finally {
+      setVersionStatusUpdating((current) => ({ ...current, [version.id_guion_version]: false }));
+    }
+  };
+
   const fetchPersonajes = async () => {
     if (!projectId) return;
     try {
       const token = getToken();
-      const response = await fetch(`${API_URL}/projects/${projectId}/personajes`, {
+      const response = await fetchWithProject(`${API_URL}/projects/${projectId}/personajes`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -201,7 +291,7 @@ export default function GuionScreen() {
     if (!projectId) return;
     try {
       const token = getToken();
-      const response = await fetch(`${API_URL}/projects/${projectId}/escenarios`, {
+      const response = await fetchWithProject(`${API_URL}/projects/${projectId}/escenarios`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -211,10 +301,32 @@ export default function GuionScreen() {
     }
   };
 
+  const fetchGalleryItems = async () => {
+    if (!projectId) return;
+    setGalleryLoading(true);
+    setGalleryError("");
+    try {
+      const token = getToken();
+      const response = await fetchWithProject(`${API_URL}/projects/${projectId}/galeria`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok || data.success === false) {
+        throw new Error(extraerMensajeError(data, "No se pudo cargar la galería"));
+      }
+      setGalleryItems(Array.isArray(data.data) ? data.data : []);
+    } catch (err) {
+      setGalleryError(err.message || "No se pudo cargar la galería");
+    } finally {
+      setGalleryLoading(false);
+    }
+  };
+
   const abrirDetalle = async (guion, tab = "contenido") => {
     setGuionActivo(guion);
     setTabDetalle(tab);
-    setVersionesExpandidas({});
+    setVersionLectorId(null);
+    setEditandoContenido(false);
     setVista("detalle");
     await fetchVersiones(guion.id_guion);
   };
@@ -223,6 +335,8 @@ export default function GuionScreen() {
     setVista("lista");
     setGuionActivo(null);
     setVersiones([]);
+    setVersionLectorId(null);
+    setEditandoContenido(false);
     fetchGuiones();
   };
 
@@ -231,7 +345,7 @@ export default function GuionScreen() {
     if (!window.confirm("¿Eliminar este guion? No se puede deshacer.")) return;
     try {
       const token = getToken();
-      const response = await fetch(`${API_URL}/guiones/${idGuion}`, {
+      const response = await fetchWithProject(`${API_URL}/guiones/${idGuion}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -269,7 +383,7 @@ export default function GuionScreen() {
     setUploading(true);
     try {
       const token = getToken();
-      const response = await fetch(`${API_URL}/guiones/archivo`, {
+      const response = await fetchWithProject(`${API_URL}/guiones/archivo`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -278,7 +392,9 @@ export default function GuionScreen() {
       if (!response.ok || !data.success) {
         throw new Error(extraerMensajeError(data, "No se pudo subir el guion"));
       }
-      setSuccess("Guion subido correctamente");
+      setSuccess(data.data?.mensaje_extraccion
+        ? `Guion subido. ${data.data.mensaje_extraccion}`
+        : "Guion subido correctamente");
       setUploadForm({ nombre: "", descripcion: "" });
       setUploadArchivo(null);
       setShowUploadModal(false);
@@ -296,6 +412,7 @@ export default function GuionScreen() {
     setVista("crear-cero");
     fetchPersonajes();
     fetchEscenarios();
+    fetchGalleryItems();
   };
 
   const cancelarCreacionDesdeCero = () => {
@@ -305,6 +422,33 @@ export default function GuionScreen() {
     setEscenasActivo(false);
     setEscenasBorrador([]);
     setEscenaActivaIndex(0);
+  };
+
+  const iniciarEscrituraVersion = () => {
+    if (!guionActivo) return;
+    setOrigenVersion("texto");
+    setShowVersionModal(false);
+    setError("");
+    setSuccess("");
+    setContenidoInicial("");
+    setEscenasActivo(false);
+    setEscenasBorrador([]);
+    setEscenaActivaIndex(0);
+    setVista("crear-version");
+    fetchPersonajes();
+    fetchEscenarios();
+    fetchGalleryItems();
+  };
+
+  const cancelarEscrituraVersion = () => {
+    setError("");
+    setContenidoInicial("");
+    setEscenasActivo(false);
+    setEscenasBorrador([]);
+    setEscenaActivaIndex(0);
+    setOrigenVersion("archivo");
+    setVista("detalle");
+    setTabDetalle("versiones");
   };
 
   // Buffer de texto que el editor lee/escribe en este momento: si el modo
@@ -364,7 +508,15 @@ export default function GuionScreen() {
   const htmlATextoPlano = (html) => {
     const contenedor = document.createElement("div");
     contenedor.innerHTML = html || "";
-    return contenedor.textContent || contenedor.innerText || "";
+    const etiquetasBloque = new Set(["DIV", "H1", "H2", "H3", "LI", "P"]);
+    const recorrer = (nodo) => {
+      if (nodo.nodeType === Node.TEXT_NODE) return nodo.nodeValue || "";
+      if (nodo.nodeType !== Node.ELEMENT_NODE) return "";
+      if (nodo.tagName === "BR" || nodo.tagName === "HR") return "\n";
+      const texto = Array.from(nodo.childNodes, recorrer).join("");
+      return texto + (etiquetasBloque.has(nodo.tagName) ? "\n" : "");
+    };
+    return recorrer(contenedor).replace(/\n{3,}/g, "\n\n").trim();
   };
 
   // El editor es un <div contentEditable>, no un input controlado: React no
@@ -375,16 +527,30 @@ export default function GuionScreen() {
   // pantalla). Mientras se escribe, el flujo va al reves: onInput lee el DOM
   // y lo guarda en el estado de React (ver sincronizarDesdeEditor).
   useEffect(() => {
-    if (editorRef.current) {
+    if ((vista === "crear-cero" || vista === "crear-version") && editorRef.current) {
       editorRef.current.innerHTML = textoEditorActivo || "";
     }
     ultimaSeleccionRef.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [escenaActivaIndex, escenasActivo, vista]);
 
+  useEffect(() => {
+    if (vista === "lector" && editandoContenido && editorRef.current) {
+      editorRef.current.innerHTML = limpiarHtmlGuion(contenidoEditado || "");
+      ultimaSeleccionRef.current = null;
+      editorRef.current.focus();
+    }
+    // Including contenidoEditado would reset the caret after every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vista, editandoContenido, versionLectorId]);
+
   const sincronizarDesdeEditor = () => {
     if (editorRef.current) {
-      setTextoEditorActivo(editorRef.current.innerHTML);
+      if (vista === "lector" && editandoContenido) {
+        setContenidoEditado(editorRef.current.innerHTML);
+      } else {
+        setTextoEditorActivo(editorRef.current.innerHTML);
+      }
     }
   };
 
@@ -406,6 +572,13 @@ export default function GuionScreen() {
     if (ultimaSeleccionRef.current && input.contains(ultimaSeleccionRef.current.startContainer)) {
       seleccion.removeAllRanges();
       seleccion.addRange(ultimaSeleccionRef.current);
+    } else {
+      const rangoFinal = document.createRange();
+      rangoFinal.selectNodeContents(input);
+      rangoFinal.collapse(false);
+      seleccion.removeAllRanges();
+      seleccion.addRange(rangoFinal);
+      ultimaSeleccionRef.current = rangoFinal.cloneRange();
     }
   };
 
@@ -440,36 +613,226 @@ export default function GuionScreen() {
     guardarSeleccionEditor();
   };
 
-  // Inserta texto plano (nombre de personaje/escenario) en la posicion
-  // del cursor, sin envolver la seleccion actual.
-  const insertarElementoEditor = (texto) => {
-    if (!editorRef.current) return;
-    restaurarFocoEnEditor();
-    document.execCommand("insertText", false, texto);
-    sincronizarDesdeEditor();
-    guardarSeleccionEditor();
+  const insertarFichaGaleria = (item) => {
+    if (item.tipo === "lugar") {
+      const tipoLugar = `${item.tipo_escenario || item.categoria || ""}`.toLowerCase();
+      setTipoEscenaLugar(tipoLugar.includes("interior") || tipoLugar === "int" ? "INT." : "EXT.");
+      setMomentoEscenaLugar("DÍA");
+      setLugarPendiente(item);
+      setGalleryPickerType(null);
+      return;
+    }
+    iniciarRegistroUso(item);
   };
 
-  const handleCrearPersonaje = async (e) => {
-    e.preventDefault();
-    if (!nuevoPersonaje.trim()) return;
+  const iniciarRegistroUso = (item, encabezadoEscena = "") => {
+    if (!item.id_galeria) {
+      setSuccess(`${item.nombre} no tiene ficha vinculada en Galería; se insertó sin agregar una versión de uso.`);
+      insertarFichaEnEditor({ ...item, encabezado_escena: encabezadoEscena });
+      return;
+    }
+    setFichaPendienteDeUso({ ...item, encabezado_escena: encabezadoEscena });
+    setDetallesUso("");
+    setUsoSinCambios(false);
+    setErrorVersionUso("");
+    setGalleryPickerType(null);
+  };
+
+  const insertarFichaEnEditor = (item) => {
+    const escaparHtml = (valor) => String(valor || "").replace(/[&<>"']/g, (caracter) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    })[caracter]);
+    const nombre = escaparHtml(item.nombre);
+    let html;
+
+    if (item.tipo === "personaje") {
+      html = `<p style="text-align: center"><strong>${nombre.toUpperCase()}</strong></p><p><br></p>`;
+    } else if (item.tipo === "objeto") {
+      const categoria = escaparHtml(item.categoria || "Objeto").toUpperCase();
+      html = `<p><em>[${categoria}: ${nombre}]</em></p>`;
+    } else {
+      const encabezado = escaparHtml(item.encabezado_escena || `${tipoEscenaLugar} ${item.nombre.toUpperCase()} - ${momentoEscenaLugar}`);
+      html = `<p><strong>${encabezado}</strong></p><p><br></p>`;
+    }
+
+    if (!editorRef.current) return;
+    restaurarFocoEnEditor();
+    document.execCommand("insertHTML", false, html);
+    sincronizarDesdeEditor();
+    guardarSeleccionEditor();
+    setGalleryPickerType(null);
+    setGallerySearch("");
+  };
+
+  const abrirSelectorGaleria = (tipo) => {
+    guardarSeleccionEditor();
+    setGalleryPickerType(tipo);
+    setGallerySearch("");
+    setGalleryError("");
+  };
+
+  const confirmarInsercionLugar = () => {
+    if (!lugarPendiente) return;
+    const encabezado = `${tipoEscenaLugar} ${lugarPendiente.nombre.toUpperCase()} - ${momentoEscenaLugar}`;
+    iniciarRegistroUso(lugarPendiente, encabezado);
+    setLugarPendiente(null);
+  };
+
+  const guardarVersionDeUso = async () => {
+    if (!fichaPendienteDeUso || (!usoSinCambios && !detallesUso.trim())) {
+      setErrorVersionUso("Describe cómo terminó o se usó este elemento para guardarlo en su historial.");
+      return;
+    }
+    setGuardandoVersionUso(true);
+    setErrorVersionUso("");
     try {
       const token = getToken();
-      const response = await fetch(`${API_URL}/personajes`, {
+      if (usoSinCambios) {
+        let fechaUso = "";
+        let avisoUso = "";
+        try {
+          const response = await fetchWithProject(
+            `${API_URL}/projects/${encodeURIComponent(projectId)}/galeria/${fichaPendienteDeUso.id_galeria}/uso`,
+            {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}` },
+            },
+          );
+          const data = await response.json();
+          if (!response.ok || !data.success) {
+            throw new Error(extraerMensajeError(data, "No se pudo registrar el uso"));
+          }
+          fechaUso = data.data?.ultimo_uso || new Date().toISOString().slice(0, 10);
+        } catch (usageError) {
+          avisoUso = `Se insertó en el guion, pero no se pudo actualizar la fecha de último uso en Galería: ${usageError.message || "error de conexión"}.`;
+        }
+        if (fechaUso) {
+          setGalleryItems((current) => current.map((item) =>
+            item.id_galeria === fichaPendienteDeUso.id_galeria
+              ? { ...item, ultimo_uso: fechaUso }
+              : item
+          ));
+        }
+        insertarFichaEnEditor(fichaPendienteDeUso);
+        setFichaPendienteDeUso(null);
+        setDetallesUso("");
+        setUsoSinCambios(false);
+        if (avisoUso) {
+          setError(avisoUso);
+          setSuccess("");
+        } else {
+          setError("");
+          setSuccess("Uso sin cambios registrado e insertado en el guion.");
+        }
+        return;
+      }
+      const response = await fetchWithProject(
+        `${API_URL}/projects/${encodeURIComponent(projectId)}/galeria/${fichaPendienteDeUso.id_galeria}/versiones`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            detalles_uso: [
+              fichaPendienteDeUso.encabezado_escena ? `Escena: ${fichaPendienteDeUso.encabezado_escena}` : "",
+              detallesUso.trim(),
+            ].filter(Boolean).join("\n\n"),
+            id_guion: guionActivo?.id_guion || null,
+          }),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(extraerMensajeError(data, "No se pudo registrar el uso"));
+      }
+      setGalleryItems((current) => current.map((item) =>
+        item.id_galeria === fichaPendienteDeUso.id_galeria
+          ? {
+              ...item,
+              total_versiones: (item.total_versiones || 0) + 1,
+              versiones_sin_foto: (item.versiones_sin_foto || 0) + 1,
+            }
+          : item
+      ));
+      insertarFichaEnEditor(fichaPendienteDeUso);
+      setFichaPendienteDeUso(null);
+      setDetallesUso("");
+      setUsoSinCambios(false);
+    } catch (err) {
+      setErrorVersionUso(err.message || "No se pudo registrar el uso");
+    } finally {
+      setGuardandoVersionUso(false);
+    }
+  };
+
+  const abrirFormularioGaleria = (tipo, nombre = "") => {
+    guardarSeleccionEditor();
+    setGalleryPickerType(null);
+    setGalleryFormError("");
+    setGalleryInitialName(nombre);
+    setGalleryEditorType(tipo);
+  };
+
+  const guardarFichaDesdeGuion = async (form, photo) => {
+    setSavingGalleryForm(true);
+    setGalleryFormError("");
+    const values = { ...form };
+    values.descripcion = values.descripcion.trim();
+    values.personaje_sinopsis = values.tipo === "personaje" ? values.descripcion : null;
+    values.lugar_apariencia = values.tipo === "lugar" ? values.descripcion : null;
+    values.ultimo_uso = values.ultimo_uso || null;
+    ["categoria", "interprete_nombre", "interprete_descripcion", "lugar_detalle_ubicacion", "lugar_objetos", "lugar_personajes"].forEach((key) => {
+      values[key] = values[key]?.trim() || null;
+    });
+    ["id_personaje", "id_escenario", "id_escena", "id_guion"].forEach((key) => {
+      values[key] = values[key] || null;
+    });
+
+    try {
+      const formData = new FormData();
+      Object.entries(values).forEach(([key, value]) => {
+        if (value !== null && value !== "") formData.append(key, String(value));
+      });
+      formData.append("foto", photo);
+      const token = getToken();
+      const response = await fetchWithProject(`${API_URL}/projects/${encodeURIComponent(projectId)}/galeria`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ nombre: nuevoPersonaje.trim(), id_project: projectId }),
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
       });
       const data = await response.json();
-      if (data.success) {
-        setPersonajes((prev) => [...prev, data.data].sort((a, b) => a.nombre.localeCompare(b.nombre)));
-        setNuevoPersonaje("");
-      } else {
-        setError(data.message || "No se pudo crear el personaje");
+      if (!response.ok || !data.success) {
+        throw new Error(extraerMensajeError(data, "No se pudo guardar la ficha"));
       }
-    } catch {
-      setError("No se pudo crear el personaje");
+
+      const createdItem = data.data;
+      setGalleryItems((current) => [createdItem, ...current.filter((item) => item.id_galeria !== createdItem.id_galeria)]);
+      setGalleryEditorType(null);
+      setGalleryInitialName("");
+      setSuccess(createdItem.tipo === "objeto"
+        ? "Ficha de objeto guardada en la galería del proyecto."
+        : `Ficha de ${createdItem.tipo === "personaje" ? "personaje" : "lugar"} guardada y vinculada al proyecto.`);
+      if (createdItem.tipo === "personaje") {
+        await fetchPersonajes();
+      } else if (createdItem.tipo === "lugar") {
+        await fetchEscenarios();
+      }
+      insertarFichaGaleria(createdItem);
+    } catch (err) {
+      setGalleryFormError(err.message || "No se pudo guardar la ficha");
+    } finally {
+      setSavingGalleryForm(false);
     }
+  };
+
+  const handleCrearPersonaje = (e) => {
+    e.preventDefault();
+    if (!nuevoPersonaje.trim()) return;
+    abrirFormularioGaleria("personaje", nuevoPersonaje.trim());
+    setNuevoPersonaje("");
   };
 
   const iniciarEdicionPersonaje = (p) => {
@@ -486,7 +849,7 @@ export default function GuionScreen() {
     if (!editandoPersonajeNombre.trim()) return;
     try {
       const token = getToken();
-      const response = await fetch(`${API_URL}/personajes/${id_personaje}`, {
+      const response = await fetchWithProject(`${API_URL}/personajes/${id_personaje}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ nombre: editandoPersonajeNombre.trim() }),
@@ -511,7 +874,7 @@ export default function GuionScreen() {
     if (!window.confirm("¿Eliminar este personaje? Esta acción no se puede deshacer.")) return;
     try {
       const token = getToken();
-      const response = await fetch(`${API_URL}/personajes/${id_personaje}`, {
+      const response = await fetchWithProject(`${API_URL}/personajes/${id_personaje}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -527,26 +890,11 @@ export default function GuionScreen() {
     }
   };
 
-  const handleCrearEscenario = async (e) => {
+  const handleCrearEscenario = (e) => {
     e.preventDefault();
     if (!nuevoEscenario.trim()) return;
-    try {
-      const token = getToken();
-      const response = await fetch(`${API_URL}/escenarios`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ nombre: nuevoEscenario.trim(), id_project: projectId }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        setEscenarios((prev) => [...prev, data.data].sort((a, b) => a.nombre.localeCompare(b.nombre)));
-        setNuevoEscenario("");
-      } else {
-        setError(data.message || "No se pudo crear el escenario");
-      }
-    } catch {
-      setError("No se pudo crear el escenario");
-    }
+    abrirFormularioGaleria("lugar", nuevoEscenario.trim());
+    setNuevoEscenario("");
   };
 
   const iniciarEdicionEscenario = (esc) => {
@@ -563,7 +911,7 @@ export default function GuionScreen() {
     if (!editandoEscenarioNombre.trim()) return;
     try {
       const token = getToken();
-      const response = await fetch(`${API_URL}/escenarios/${id_escenario}`, {
+      const response = await fetchWithProject(`${API_URL}/escenarios/${id_escenario}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ nombre: editandoEscenarioNombre.trim() }),
@@ -588,7 +936,7 @@ export default function GuionScreen() {
     if (!window.confirm("¿Eliminar este escenario? Esta acción no se puede deshacer.")) return;
     try {
       const token = getToken();
-      const response = await fetch(`${API_URL}/escenarios/${id_escenario}`, {
+      const response = await fetchWithProject(`${API_URL}/escenarios/${id_escenario}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -631,7 +979,7 @@ export default function GuionScreen() {
 
     try {
       const token = getToken();
-      const response = await fetch(`${API_URL}/guiones/texto`, {
+      const response = await fetchWithProject(`${API_URL}/guiones/texto`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -659,7 +1007,7 @@ export default function GuionScreen() {
           const textoPlano = htmlATextoPlano(esc.texto);
           const primeraLinea = textoPlano.split("\n").map((l) => l.trim()).find((l) => l.length > 0);
           try {
-            await fetch(`${API_URL}/escenas`, {
+            await fetchWithProject(`${API_URL}/escenas`, {
               method: "POST",
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
               body: JSON.stringify({
@@ -701,7 +1049,7 @@ export default function GuionScreen() {
         return;
       }
       try {
-        const response = await fetch(`${API_URL}/guiones/${guionActivo.id_guion}/versiones/texto`, {
+        const response = await fetchWithProject(`${API_URL}/guiones/${guionActivo.id_guion}/versiones/texto`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({
@@ -715,6 +1063,8 @@ export default function GuionScreen() {
         if (!response.ok || !data.success) {
           throw new Error(extraerMensajeError(data, "No se pudo guardar la versión"));
         }
+        setGuionActivo((actual) => ({ ...actual, id_guion_version_actual: data.data.id_guion_version }));
+        setVersionLectorId(data.data.id_guion_version);
         setSuccess("Versión guardada correctamente");
         setContenidoVersionTexto("");
         setShowVersionModal(false);
@@ -738,16 +1088,20 @@ export default function GuionScreen() {
     formData.append("archivo", archivoVersion);
 
     try {
-      const response = await fetch(`${API_URL}/guiones/${guionActivo.id_guion}/versiones`, {
+      const response = await fetchWithProject(`${API_URL}/guiones/${guionActivo.id_guion}/versiones`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
       const data = await response.json();
-      if (!response.ok) {
+      if (!response.ok || !data.success) {
         throw new Error(extraerMensajeError(data, "No se pudo subir la versión"));
       }
-      setSuccess("Versión subida correctamente");
+      setGuionActivo((actual) => ({ ...actual, id_guion_version_actual: data.data.id_guion_version }));
+      setVersionLectorId(data.data.id_guion_version);
+      setSuccess(data.data?.mensaje_extraccion
+        ? `Versión subida. ${data.data.mensaje_extraccion}`
+        : "Versión subida correctamente");
       setArchivoVersion(null);
       setShowVersionModal(false);
       await fetchVersiones(guionActivo.id_guion);
@@ -757,15 +1111,234 @@ export default function GuionScreen() {
     }
   };
 
-  const toggleVersionExpandida = (idGuionVersion) => {
-    setVersionesExpandidas((prev) => ({ ...prev, [idGuionVersion]: !prev[idGuionVersion] }));
+  const guardarVersionDesdeEditor = async (event) => {
+    event.preventDefault();
+    if (!guionActivo) return;
+
+    const contenido = escenasActivo
+      ? escenasBorrador.map((esc) => `<h3>ESCENA ${esc.numero}</h3>${esc.texto}`).join("<hr/>")
+      : contenidoInicial;
+    if (!htmlATextoPlano(contenido).trim()) {
+      setError("Escribe el contenido de esta versión antes de guardarla");
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setGuardandoEdicion(true);
+    try {
+      const response = await fetchWithProject(`${API_URL}/guiones/${guionActivo.id_guion}/versiones/texto`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({
+          contenido: limpiarHtmlGuion(contenido),
+          fecha_de_emision: versionForm.fecha_de_emision,
+          estado: versionForm.estado,
+          comentario_cambio: versionForm.comentario_cambio || "",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(extraerMensajeError(data, "No se pudo guardar la versión"));
+      }
+
+      setGuionActivo((actual) => ({ ...actual, id_guion_version_actual: data.data.id_guion_version }));
+      setVersionLectorId(data.data.id_guion_version);
+      setContenidoInicial("");
+      setEscenasActivo(false);
+      setEscenasBorrador([]);
+      setEscenaActivaIndex(0);
+      setOrigenVersion("archivo");
+      setVista("detalle");
+      setTabDetalle("versiones");
+      setSuccess("Nueva versión escrita y guardada correctamente");
+      await Promise.all([fetchVersiones(guionActivo.id_guion), fetchGuiones()]);
+    } catch (err) {
+      setError(err.message || "No se pudo guardar la versión");
+    } finally {
+      setGuardandoEdicion(false);
+    }
+  };
+
+  const iniciarEdicionContenido = (version = versionSeleccionadaParaLector) => {
+    if (!version) return;
+    setVersionLectorId(version.id_guion_version);
+    setContenidoEditado(version.contenido || "");
+    fetchPersonajes();
+    fetchEscenarios();
+    fetchGalleryItems();
+    setEditandoContenido(true);
+  };
+
+  const guardarEdicionContenido = async () => {
+    if (!guionActivo || !versionSeleccionadaParaLector || !htmlATextoPlano(contenidoEditado).trim()) {
+      setError("El contenido del guion no puede estar vacío");
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setGuardandoEdicion(true);
+    const token = getToken();
+    try {
+      const response = await fetchWithProject(`${API_URL}/guiones/${guionActivo.id_guion}/versiones/texto`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          contenido: limpiarHtmlGuion(contenidoEditado),
+          fecha_de_emision: new Date().toISOString().slice(0, 10),
+          estado: versionSeleccionadaParaLector.estado || "Borrador",
+          comentario_cambio: `Edición de la versión ${versionSeleccionadaParaLector.numero_de_version}`,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(extraerMensajeError(data, "No se pudo guardar la edición"));
+      }
+
+      setGuionActivo((actual) => ({
+        ...actual,
+        id_guion_version_actual: data.data.id_guion_version,
+      }));
+      setVersionLectorId(data.data.id_guion_version);
+      setEditandoContenido(false);
+      setSuccess("Edición guardada como una nueva versión");
+      await Promise.all([fetchVersiones(guionActivo.id_guion), fetchGuiones()]);
+    } catch (err) {
+      setError(err.message || "No se pudo guardar la edición");
+    } finally {
+      setGuardandoEdicion(false);
+    }
+  };
+
+  const insertarEscenaEnEdicion = () => {
+    if (!editorRef.current) return;
+    const cantidadEscenas = (htmlATextoPlano(editorRef.current.innerHTML).match(/\bESCENA\s+\d+\b/gi) || []).length;
+    restaurarFocoEnEditor();
+    document.execCommand("insertHTML", false, `<h1>ESCENA ${cantidadEscenas + 1}</h1><p><br></p>`);
+    sincronizarDesdeEditor();
+    guardarSeleccionEditor();
   };
 
   const versionActualDeGuionActivo =
     versiones.find((v) => v.id_guion_version === guionActivo?.id_guion_version_actual) || versiones[0];
+  const versionSeleccionadaParaLector =
+    versiones.find((version) => version.id_guion_version === versionLectorId) || versionActualDeGuionActivo;
+
+  const descargarGuionPdf = async (version = versionSeleccionadaParaLector) => {
+    const contenido = version?.contenido;
+    if (!contenido) {
+      setError("Esta versión no tiene texto disponible para generar un PDF");
+      return;
+    }
+
+    setGenerandoPdf(true);
+    try {
+      const { jsPDF } = await import("jspdf");
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
+      const anchoUtil = pdf.internal.pageSize.getWidth() - 50;
+      const altoPagina = pdf.internal.pageSize.getHeight();
+      const lineasTitulo = pdf.splitTextToSize(guionActivo?.nombre || "Guion", anchoUtil);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(18);
+      pdf.text(lineasTitulo, 25, 25);
+      let posicionY = 25 + lineasTitulo.length * 8;
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      pdf.text(
+        `Versión ${version.numero_de_version} · ${version.estado || "Sin estado"}`,
+        25,
+        posicionY,
+      );
+      posicionY += 12;
+
+      pdf.setFont("courier", "normal");
+      pdf.setFontSize(10);
+      const lineasGuion = pdf.splitTextToSize(htmlATextoPlano(contenido), anchoUtil);
+      lineasGuion.forEach((linea) => {
+        if (posicionY > altoPagina - 22) {
+          pdf.addPage();
+          posicionY = 22;
+        }
+        pdf.text(linea || " ", 25, posicionY);
+        posicionY += 5;
+      });
+
+      const totalPaginas = pdf.getNumberOfPages();
+      for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
+        pdf.setPage(pagina);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(8);
+        pdf.text(`${pagina} / ${totalPaginas}`, pdf.internal.pageSize.getWidth() - 25, altoPagina - 10, { align: "right" });
+      }
+
+      const nombreArchivo = Array.from(`${guionActivo?.nombre || "guion"}-v${version.numero_de_version}`)
+        .filter((caracter) => caracter.charCodeAt(0) >= 32 && !'<>:"/\\|?*'.includes(caracter))
+        .join("")
+        .trim() || "guion";
+      pdf.save(`${nombreArchivo}.pdf`);
+    } catch (err) {
+      setError(err.message || "No se pudo generar el PDF");
+    } finally {
+      setGenerandoPdf(false);
+    }
+  };
+
+  const normalizarNombreGaleria = (nombre) =>
+    String(nombre || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase();
+  const obtenerFichaGaleria = (tipo, id, nombre) => galleryItems.find((item) =>
+    item.tipo === tipo && (item[tipo === "personaje" ? "id_personaje" : "id_escenario"] === id
+      || normalizarNombreGaleria(item.nombre) === normalizarNombreGaleria(nombre))
+  );
+  const galleryPersonajes = galleryItems.filter((item) => item.tipo === "personaje");
+  const galleryLugares = galleryItems.filter((item) => item.tipo === "lugar");
+  const fichasGaleria = [
+    ...personajes.map((personaje) => {
+      const ficha = obtenerFichaGaleria("personaje", personaje.id_personaje, personaje.nombre);
+      return {
+        ...ficha,
+        tipo: "personaje",
+        id: personaje.id_personaje,
+        nombre: personaje.nombre,
+        descripcion: ficha?.personaje_sinopsis || ficha?.descripcion || "",
+        categoria: ficha?.categoria || "Personaje",
+      };
+    }),
+    ...galleryPersonajes
+      .filter((item) => !personajes.some((personaje) =>
+        personaje.id_personaje === item.id_personaje
+        || normalizarNombreGaleria(personaje.nombre) === normalizarNombreGaleria(item.nombre)
+      ))
+      .map((item) => ({ ...item, id: item.id_galeria, descripcion: item.personaje_sinopsis || item.descripcion || "" })),
+    ...escenarios.map((escenario) => {
+      const ficha = obtenerFichaGaleria("lugar", escenario.id_escenario, escenario.nombre);
+      return {
+        ...ficha,
+        tipo: "lugar",
+        id: escenario.id_escenario,
+        id_escenario: escenario.id_escenario,
+        nombre: escenario.nombre,
+        descripcion: ficha?.lugar_apariencia || ficha?.descripcion || "",
+        categoria: ficha?.categoria || "Locación",
+      };
+    }),
+    ...galleryLugares
+      .filter((item) => !escenarios.some((escenario) =>
+        escenario.id_escenario === item.id_escenario
+        || normalizarNombreGaleria(escenario.nombre) === normalizarNombreGaleria(item.nombre)
+      ))
+      .map((item) => ({ ...item, id: item.id_galeria, descripcion: item.lugar_apariencia || item.descripcion || "" })),
+    ...galleryItems.filter((item) => item.tipo === "objeto"),
+  ];
+  const fichasGaleriaFiltradas = fichasGaleria.filter((item) => {
+    const coincideTipo = galleryPickerType === "todos" || item.tipo === galleryPickerType;
+    const busqueda = gallerySearch.trim().toLocaleLowerCase();
+    return coincideTipo && (!busqueda || `${item.nombre} ${item.categoria || ""} ${item.descripcion || ""}`.toLocaleLowerCase().includes(busqueda));
+  });
 
   return (
-    <div className="guion-page">
+    <div className={`guion-page ${esAdmin ? "module-role-admin" : "module-role-user"}`}>
       <header className="guion-header">
         <div className="guion-header__inner">
           <button className="guion-back" type="button" onClick={() => navigate("/proyecto-dashboard")}>
@@ -849,34 +1422,71 @@ export default function GuionScreen() {
         )}
 
         {/* ---------------- CREAR DESDE CERO ---------------- */}
-        {vista === "crear-cero" && (
-          <div className="guion-panel guion-panel--wide">
+        {(vista === "crear-cero" || vista === "crear-version") && (
+          <div className="guion-panel guion-panel--wide guion-composer">
             <div className="guion-panel__header">
               <div className="guion-panel__title-row">
                 <Sparkles size={18} />
-                <h2>Crear guion desde cero</h2>
+                <div>
+                  <h2>{vista === "crear-version" ? "Escribir nueva versión" : "Crear guion desde cero"}</h2>
+                  {vista === "crear-version" && <span>{guionActivo?.nombre} · nueva versión del guion</span>}
+                </div>
               </div>
-              <button className="guion-back" type="button" onClick={cancelarCreacionDesdeCero}>
-                <ArrowLeft size={16} /> Cancelar
+              <button className="guion-back" type="button" onClick={vista === "crear-version" ? cancelarEscrituraVersion : cancelarCreacionDesdeCero}>
+                <ArrowLeft size={16} /> {vista === "crear-version" ? "Volver a versiones" : "Cancelar"}
               </button>
             </div>
 
-            <form className="guion-form-card" style={{ borderBottom: "none" }} onSubmit={handleCreateGuionDesdeCero}>
-              <div className="guion-titlebar">
-                <input
-                  className="guion-titlebar__title"
-                  value={ceroForm.nombre}
-                  onChange={(e) => setCeroForm({ ...ceroForm, nombre: e.target.value })}
-                  placeholder="Título del guion"
-                  required
-                />
-                <input
-                  className="guion-titlebar__desc"
-                  value={ceroForm.descripcion}
-                  onChange={(e) => setCeroForm({ ...ceroForm, descripcion: e.target.value })}
-                  placeholder="Añade una descripción: tono, estructura o notas del guion"
-                />
-              </div>
+            <form className="guion-form-card" style={{ borderBottom: "none" }} onSubmit={vista === "crear-version" ? guardarVersionDesdeEditor : handleCreateGuionDesdeCero}>
+              {vista === "crear-version" ? (
+                <section className="guion-version-writer-meta" aria-label="Datos de la versión">
+                  <div className="guion-grid">
+                    <label>
+                      Fecha de emisión
+                      <input
+                        type="date"
+                        value={versionForm.fecha_de_emision}
+                        onChange={(event) => setVersionForm({ ...versionForm, fecha_de_emision: event.target.value })}
+                        required
+                      />
+                    </label>
+                    <label>
+                      Estado
+                      <select
+                        value={versionForm.estado}
+                        onChange={(event) => setVersionForm({ ...versionForm, estado: event.target.value })}
+                      >
+                        {ESTADOS_VERSION.map((estado) => <option key={estado} value={estado}>{estado}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                  <label>
+                    Comentario del cambio
+                    <textarea
+                      rows={2}
+                      value={versionForm.comentario_cambio}
+                      onChange={(event) => setVersionForm({ ...versionForm, comentario_cambio: event.target.value })}
+                      placeholder="Describe la modificación realizada en esta versión"
+                    />
+                  </label>
+                </section>
+              ) : (
+                <div className="guion-titlebar">
+                  <input
+                    className="guion-titlebar__title"
+                    value={ceroForm.nombre}
+                    onChange={(e) => setCeroForm({ ...ceroForm, nombre: e.target.value })}
+                    placeholder="Título del guion"
+                    required
+                  />
+                  <input
+                    className="guion-titlebar__desc"
+                    value={ceroForm.descripcion}
+                    onChange={(e) => setCeroForm({ ...ceroForm, descripcion: e.target.value })}
+                    placeholder="Añade una descripción: tono, estructura o notas del guion"
+                  />
+                </div>
+              )}
 
               <div className="guion-editor-layout">
                 <div className="guion-editor-shell">
@@ -889,6 +1499,16 @@ export default function GuionScreen() {
                     <button type="button" onClick={() => aplicarAlineacionTexto("left")} title="Alinear izquierda"><AlignLeft size={16} /></button>
                     <button type="button" onClick={() => aplicarAlineacionTexto("center")} title="Centrar"><AlignCenter size={16} /></button>
                     <button type="button" onClick={() => aplicarAlineacionTexto("right")} title="Alinear derecha"><AlignRight size={16} /></button>
+                    <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("personaje")}><Users size={15} /> Personaje</button>
+                    <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("lugar")}><MapPin size={15} /> Lugar</button>
+                    <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("objeto")}><Package size={15} /> Objeto</button>
+                    {esAdmin && (
+                      <>
+                        <button className="guion-editor-catalog-button guion-editor-catalog-button--new" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirFormularioGaleria("personaje")}><Plus size={14} /> Crear personaje</button>
+                        <button className="guion-editor-catalog-button guion-editor-catalog-button--new" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirFormularioGaleria("lugar")}><Plus size={14} /> Crear lugar</button>
+                        <button className="guion-editor-catalog-button guion-editor-catalog-button--new" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirFormularioGaleria("objeto")}><Plus size={14} /> Crear objeto</button>
+                      </>
+                    )}
                     <span className="guion-editor-toolbar__spacer" />
                     <button
                       type="button"
@@ -943,8 +1563,11 @@ export default function GuionScreen() {
 
                 <aside className="guion-sidebar">
                   <div className="guion-sidebar__block">
-                    <div className="guion-sidebar__header"><Users size={16} /> Personajes</div>
-                    <div className="guion-sidebar__add">
+                    <div className="guion-sidebar__header">
+                      <Users size={16} /> Personajes
+                      <button className="guion-sidebar__choose" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("personaje")}>Elegir</button>
+                    </div>
+                    {esAdmin && <div className="guion-sidebar__add">
                       <input
                         value={nuevoPersonaje}
                         onChange={(e) => setNuevoPersonaje(e.target.value)}
@@ -957,7 +1580,7 @@ export default function GuionScreen() {
                         placeholder="Nombre del personaje"
                       />
                       <button type="button" title="Agregar personaje" onClick={handleCrearPersonaje}><Plus size={14} /></button>
-                    </div>
+                    </div>}
                     <div className="guion-sidebar__list">
                       {personajes.length === 0 && <span className="guion-sidebar__empty">Aún no hay personajes</span>}
                       {personajes.map((p) =>
@@ -985,7 +1608,9 @@ export default function GuionScreen() {
                               type="button"
                               className="guion-sidebar__item"
                               title="Insertar en el guion"
-                              onClick={() => insertarElementoEditor(`${p.nombre.toUpperCase()}\n`)}
+                              onClick={() => insertarFichaGaleria(
+                                obtenerFichaGaleria("personaje", p.id_personaje, p.nombre) || { tipo: "personaje", nombre: p.nombre },
+                              )}
                             >
                               {p.nombre}
                             </button>
@@ -1002,8 +1627,11 @@ export default function GuionScreen() {
                   </div>
 
                   <div className="guion-sidebar__block">
-                    <div className="guion-sidebar__header"><MapPin size={16} /> Escenarios</div>
-                    <div className="guion-sidebar__add">
+                    <div className="guion-sidebar__header">
+                      <MapPin size={16} /> Escenarios
+                      <button className="guion-sidebar__choose" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("lugar")}>Elegir</button>
+                    </div>
+                    {esAdmin && <div className="guion-sidebar__add">
                       <input
                         value={nuevoEscenario}
                         onChange={(e) => setNuevoEscenario(e.target.value)}
@@ -1016,7 +1644,7 @@ export default function GuionScreen() {
                         placeholder="Nombre del escenario"
                       />
                       <button type="button" title="Agregar escenario" onClick={handleCrearEscenario}><Plus size={14} /></button>
-                    </div>
+                    </div>}
                     <div className="guion-sidebar__list">
                       {escenarios.length === 0 && <span className="guion-sidebar__empty">Aún no hay escenarios</span>}
                       {escenarios.map((esc) =>
@@ -1044,7 +1672,13 @@ export default function GuionScreen() {
                               type="button"
                               className="guion-sidebar__item"
                               title="Insertar en el guion"
-                              onClick={() => insertarElementoEditor(`INT/EXT. ${esc.nombre.toUpperCase()} - DÍA\n`)}
+                              onClick={() => insertarFichaGaleria({
+                                ...(obtenerFichaGaleria("lugar", esc.id_escenario, esc.nombre) || {}),
+                                tipo: "lugar",
+                                nombre: esc.nombre,
+                                id_escenario: esc.id_escenario,
+                                tipo_escenario: esc.tipo,
+                              })}
                             >
                               {esc.nombre}
                             </button>
@@ -1059,11 +1693,28 @@ export default function GuionScreen() {
                       )}
                     </div>
                   </div>
+                  <div className="guion-sidebar__block guion-sidebar__object-block">
+                    <div className="guion-sidebar__header"><Package size={16} /> Utilería y objetos</div>
+                    <p>Inserta vestuario, maquillaje, utilería y otros elementos registrados en la galería.</p>
+                    <button className="guion-sidebar__choose guion-sidebar__choose--wide" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("objeto")}>
+                      <Image size={15} /> Explorar objetos
+                    </button>
+                    {esAdmin && (
+                      <button
+                        className="guion-sidebar__choose guion-sidebar__choose--wide guion-sidebar__object-create"
+                        type="button"
+                        onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }}
+                        onClick={() => abrirFormularioGaleria("objeto")}
+                      >
+                        <Plus size={15} /> Crear objeto
+                      </button>
+                    )}
+                  </div>
                 </aside>
               </div>
 
-              <button className="guion-button guion-button--primary" type="submit" style={{ marginTop: "1.25rem" }}>
-                <CheckCircle2 size={16} /> Crear guion
+              <button className="guion-button guion-button--primary" type="submit" style={{ marginTop: "1.25rem" }} disabled={guardandoEdicion}>
+                <CheckCircle2 size={16} /> {guardandoEdicion ? "Guardando versión…" : vista === "crear-version" ? "Guardar nueva versión" : "Crear guion"}
               </button>
             </form>
           </div>
@@ -1108,23 +1759,43 @@ export default function GuionScreen() {
                   <p className="guion-empty">Cargando…</p>
                 ) : !versionActualDeGuionActivo ? (
                   <p className="guion-empty">Este guion todavía no tiene versiones.</p>
-                ) : versionActualDeGuionActivo.contenido ? (
-                  <div className="guion-content-view__pre" dangerouslySetInnerHTML={{ __html: versionActualDeGuionActivo.contenido }} />
-                ) : versionActualDeGuionActivo.archivo ? (
-                  <div className="guion-content-view__file">
-                    <Paperclip size={18} />
-                    <span>Versión v{versionActualDeGuionActivo.numero_de_version} — archivo subido</span>
-                    <a
-                      className="guion-button guion-button--accent"
-                      href={`${API_URL}/assets/${versionActualDeGuionActivo.archivo}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <Eye size={16} /> Ver archivo
-                    </a>
-                  </div>
                 ) : (
-                  <p className="guion-empty">Sin contenido disponible.</p>
+                  <div className="guion-content-summary">
+                    <div className="guion-content-summary__icon"><FileText size={23} /></div>
+                    <div>
+                      <span>VERSIÓN ACTUAL · V{versionActualDeGuionActivo.numero_de_version}</span>
+                      <h3>{versionActualDeGuionActivo.estado || "Sin estado"}</h3>
+                      <p>{versionActualDeGuionActivo.contenido
+                        ? "El texto está listo para leer en una vista cómoda y dedicada."
+                        : "Consulta el archivo original en el lector de guiones."}</p>
+                    </div>
+                    <div className="guion-content-summary__actions">
+                      <button
+                        className="guion-button guion-button--accent"
+                        type="button"
+                        onClick={() => {
+                          setVersionLectorId(versionActualDeGuionActivo.id_guion_version);
+                          setEditandoContenido(false);
+                          setVista("lector");
+                        }}
+                      >
+                        <Eye size={16} /> Leer guion
+                      </button>
+                      {esAdmin && (
+                        <button
+                          className="guion-button guion-button--accent"
+                          type="button"
+                          onClick={() => {
+                            setVersionLectorId(versionActualDeGuionActivo.id_guion_version);
+                            iniciarEdicionContenido(versionActualDeGuionActivo);
+                            setVista("lector");
+                          }}
+                        >
+                          <PenLine size={16} /> Editar como nueva versión
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -1134,7 +1805,11 @@ export default function GuionScreen() {
                 <div className="guion-versions-toolbar">
                   <span>{versiones.length} registros</span>
                   {esAdmin && (
-                    <button className="guion-button guion-button--accent" type="button" onClick={() => setShowVersionModal(true)}>
+                    <button className="guion-button guion-button--accent" type="button" onClick={() => {
+                      setOrigenVersion("archivo");
+                      setArchivoVersion(null);
+                      setShowVersionModal(true);
+                    }}>
                       <Plus size={16} /> Nueva versión
                     </button>
                   )}
@@ -1154,12 +1829,28 @@ export default function GuionScreen() {
                             {v.estado}
                           </span>
                         </div>
+                        {esAdmin && (
+                          <label className="guion-version-card__status-control">
+                            Estado de la versión
+                            <select
+                              value={ESTADOS_VERSION.includes(v.estado) ? v.estado : v.estado === "Revision" ? "En revisión" : "Pendiente"}
+                              onChange={(event) => handleCambiarEstadoVersion(v, event.target.value)}
+                              disabled={Boolean(versionStatusUpdating[v.id_guion_version])}
+                              aria-label={`Cambiar estado de versión ${v.numero_de_version}`}
+                            >
+                              {ESTADOS_VERSION.map((estado) => (
+                                <option key={estado} value={estado}>{estado}</option>
+                              ))}
+                            </select>
+                            {versionStatusUpdating[v.id_guion_version] && <small>Guardando estado…</small>}
+                          </label>
+                        )}
                         <p className="guion-version-card__date">{v.fecha_de_emision}</p>
                         {v.comentario_cambio && <p className="guion-version-card__comment">{v.comentario_cambio}</p>}
                         <div className="guion-version-card__meta">
                           <span className={`guion-version-card__origen ${v.contenido ? "guion-version-card__origen--texto" : ""}`}>
                             {v.contenido ? (
-                              <><PenLine size={14} /> Escrito en el sistema</>
+                              v.archivo ? <><Paperclip size={14} /> Archivo con texto editable</> : <><PenLine size={14} /> Escrito en el sistema</>
                             ) : (
                               <><Paperclip size={14} /> Archivo subido</>
                             )}
@@ -1170,13 +1861,29 @@ export default function GuionScreen() {
                             </span>
                           )}
                         </div>
-                        {v.contenido && (
-                          <button className="guion-version-card__toggle" type="button" onClick={() => toggleVersionExpandida(v.id_guion_version)}>
-                            {versionesExpandidas[v.id_guion_version] ? "Ocultar contenido" : "Ver contenido"}
+                        <button
+                          className="guion-version-card__toggle"
+                          type="button"
+                          onClick={() => {
+                            setVersionLectorId(v.id_guion_version);
+                            setEditandoContenido(false);
+                            setVista("lector");
+                          }}
+                        >
+                          <Eye size={14} /> Leer versión
+                        </button>
+                        {esAdmin && (
+                          <button
+                            className="guion-version-card__toggle"
+                            type="button"
+                            onClick={() => {
+                              setVersionLectorId(v.id_guion_version);
+                              iniciarEdicionContenido(v);
+                              setVista("lector");
+                            }}
+                          >
+                            <PenLine size={14} /> Editar como nueva versión
                           </button>
-                        )}
-                        {v.contenido && versionesExpandidas[v.id_guion_version] && (
-                          <div className="guion-version-card__contenido" dangerouslySetInnerHTML={{ __html: v.contenido }} />
                         )}
                         {v.archivo && (
                           <a
@@ -1196,7 +1903,390 @@ export default function GuionScreen() {
             )}
           </div>
         )}
+
+        {vista === "lector" && guionActivo && versionSeleccionadaParaLector && (
+          <section className="guion-reader" aria-label="Lector de guiones">
+            <header className="guion-reader__header">
+              <button className="guion-reader__back" type="button" onClick={() => { setVista("detalle"); setEditandoContenido(false); }}>
+                <ArrowLeft size={17} /> Volver al guion
+              </button>
+              <div className="guion-reader__heading">
+                <span>LECTOR DE GUION</span>
+                <h1>{guionActivo.nombre}</h1>
+                <p>Versión {versionSeleccionadaParaLector.numero_de_version} · {versionSeleccionadaParaLector.estado || "Sin estado"}</p>
+              </div>
+              <div className="guion-reader__tools">
+                <label>
+                  <span>Versión</span>
+                  <select
+                    value={versionSeleccionadaParaLector.id_guion_version}
+                    onChange={(event) => {
+                      setVersionLectorId(Number(event.target.value));
+                      setEditandoContenido(false);
+                    }}
+                    aria-label="Seleccionar versión para leer"
+                  >
+                    {versiones.map((version) => (
+                      <option key={version.id_guion_version} value={version.id_guion_version}>
+                        v{version.numero_de_version} · {version.estado}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {versionSeleccionadaParaLector.contenido && (
+                  <button className="guion-reader__action" type="button" onClick={descargarGuionPdf} disabled={generandoPdf}>
+                    <FileText size={16} /> {generandoPdf ? "Generando…" : "Descargar PDF"}
+                  </button>
+                )}
+                {esAdmin && !editandoContenido && (
+                  <button className="guion-reader__action guion-reader__action--primary" type="button" onClick={() => iniciarEdicionContenido(versionSeleccionadaParaLector)}>
+                    <PenLine size={16} /> Editar como nueva versión
+                  </button>
+                )}
+              </div>
+            </header>
+
+            <article className={`guion-reader__page ${editandoContenido ? "guion-reader__page--editing" : ""}`}>
+              {versionSeleccionadaParaLector.archivo?.toLowerCase().endsWith(".pdf") && !editandoContenido && (
+                <iframe
+                  className="guion-reader__pdf"
+                  src={`${API_URL}/assets/${versionSeleccionadaParaLector.archivo}`}
+                  title={`Archivo original, versión ${versionSeleccionadaParaLector.numero_de_version} de ${guionActivo.nombre}`}
+                />
+              )}
+              {versionSeleccionadaParaLector.mensaje_extraccion && (
+                <p className="guion-reader__notice">{versionSeleccionadaParaLector.mensaje_extraccion}</p>
+              )}
+              {editandoContenido ? (
+                <div className="guion-reader__editor">
+                  <p>Guarda los cambios para crear una nueva versión. La versión elegida y el archivo original seguirán en el historial.</p>
+                  {!htmlATextoPlano(contenidoEditado).trim() && versionSeleccionadaParaLector.archivo && (
+                    <p className="guion-reader__notice">No se pudo extraer texto editable. Puedes escribir o pegar aquí el contenido.</p>
+                  )}
+                  <div className="guion-editor-shell guion-reader__editor-shell">
+                    <div className="guion-editor-toolbar" role="toolbar" aria-label="Herramientas de edición del guion">
+                      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => ejecutarComandoEditor("bold")} title="Negrita" aria-label="Negrita"><Bold size={16} /></button>
+                      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => ejecutarComandoEditor("italic")} title="Cursiva" aria-label="Cursiva"><Italic size={16} /></button>
+                      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => ejecutarComandoEditor("underline")} title="Subrayado" aria-label="Subrayado"><Underline size={16} /></button>
+                      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={alternarEncabezado} title="Encabezado" aria-label="Encabezado"><Heading1 size={16} /></button>
+                      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => ejecutarComandoEditor("insertUnorderedList")} title="Lista" aria-label="Lista"><List size={16} /></button>
+                      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => aplicarAlineacionTexto("left")} title="Alinear izquierda" aria-label="Alinear izquierda"><AlignLeft size={16} /></button>
+                      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => aplicarAlineacionTexto("center")} title="Centrar" aria-label="Centrar"><AlignCenter size={16} /></button>
+                      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => aplicarAlineacionTexto("right")} title="Alinear derecha" aria-label="Alinear derecha"><AlignRight size={16} /></button>
+                      <button className="guion-editor-scene-button" type="button" onMouseDown={(event) => event.preventDefault()} onClick={insertarEscenaEnEdicion}>
+                        <Clapperboard size={15} /> Insertar escena
+                      </button>
+                      <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("personaje")}><Users size={15} /> Personaje</button>
+                      <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("lugar")}><MapPin size={15} /> Lugar</button>
+                      <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("objeto")}><Package size={15} /> Objeto</button>
+                      {esAdmin && (
+                        <>
+                          <button className="guion-editor-catalog-button guion-editor-catalog-button--new" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirFormularioGaleria("personaje")}><Plus size={14} /> Crear personaje</button>
+                          <button className="guion-editor-catalog-button guion-editor-catalog-button--new" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirFormularioGaleria("lugar")}><Plus size={14} /> Crear lugar</button>
+                          <button className="guion-editor-catalog-button guion-editor-catalog-button--new" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirFormularioGaleria("objeto")}><Plus size={14} /> Crear objeto</button>
+                        </>
+                      )}
+                    </div>
+                    <div
+                      ref={editorRef}
+                      className="guion-editor-surface guion-editor-surface--rich guion-reader__edit-surface"
+                      contentEditable
+                      suppressContentEditableWarning
+                      role="textbox"
+                      aria-label="Editar contenido del guion"
+                      aria-multiline="true"
+                      data-placeholder="Escribe aquí el guion..."
+                      onInput={sincronizarDesdeEditor}
+                      onKeyUp={guardarSeleccionEditor}
+                      onMouseUp={guardarSeleccionEditor}
+                      onBlur={sincronizarDesdeEditor}
+                    />
+                  </div>
+                  <div>
+                    <button className="guion-reader__action guion-reader__action--primary" type="button" onClick={guardarEdicionContenido} disabled={guardandoEdicion}>
+                      <Check size={16} /> {guardandoEdicion ? "Guardando versión…" : "Guardar nueva versión"}
+                    </button>
+                    <button className="guion-reader__action" type="button" onClick={() => setEditandoContenido(false)} disabled={guardandoEdicion}>
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : versionSeleccionadaParaLector.contenido ? (
+                <pre className="guion-reader__text">{htmlATextoPlano(versionSeleccionadaParaLector.contenido)}</pre>
+              ) : versionSeleccionadaParaLector.archivo?.toLowerCase().endsWith(".pdf") ? null : (
+                <p className="guion-reader__empty">Este formato no tiene vista previa disponible en el navegador. Usa el acceso al archivo original desde el detalle del guion.</p>
+              )}
+            </article>
+          </section>
+        )}
       </main>
+
+      {galleryPickerType && (
+        <div
+          className="guion-modal-overlay guion-gallery-picker-overlay"
+          onClick={() => setGalleryPickerType(null)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setGalleryPickerType(null);
+          }}
+        >
+          <section
+            className="guion-modal guion-gallery-picker"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="guion-gallery-picker-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="guion-modal__header">
+              <div>
+                <span className="guion-gallery-picker__eyebrow">BIBLIOTECA DEL PROYECTO</span>
+                <h3 id="guion-gallery-picker-title">Añadir al guion</h3>
+              </div>
+              <button className="guion-modal__close" type="button" onClick={() => setGalleryPickerType(null)} aria-label="Cerrar selector">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="guion-modal__subtitle">Elige un elemento para insertarlo en la posición actual del cursor.</p>
+
+            <div className="guion-gallery-picker__filters" role="tablist" aria-label="Filtrar elementos">
+              {[
+                ["todos", "Todo"],
+                ["personaje", "Personajes"],
+                ["lugar", "Lugares"],
+                ["objeto", "Objetos"],
+              ].map(([tipo, etiqueta]) => (
+                <button
+                  key={tipo}
+                  className={galleryPickerType === tipo ? "is-active" : ""}
+                  type="button"
+                  role="tab"
+                  aria-selected={galleryPickerType === tipo}
+                  onClick={() => setGalleryPickerType(tipo)}
+                >
+                  {etiqueta}
+                </button>
+              ))}
+            </div>
+
+            <label className="guion-gallery-picker__search">
+              <Search size={17} />
+              <input
+                autoFocus
+                value={gallerySearch}
+                onChange={(event) => setGallerySearch(event.target.value)}
+                placeholder="Buscar por nombre, categoría o descripción"
+                aria-label="Buscar en la galería"
+              />
+            </label>
+
+            {galleryError && (
+              <div className="guion-gallery-picker__error" role="alert">
+                {galleryError}
+                <button type="button" onClick={fetchGalleryItems}>Reintentar</button>
+              </div>
+            )}
+            {galleryLoading ? (
+              <div className="guion-gallery-picker__empty"><span className="guion-gallery-picker__spinner" /> Cargando elementos…</div>
+            ) : fichasGaleriaFiltradas.length ? (
+              <div className="guion-gallery-picker__grid">
+                {fichasGaleriaFiltradas.map((item) => (
+                  <button
+                    className="guion-gallery-card"
+                    key={`${item.tipo}-${item.id || item.id_galeria || item.nombre}`}
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => insertarFichaGaleria(item)}
+                  >
+                    <span className="guion-gallery-card__image">
+                      {item.archivo_path ? (
+                        <img src={`${API_URL}/assets/${item.archivo_path}`} alt="" loading="lazy" />
+                      ) : (
+                        item.tipo === "personaje" ? <Users size={27} /> : item.tipo === "lugar" ? <MapPin size={27} /> : <Package size={27} />
+                      )}
+                      <span className="guion-gallery-card__type">{item.tipo === "personaje" ? "Personaje" : item.tipo === "lugar" ? "Lugar" : "Objeto"}</span>
+                    </span>
+                    <span className="guion-gallery-card__content">
+                      <strong>{item.nombre}</strong>
+                      {item.categoria && <small>{item.categoria}</small>}
+                      {item.descripcion && <span>{item.descripcion}</span>}
+                      <span className="guion-gallery-card__action">Registrar uso y añadir <Plus size={14} /></span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="guion-gallery-picker__empty">
+                {galleryError
+                  ? "No se pudieron cargar los elementos. Cierra esta ventana e inténtalo de nuevo."
+                  : "No hay elementos que coincidan. Añade personajes, lugares u objetos desde la galería del proyecto."}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {galleryEditorType && (
+        <GalleryModal
+          key={`${galleryEditorType}-${galleryInitialName}`}
+          item={null}
+          characters={[]}
+          locations={[]}
+          scripts={[]}
+          scenes={[]}
+          initialType={galleryEditorType}
+          initialName={galleryInitialName}
+          lockType
+          hideRelations
+          onClose={() => {
+            if (savingGalleryForm) return;
+            setGalleryEditorType(null);
+            setGalleryInitialName("");
+          }}
+          onSave={guardarFichaDesdeGuion}
+          saving={savingGalleryForm}
+          error={galleryFormError}
+        />
+      )}
+
+      {lugarPendiente && (
+        <div className="guion-modal-overlay guion-location-options-overlay" onClick={() => setLugarPendiente(null)}>
+          <section
+            className="guion-modal guion-location-options"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="guion-location-options-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="guion-modal__header">
+              <div>
+                <span className="guion-gallery-picker__eyebrow">ENCABEZADO DE ESCENA</span>
+                <h3 id="guion-location-options-title">{lugarPendiente.nombre}</h3>
+              </div>
+              <button className="guion-modal__close" type="button" onClick={() => setLugarPendiente(null)} aria-label="Cerrar opciones">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="guion-modal__subtitle">Define el tipo de locación y el momento para el encabezado del guion.</p>
+            <fieldset className="guion-location-options__group">
+              <legend>¿Dónde ocurre?</legend>
+              {[
+                ["INT.", "Interior", House],
+                ["EXT.", "Exterior", Trees],
+              ].map(([valor, etiqueta, Icon]) => (
+                <button
+                  key={valor}
+                  type="button"
+                  className={tipoEscenaLugar === valor ? "is-active" : ""}
+                  aria-pressed={tipoEscenaLugar === valor}
+                  onClick={() => setTipoEscenaLugar(valor)}
+                >
+                  <Icon size={17} strokeWidth={1.9} />
+                  <span>{etiqueta}</span>
+                </button>
+              ))}
+            </fieldset>
+            <fieldset className="guion-location-options__group">
+              <legend>¿En qué momento?</legend>
+              {[
+                ["DÍA", "Día", Sun],
+                ["NOCHE", "Noche", Moon],
+              ].map(([valor, etiqueta, Icon]) => (
+                <button
+                  key={valor}
+                  type="button"
+                  className={momentoEscenaLugar === valor ? "is-active" : ""}
+                  aria-pressed={momentoEscenaLugar === valor}
+                  onClick={() => setMomentoEscenaLugar(valor)}
+                >
+                  <Icon size={17} strokeWidth={1.9} />
+                  <span>{etiqueta}</span>
+                </button>
+              ))}
+            </fieldset>
+            <footer className="guion-location-options__footer">
+              <button className="guion-reader__action" type="button" onClick={() => setLugarPendiente(null)}>Cancelar</button>
+              <button className="guion-reader__action guion-reader__action--primary" type="button" onMouseDown={(event) => event.preventDefault()} onClick={confirmarInsercionLugar}>
+                <Plus size={16} /> Insertar escena
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
+
+      {fichaPendienteDeUso && (
+        <div className="guion-modal-overlay guion-usage-version-overlay" onClick={() => !guardandoVersionUso && setFichaPendienteDeUso(null)}>
+          <section
+            className="guion-modal guion-usage-version"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="guion-usage-version-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="guion-modal__header">
+              <div>
+                <span className="guion-gallery-picker__eyebrow">NUEVO REGISTRO DE USO</span>
+                <h3 id="guion-usage-version-title">{fichaPendienteDeUso.nombre}</h3>
+              </div>
+              <button className="guion-modal__close" type="button" onClick={() => setFichaPendienteDeUso(null)} disabled={guardandoVersionUso} aria-label="Cerrar registro">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="guion-modal__subtitle">
+              Indica si hubo cambios para guardar una nueva versión o si el elemento se usó sin cambios.
+            </p>
+            {fichaPendienteDeUso.encabezado_escena && (
+              <div className="guion-usage-version__scene">
+                <Clapperboard size={15} /> {fichaPendienteDeUso.encabezado_escena}
+              </div>
+            )}
+            {errorVersionUso && <p className="guion-gallery-picker__error" role="alert">{errorVersionUso}</p>}
+            <label className="guion-usage-version__no-change">
+              <input
+                type="checkbox"
+                checked={usoSinCambios}
+                onChange={(event) => {
+                  setUsoSinCambios(event.target.checked);
+                  setErrorVersionUso("");
+                }}
+              />
+              <span>Sin cambios; no crear una nueva versión</span>
+            </label>
+            {usoSinCambios ? (
+              <p className="guion-usage-version__hint">
+                Se registrará la fecha de uso y el elemento se insertará en el guion, sin agregar una versión al historial.
+              </p>
+            ) : (
+              <>
+                <label className="guion-usage-version__field">
+                  <span>Detalles de este uso</span>
+                  <textarea
+                    autoFocus
+                    rows={5}
+                    value={detallesUso}
+                    onChange={(event) => setDetallesUso(event.target.value)}
+                    placeholder={fichaPendienteDeUso.tipo === "personaje"
+                      ? "Ej. Termina la escena con el cabello largo y mojado, camisa rasgada en el hombro…"
+                      : fichaPendienteDeUso.tipo === "lugar"
+                        ? "Ej. Se usó con las ventanas rotas, iluminación nocturna y muebles desplazados…"
+                        : "Ej. El objeto queda rayado, con la tapa abierta y una etiqueta roja…"}
+                    required
+                  />
+                </label>
+                <p className="guion-usage-version__hint">
+                  Anota apariencia, cambios, daños o continuidad que el equipo deba recordar. La versión aparecerá en Galería con la imagen pendiente de subir.
+                </p>
+              </>
+            )}
+            <footer className="guion-location-options__footer">
+              <button className="guion-reader__action" type="button" onClick={() => setFichaPendienteDeUso(null)} disabled={guardandoVersionUso}>
+                Cancelar
+              </button>
+              <button className="guion-reader__action guion-reader__action--primary" type="button" onMouseDown={(event) => event.preventDefault()} onClick={guardarVersionDeUso} disabled={guardandoVersionUso || (!usoSinCambios && !detallesUso.trim())}>
+                <Check size={16} /> {guardandoVersionUso ? (usoSinCambios ? "Registrando uso…" : "Guardando versión…") : (usoSinCambios ? "Registrar e insertar" : "Guardar e insertar")}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
 
       {/* ---------------- MODAL: elegir tipo de creación ---------------- */}
       {showChoiceModal && (
@@ -1256,10 +2346,10 @@ export default function GuionScreen() {
               </label>
               <div className="guion-upload">
                 <label>
-                  Archivo del guion (PDF o Word)
+                  Archivo del guion (PDF, Word o FDX)
                   <input
                     type="file"
-                    accept=".pdf,.docx"
+                    accept=".pdf,.docx,.fdx"
                     onChange={(e) => setUploadArchivo(e.target.files?.[0] || null)}
                     required
                   />
@@ -1288,14 +2378,17 @@ export default function GuionScreen() {
               <button
                 type="button"
                 className={`guion-origen-toggle__option ${origenVersion === "archivo" ? "guion-origen-toggle__option--active" : ""}`}
-                onClick={() => setOrigenVersion("archivo")}
+                onClick={() => {
+                  setOrigenVersion("archivo");
+                  setArchivoVersion(null);
+                }}
               >
                 <Paperclip size={15} /> Subir archivo
               </button>
               <button
                 type="button"
                 className={`guion-origen-toggle__option ${origenVersion === "texto" ? "guion-origen-toggle__option--active" : ""}`}
-                onClick={() => setOrigenVersion("texto")}
+                onClick={iniciarEscrituraVersion}
               >
                 <PenLine size={15} /> Escribir guion
               </button>
@@ -1339,16 +2432,9 @@ export default function GuionScreen() {
                   </label>
                 </div>
               ) : (
-                <label>
-                  Contenido
-                  <textarea
-                    className="guion-texto-editor"
-                    rows={10}
-                    value={contenidoVersionTexto}
-                    onChange={(e) => setContenidoVersionTexto(e.target.value)}
-                    placeholder="Escribe el contenido de esta versión..."
-                  />
-                </label>
+                <p className="guion-form__hint">
+                  Al elegir “Escribir guion” se abrirá el editor completo para redactar esta versión con las herramientas de formato y escenas.
+                </p>
               )}
 
               <button className="guion-button guion-button--accent" type="submit">

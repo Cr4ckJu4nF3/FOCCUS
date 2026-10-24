@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.config.database import get_db
-from app.utils.auth import get_current_user, require_admin
+from app.utils.auth import get_current_user, require_admin, require_project_admin, require_project_member
 from app.controllers.project_controller import (
     get_projects,
     get_project,
@@ -26,7 +26,7 @@ def projects(db: Session = Depends(get_db), current_user: dict = Depends(require
 def store_and_link(
     data: ProjectCreateSchema,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(require_admin)
 ):
     project = ProjectSchema(
         project_name=data.project_name,
@@ -48,14 +48,14 @@ def projects_by_client(
     return get_projects_by_client(id_client, db)
 
 @router.get("/projects/{id}")
-def project(id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+def project(id: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
     return get_project(id, db)
 
 @router.post("/projects")
 def store_project(
     project: ProjectSchema,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(require_admin)
 ):
     return create_project(project, db)
 
@@ -64,7 +64,7 @@ def edit_project(
     id: str,
     project: ProjectSchema,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(require_project_admin)
 ):
     return update_project_full(id, project, db)
 
@@ -73,7 +73,7 @@ def patch_project(
     id: str,
     project: ProjectUpdateSchema,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(require_project_admin)
 ):
     return update_project(id, project, db)
 
@@ -82,7 +82,7 @@ def patch_project(
 def destroy_project_by_action(
     id: str,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_project_admin)
 ):
     return delete_project(id, db)
 
@@ -91,6 +91,6 @@ def destroy_project_by_action(
 def destroy_project(
     id: str,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(require_project_admin)
 ):
     return delete_project(id, db)

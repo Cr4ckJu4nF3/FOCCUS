@@ -248,9 +248,32 @@
   color: #fed7c9;
 }
 
-.rdj-badge--finalizado {
+.rdj-badge--finalizado,
+.rdj-badge--completado {
   background: rgba(16, 185, 129, 0.18);
   color: #bbf7d0;
+}
+
+.rdj-status-select {
+  max-width: 150px;
+  border: 1px solid rgba(250, 250, 250, 0.12);
+  cursor: pointer;
+  font: inherit;
+}
+
+.rdj-status-select:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.rdj-status-select option {
+  color: #fafafa;
+  background: #0f1216;
+}
+
+.rdj-scene-row .rdj-status-select {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .rdj-tabs {
@@ -491,4 +514,40 @@
   .rdj-add-escena {
     flex-direction: column;
   }
+}
+
+.rdj-page {
+  background:
+    radial-gradient(ellipse at 15% 0, rgba(73, 111, 166, 0.2), transparent 42%),
+    #172337;
+}
+
+.rdj-header {
+  border-color: rgba(255, 255, 255, 0.09);
+  background: rgba(23, 35, 55, 0.92);
+}
+
+.rdj-panel,
+.rdj-modal {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #1d2a3d;
+}
+
+.rdj-panel__header {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.rdj-day-card,
+.rdj-scene-row,
+.rdj-choice-card {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: #202f43;
+}
+
+.rdj-add-escena select,
+.rdj-form input,
+.rdj-form select,
+.rdj-form textarea {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #152236;
 }

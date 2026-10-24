@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Users, Plus, PenLine, Trash2, X } from "lucide-react";
-import { apiFetch } from "../api";
+import { apiFetch, getActiveRole } from "../api";
 import "../desing/Personajes.css";
 
 const formVacio = { nombre: "", descripcion: "" };
@@ -10,7 +10,7 @@ export default function PersonajesScreen() {
   const navigate = useNavigate();
   const projectId = localStorage.getItem("projectId") || "";
   const projectName = localStorage.getItem("projectName") || "Proyecto";
-  const idRol = Number(localStorage.getItem("id_rol")) || 0;
+  const idRol = getActiveRole();
   const esAdmin = idRol === 1001;
 
   const [personajes, setPersonajes] = useState([]);
@@ -122,7 +122,7 @@ export default function PersonajesScreen() {
   };
 
   return (
-    <div className="personajes-page">
+    <div className={`personajes-page ${esAdmin ? "module-role-admin" : "module-role-user"}`}>
       <header className="personajes-header">
         <div className="personajes-header__inner">
           <button type="button" className="personajes-back" onClick={() => navigate("/proyecto-dashboard")}>

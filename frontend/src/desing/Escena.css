@@ -597,3 +597,38 @@
 .escena-form--modal {
   padding: 0;
 }
+
+.escena-page {
+  background-image:
+    radial-gradient(ellipse at 15% 0, rgba(73, 111, 166, 0.2), transparent 42%),
+    linear-gradient(135deg, #172337, #1a2639);
+}
+
+.escena-header {
+  border-color: rgba(255, 255, 255, 0.09);
+  background: rgba(23, 35, 55, 0.92);
+}
+
+.escena-panel,
+.escena-modal {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #1d2a3d;
+}
+
+.escena-panel__header {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.escena-row,
+.escena-foto-card {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: #202f43;
+}
+
+.escena-toolbar select,
+.escena-form input,
+.escena-form select,
+.escena-form textarea {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #152236;
+}

@@ -1,8 +1,14 @@
 import random
 import string
 from datetime import datetime, timedelta
+from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from app.utils.mail import send_recovery_email, send_2fa_email, send_invitation_email
-from app.utils.auth import create_access_token
+from app.utils.auth import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    REMEMBER_TOKEN_EXPIRE_MINUTES,
+    create_access_token,
+)
 from app.models.project_model import Project
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
@@ -239,7 +245,7 @@ def remove_user_from_project(id_user: int, id_project: str, db: Session):
 # ==========================================
 # LOGIN
 # ==========================================
-def login_user(mail: str, contrasena: str, db: Session):
+def login_user(mail: str, contrasena: str, db: Session, remember_me: bool = False):
     normalized_mail = mail.strip().lower()
     user = db.query(User).filter(User.mail == normalized_mail).first()
 
@@ -264,7 +270,10 @@ def login_user(mail: str, contrasena: str, db: Session):
     user.ultimo_acceso = func.now()
     db.commit()
 
-    token = create_access_token({"id_user": user.id_user, "id_rol": user.id_rol})
+    token = create_access_token(
+        {"id_user": user.id_user, "id_rol": user.id_rol},
+        REMEMBER_TOKEN_EXPIRE_MINUTES if remember_me else ACCESS_TOKEN_EXPIRE_MINUTES,
+    )
 
     return api_response(True, "Login exitoso", {
         "id_user": user.id_user,
@@ -273,6 +282,7 @@ def login_user(mail: str, contrasena: str, db: Session):
         "mail": user.mail,
         "id_rol": user.id_rol,
         "id_client": id_client,
+        "estado": user.estado,
         "access_token": token,
         "token_type": "bearer"
     })
@@ -300,6 +310,24 @@ def recover_password(mail: str, db: Session):
         return api_response(False, "Error al enviar correo", error="MAIL_ERROR")
 
     return api_response(True, "Código de recuperación enviado al correo")
+
+
+def verify_recovery_code(mail: str, codigo: str):
+    normalized_mail = mail.strip().lower()
+
+    if normalized_mail not in recovery_codes:
+        return api_response(False, "No hay solicitud de recuperación", error="NO_REQUEST")
+
+    datos = recovery_codes[normalized_mail]
+
+    if datetime.now() > datos["expira"]:
+        del recovery_codes[normalized_mail]
+        return api_response(False, "Código expirado", error="CODE_EXPIRED")
+
+    if datos["codigo"] != codigo.strip():
+        return api_response(False, "Código incorrecto", error="INVALID_CODE")
+
+    return api_response(True, "Código verificado correctamente")
 
 # ==========================================
 # RESET PASSWORD (cambiar contraseña)
@@ -336,20 +364,32 @@ def reset_password(mail: str, codigo: str, nueva_contrasena: str, db: Session):
 # REGISTER (Client + User)
 # ==========================================
 def register(data, db: Session):
-    existing_client = db.query(Client).filter(Client.email == data.email_empresa).first()
+    normalized_email_empresa = data.email_empresa.strip().lower()
+    normalized_mail = data.mail.strip().lower()
+    normalized_id = data.id_document.strip()
+
+    existing_client = db.query(Client).filter(Client.email == normalized_email_empresa).first()
     if existing_client:
         return api_response(False, "La empresa ya está registrada", error="DUPLICATE_CLIENT")
 
-    existing_user = db.query(User).filter(User.mail == data.mail).first()
+    existing_user = db.query(User).filter(User.mail == normalized_mail).first()
     if existing_user:
         return api_response(False, "El correo del usuario ya está registrado", error="DUPLICATE_USER")
+
+    existing_id = db.query(User).filter(User.id_identificacion == normalized_id).first()
+    if existing_id:
+        return api_response(
+            False,
+            "El número de identificación ya está registrado. Verifica el documento ingresado.",
+            error="DUPLICATE_ID",
+        )
 
     try:
         new_client = Client(
             document=data.document,
             razon_social=format_text(data.razon_social),
             representante_legal=format_text(data.representante_legal),
-            email=data.email_empresa.strip().lower(),
+            email=normalized_email_empresa,
             address=format_text(data.address),
             telephone=data.telephone,
             number_cellphone=data.number_cellphone,
@@ -365,11 +405,11 @@ def register(data, db: Session):
             nombre=format_text(data.nombre),
             apellido=format_text(data.apellido),
             identificacion="CC",
-            id_identificacion=data.id_document,
-            mail=data.mail.strip().lower(),
+            id_identificacion=normalized_id,
+            mail=normalized_mail,
             msisdn=data.msisdn,
             direccion=format_text(data.address) if data.address else "",
-            fecha_de_nacimiento=datetime.now(),
+            fecha_de_nacimiento=datetime.combine(data.fecha_de_nacimiento, datetime.min.time()),
             estado="activo",
             fecha_de_creacion=datetime.now(),
             ultimo_acceso=datetime.now(),
@@ -398,10 +438,32 @@ def register(data, db: Session):
             "token_type": "bearer"
         })
 
+    except IntegrityError as e:
+        db.rollback()
+        database_error = str(getattr(e.orig, "args", ("", ""))[-1]).lower()
+        if "id_identificacion" in database_error:
+            return api_response(
+                False,
+                "El número de identificación ya está registrado. Verifica el documento ingresado.",
+                error="DUPLICATE_ID",
+            )
+        if "mail" in database_error:
+            return api_response(False, "El correo del usuario ya está registrado", error="DUPLICATE_USER")
+        if "email" in database_error:
+            return api_response(False, "La empresa ya está registrada", error="DUPLICATE_CLIENT")
+        return api_response(
+            False,
+            "No se pudo completar el registro por un conflicto con los datos. Verifica la información e inténtalo de nuevo.",
+            error="REGISTRATION_CONFLICT",
+        )
     except Exception as e:
         db.rollback()
-        print("Error en registro:", e)
-        return api_response(False, "Error al registrar", error=str(e))
+        print("Error en registro:", type(e).__name__)
+        return api_response(
+            False,
+            "No se pudo completar el registro. Verifica los datos e inténtalo nuevamente.",
+            error="REGISTRATION_ERROR",
+        )
 
 # ==========================================
 # 2FA - VERIFICAR SI DISPOSITIVO NECESITA 2FA
@@ -440,7 +502,7 @@ def send_2fa_code(mail: str, device_id: str, db: Session):
 # ==========================================
 # 2FA - VERIFICAR CODIGO
 # ==========================================
-def verify_2fa_code(mail: str, codigo: str, device_id: str, db: Session):
+def verify_2fa_code(mail: str, codigo: str, device_id: str, db: Session, remember_me: bool = False):
     if mail not in two_factor_codes:
         return api_response(False, "No hay código de verificación pendiente", error="NO_CODE")
 
@@ -471,7 +533,10 @@ def verify_2fa_code(mail: str, codigo: str, device_id: str, db: Session):
             if project:
                 id_client = project.id_client
 
-    token = create_access_token({"id_user": user.id_user, "id_rol": user.id_rol})
+    token = create_access_token(
+        {"id_user": user.id_user, "id_rol": user.id_rol},
+        REMEMBER_TOKEN_EXPIRE_MINUTES if remember_me else ACCESS_TOKEN_EXPIRE_MINUTES,
+    )
 
     return api_response(True, "Verificación exitosa", {
         "id_user": user.id_user,
@@ -480,6 +545,7 @@ def verify_2fa_code(mail: str, codigo: str, device_id: str, db: Session):
         "mail": user.mail,
         "id_rol": user.id_rol,
         "id_client": id_client,
+        "estado": user.estado,
         "device_verified": True,
         "access_token": token,
         "token_type": "bearer"
@@ -488,17 +554,50 @@ def verify_2fa_code(mail: str, codigo: str, device_id: str, db: Session):
 # ==========================================
 # INVITE USERS
 # ==========================================
-def invite_users(correos: list, id_project: str, id_client: int, id_rol: int, db: Session):
+def invite_users(
+    correos: list,
+    id_project: str,
+    id_client: int,
+    id_rol: int,
+    invited_by_user_id: int,
+    db: Session,
+    departamento: str | None = None,
+    nombres: dict | None = None,
+):
     project = db.query(Project).filter(Project.id_project == id_project).first()
 
     if not project:
-        return api_response(False, "Proyecto no encontrado", error="PROJECT_NOT_FOUND")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proyecto no encontrado")
+
+    is_project_admin = db.query(UserProject).filter(
+        UserProject.id_user == invited_by_user_id,
+        UserProject.id_project == id_project,
+        UserProject.id_rol == 1001,
+    ).first()
+    if not is_project_admin or id_client != project.id_client:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No puedes invitar usuarios a este proyecto",
+        )
+
+    if id_rol not in {1001, 1002, 1003, 1004, 1005}:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Rol de proyecto no válido")
 
     usuarios_creados = []
     errores = []
+    nombres_normalizados = {
+        correo.strip().lower(): datos
+        for correo, datos in (nombres or {}).items()
+        if correo.strip()
+    }
 
-    for correo in correos:
+    for correo_input in correos:
+        correo = correo_input.strip().lower()
+        if not correo:
+            continue
+
         existing = db.query(User).filter(User.mail == correo).first()
+        nombre_invitado = nombres_normalizados.get(correo)
 
         if existing:
             existing_link = db.query(UserProject).filter(
@@ -513,10 +612,20 @@ def invite_users(correos: list, id_project: str, id_client: int, id_rol: int, db
                 })
                 continue
 
+            if (
+                (existing.estado or "").lower() == "pendiente"
+                and nombre_invitado
+                and nombre_invitado.nombre.strip()
+                and nombre_invitado.apellido.strip()
+            ):
+                existing.nombre = format_text(nombre_invitado.nombre)
+                existing.apellido = format_text(nombre_invitado.apellido)
+
             user_project = UserProject(
                 id_user=existing.id_user,
                 id_project=id_project,
-                id_rol=id_rol
+                id_rol=id_rol,
+                departamento=departamento.strip() or None if departamento else None,
             )
             db.add(user_project)
             db.flush()
@@ -534,14 +643,21 @@ def invite_users(correos: list, id_project: str, id_client: int, id_rol: int, db
             })
             continue
 
+        if not nombre_invitado or not nombre_invitado.nombre.strip() or not nombre_invitado.apellido.strip():
+            errores.append({
+                "mail": correo,
+                "error": "Indica el nombre y apellido de la persona invitada"
+            })
+            continue
+
         contrasena_temporal = ''.join(random.choices(
             string.ascii_letters + string.digits, k=10
         ))
 
         try:
             new_user = User(
-                nombre="Pendiente",
-                apellido="Pendiente",
+                nombre=format_text(nombre_invitado.nombre),
+                apellido=format_text(nombre_invitado.apellido),
                 identificacion="CC",
                 id_identificacion=f"TEMP-{correo}",
                 mail=correo.strip().lower(),
@@ -554,7 +670,8 @@ def invite_users(correos: list, id_project: str, id_client: int, id_rol: int, db
                 contrasena=pwd_context.hash(contrasena_temporal),
                 id_departamento=None,
                 id_project=None,
-                id_rol=id_rol
+                id_client=project.id_client,
+                id_rol=1005
             )
 
             db.add(new_user)
@@ -563,7 +680,8 @@ def invite_users(correos: list, id_project: str, id_client: int, id_rol: int, db
             user_project = UserProject(
                 id_user=new_user.id_user,
                 id_project=id_project,
-                id_rol=id_rol
+                id_rol=id_rol,
+                departamento=departamento.strip() or None if departamento else None,
             )
             db.add(user_project)
             db.flush()
@@ -595,6 +713,49 @@ def invite_users(correos: list, id_project: str, id_client: int, id_rol: int, db
         "errores": errores,
         "total_invitados": len(usuarios_creados),
         "total_errores": len(errores)
+    })
+
+
+def complete_invited_user(id_user: int, data, db: Session):
+    user = db.query(User).filter(User.id_user == id_user).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+    if (user.estado or "").lower() != "pendiente":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="La cuenta no tiene un registro de invitación pendiente",
+        )
+
+    normalized_id = data.id_identificacion.strip()
+    existing_id = db.query(User).filter(
+        User.id_identificacion == normalized_id,
+        User.id_user != id_user,
+    ).first()
+    if existing_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El número de identificación ya está registrado",
+        )
+
+    user.nombre = format_text(data.nombre)
+    user.apellido = format_text(data.apellido)
+    user.identificacion = data.identificacion
+    user.id_identificacion = normalized_id
+    user.msisdn = data.msisdn.strip()
+    user.direccion = format_text(data.direccion)
+    user.fecha_de_nacimiento = datetime.combine(data.fecha_de_nacimiento, datetime.min.time())
+    user.contrasena = pwd_context.hash(data.contrasena)
+    user.estado = "activo"
+
+    db.commit()
+    db.refresh(user)
+
+    return api_response(True, "Cuenta activada correctamente", {
+        "id_user": user.id_user,
+        "nombre": user.nombre,
+        "apellido": user.apellido,
+        "mail": user.mail,
+        "estado": user.estado,
     })
 
 # ==========================================

@@ -597,3 +597,39 @@
 .personajes-form--modal {
   padding: 0;
 }
+
+.personajes-page {
+  background-image:
+    radial-gradient(ellipse at 15% 0, rgba(73, 111, 166, 0.2), transparent 42%),
+    linear-gradient(135deg, #172337, #1a2639);
+}
+
+.personajes-header {
+  border-color: rgba(255, 255, 255, 0.09);
+  background: rgba(23, 35, 55, 0.92);
+}
+
+.personajes-panel,
+.personajes-modal {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #1d2a3d;
+}
+
+.personajes-panel__header {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.personajes-card,
+.personajes-row,
+.personajes-foto-card {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: #202f43;
+}
+
+.personajes-toolbar select,
+.personajes-form input,
+.personajes-form select,
+.personajes-form textarea {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #152236;
+}

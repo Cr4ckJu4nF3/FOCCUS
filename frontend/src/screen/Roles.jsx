@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, UserPlus, Users, Mail, X, CheckCircle, Check } from "lucide-react";
+import { ArrowLeft, UserPlus, Users, Mail, X, CheckCircle, Check, Plus } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
-import { apiFetch } from "../api";
+import { apiFetch, getActiveRole } from "../api";
 import "../desing/Roles.css";
 
 const rolLabels = {
@@ -26,8 +26,9 @@ export default function RolesScreen() {
   const [usuarios, setUsuarios] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [correos, setCorreos] = useState("");
+  const [invitados, setInvitados] = useState([{ mail: "", nombre: "", apellido: "" }]);
   const [rolInvitado, setRolInvitado] = useState(1005);
+  const [departamentoInvitado, setDepartamentoInvitado] = useState("");
   const [loadingInvite, setLoadingInvite] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -39,7 +40,7 @@ export default function RolesScreen() {
   const projectName = localStorage.getItem("projectName") || "Proyecto";
   const idProject = localStorage.getItem("projectId") || localStorage.getItem("id_project") || "";
   const idClient = localStorage.getItem("id_client") || "";
-  const idRolPropio = Number(localStorage.getItem("id_rol")) || 0;
+  const idRolPropio = getActiveRole();
   const esAdmin = idRolPropio === 1001;
 
   // Cargar usuarios del proyecto
@@ -126,13 +127,20 @@ export default function RolesScreen() {
     setSuccess("");
     setLoadingInvite(true);
 
-    const listaCorreos = correos
-      .split(",")
-      .map((c) => c.trim())
-      .filter((c) => c !== "");
+    const listaInvitados = invitados.map((invitado) => ({
+      mail: invitado.mail.trim().toLowerCase(),
+      nombre: invitado.nombre.trim(),
+      apellido: invitado.apellido.trim(),
+    }));
 
-    if (listaCorreos.length === 0) {
-      setError("Ingresa al menos un correo");
+    if (listaInvitados.some((invitado) => !invitado.mail || !invitado.nombre || !invitado.apellido)) {
+      setError("Completa el correo, nombre y apellido de cada persona invitada");
+      setLoadingInvite(false);
+      return;
+    }
+
+    if (new Set(listaInvitados.map((invitado) => invitado.mail)).size !== listaInvitados.length) {
+      setError("Hay correos repetidos en la lista de invitaciones");
       setLoadingInvite(false);
       return;
     }
@@ -141,27 +149,45 @@ export default function RolesScreen() {
       const response = await apiFetch("/users/invite", {
         method: "POST",
         body: JSON.stringify({
-          correos: listaCorreos,
+          correos: listaInvitados.map((invitado) => invitado.mail),
+          nombres: Object.fromEntries(listaInvitados.map(({ mail, nombre, apellido }) => [
+            mail,
+            { nombre, apellido },
+          ])),
           id_project: idProject,
           id_client: Number(idClient),
           id_rol: Number(rolInvitado),
+          departamento: departamentoInvitado.trim() || null,
         }),
       });
+      const result = await response.json();
 
-      if (response.ok) {
-        setSuccess(`Invitaciones enviadas exitosamente a ${listaCorreos.length} correo(s)`);
-        setCorreos("");
+      if (response.ok && result.success) {
+        const data = result.data || {};
+        const errores = data.errores || [];
+        const procesados = data.usuarios_creados || [];
+        const correosEnviados = procesados.filter((item) => item.invitacion_enviada).length;
+        const fallosCorreo = procesados
+          .filter((item) => !item.invitacion_enviada)
+          .map((item) => `${item.mail}: no se pudo enviar el correo de invitación`);
+        if (procesados.length === 0 && errores.length > 0) {
+          setError(errores.map((item) => `${item.mail}: ${item.error}`).join(". "));
+          return;
+        }
+        setSuccess(`Cuentas procesadas: ${procesados.length}; correos enviados: ${correosEnviados}.`);
+        setError([...errores.map((item) => `${item.mail}: ${item.error}`), ...fallosCorreo].join(". "));
+        setInvitados([{ mail: "", nombre: "", apellido: "" }]);
         setRolInvitado(1005);
+        setDepartamentoInvitado("");
         setShowInviteModal(false);
         fetchUsuarios();
         setTimeout(() => setSuccess(""), 4000);
       } else {
-        const errorData = await response.json();
-        const mensaje = typeof errorData.detail === "string"
-          ? errorData.detail
-          : Array.isArray(errorData.detail)
-            ? errorData.detail.map((e) => e.msg).join(", ")
-            : errorData.message || "Error al enviar invitaciones";
+        const mensaje = typeof result.detail === "string"
+          ? result.detail
+          : Array.isArray(result.detail)
+            ? result.detail.map((e) => e.msg).join(", ")
+            : result.message || "Error al enviar invitaciones";
         setError(mensaje);
       }
     } catch (err) {
@@ -172,7 +198,7 @@ export default function RolesScreen() {
   };
 
   return (
-    <div className="rs-page">
+    <div className={`rs-page ${esAdmin ? "module-role-admin" : "module-role-user"}`}>
       {/* Header */}
       <header className="rs-header">
         <div className="rs-header-inner">
@@ -385,20 +411,84 @@ export default function RolesScreen() {
 
               <form onSubmit={handleInvite} className="rs-modal-form">
                 <div className="rs-modal-field">
-                  <label className="rs-modal-label">
-                    Correos electrónicos
-                  </label>
-                  <textarea
-                    value={correos}
-                    onChange={(e) => setCorreos(e.target.value)}
-                    rows={3}
-                    className="rs-modal-textarea"
-                    placeholder="correo1@ejemplo.com, correo2@ejemplo.com"
-                    required
-                  />
+                  <label className="rs-modal-label">Personas a invitar</label>
+                  <div className="rs-invitee-list">
+                    {invitados.map((invitado, index) => (
+                      <div className="rs-invitee-row" key={index}>
+                        <input
+                          type="email"
+                          value={invitado.mail}
+                          onChange={(event) => setInvitados((actuales) => actuales.map((item, i) =>
+                            i === index ? { ...item, mail: event.target.value } : item
+                          ))}
+                          className="rs-modal-select"
+                          placeholder="Correo electrónico"
+                          aria-label={`Correo de la persona ${index + 1}`}
+                          required
+                        />
+                        <input
+                          type="text"
+                          value={invitado.nombre}
+                          onChange={(event) => setInvitados((actuales) => actuales.map((item, i) =>
+                            i === index ? { ...item, nombre: event.target.value } : item
+                          ))}
+                          className="rs-modal-select"
+                          placeholder="Nombre"
+                          aria-label={`Nombre de la persona ${index + 1}`}
+                          maxLength={255}
+                          required
+                        />
+                        <input
+                          type="text"
+                          value={invitado.apellido}
+                          onChange={(event) => setInvitados((actuales) => actuales.map((item, i) =>
+                            i === index ? { ...item, apellido: event.target.value } : item
+                          ))}
+                          className="rs-modal-select"
+                          placeholder="Apellido"
+                          aria-label={`Apellido de la persona ${index + 1}`}
+                          maxLength={255}
+                          required
+                        />
+                        {invitados.length > 1 && (
+                          <button
+                            type="button"
+                            className="rs-invitee-remove"
+                            onClick={() => setInvitados((actuales) => actuales.filter((_, i) => i !== index))}
+                            aria-label={`Quitar persona ${index + 1}`}
+                          >
+                            <X size={16} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    className="rs-invitee-add"
+                    onClick={() => setInvitados((actuales) => [...actuales, { mail: "", nombre: "", apellido: "" }])}
+                  >
+                    <Plus size={15} />
+                    Agregar otra persona
+                  </button>
                   <p className="rs-modal-hint">
-                    Separa los correos con comas para invitar a varias personas.
+                    Para una cuenta nueva, el nombre aparecerá mientras la persona completa su perfil. Los datos de cuentas existentes no se modifican.
                   </p>
+                </div>
+
+                <div className="rs-modal-field">
+                  <label className="rs-modal-label" htmlFor="invite-department">
+                    Departamento
+                  </label>
+                  <input
+                    id="invite-department"
+                    type="text"
+                    value={departamentoInvitado}
+                    onChange={(e) => setDepartamentoInvitado(e.target.value)}
+                    className="rs-modal-select"
+                    placeholder="Ej. Dirección, Fotografía, Arte"
+                    maxLength={80}
+                  />
                 </div>
 
                 <div className="rs-modal-field">
@@ -411,9 +501,6 @@ export default function RolesScreen() {
                     className="rs-modal-select"
                   >
                     <option value={1001}>Administrador</option>
-                    <option value={1002}>Director</option>
-                    <option value={1003}>Jefe de Departamento</option>
-                    <option value={1004}>Onset</option>
                     <option value={1005}>Usuario</option>
                   </select>
                 </div>

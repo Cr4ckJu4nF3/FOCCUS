@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Literal, Optional
 from datetime import date
 
 class GuionSchema(BaseModel):
@@ -24,6 +24,19 @@ class GuionVersionTextoSchema(BaseModel):
     fecha_de_emision: date
     estado: str = "Borrador"
     comentario_cambio: Optional[str] = None
+
+class GuionVersionEstadoSchema(BaseModel):
+    estado: Literal[
+        "Borrador",
+        "Pendiente",
+        "Revision",
+        "En revisión",
+        "Aprobado",
+        "En Rodaje",
+        "Completado",
+        "Finalizado",
+        "Archivado",
+    ]
 
 class GuionDesdeCeroSchema(BaseModel):
     # Crea el guion maestro Y su primera version de una sola vez,

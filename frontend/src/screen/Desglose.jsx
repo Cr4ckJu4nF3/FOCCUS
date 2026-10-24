@@ -11,7 +11,7 @@ import {
   CalendarDays,
   Link2Off,
 } from "lucide-react";
-import { apiFetch, getToken } from "../api";
+import { apiFetch, getActiveRole, getProjectHeaders, getToken } from "../api";
 import API_URL from "../api";
 import "../desing/Desglose.css";
 
@@ -66,7 +66,7 @@ export default function DesgloseScreen() {
   const navigate = useNavigate();
   const projectId = localStorage.getItem("projectId") || "";
   const projectName = localStorage.getItem("projectName") || "Proyecto";
-  const idRol = Number(localStorage.getItem("id_rol")) || 0;
+  const idRol = getActiveRole();
   const esAdmin = idRol === 1001;
 
   const [guiones, setGuiones] = useState([]);
@@ -260,7 +260,7 @@ export default function DesgloseScreen() {
       const token = getToken();
       const response = await fetch(`${API_URL}/guiones/${selectedGuionId}/desglose/importar`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...getProjectHeaders(), Authorization: `Bearer ${token}` },
         body: formData,
       });
       const data = await response.json();
@@ -288,7 +288,7 @@ export default function DesgloseScreen() {
   });
 
   return (
-    <div className="dsg-page">
+    <div className={`dsg-page ${esAdmin ? "module-role-admin" : "module-role-user"}`}>
       <header className="dsg-header">
         <div className="dsg-header__inner">
           <button type="button" className="dsg-back" onClick={() => navigate("/proyecto-dashboard")}>
