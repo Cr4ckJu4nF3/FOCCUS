@@ -111,7 +111,7 @@ const parseResult = async (response, fallback) => {
 export function GalleryModal({
   item,
   characters,
-  galleryCharacters,
+  galleryCharacters = [],
   locations,
   scripts,
   scenes,
@@ -348,7 +348,6 @@ export function GalleryModal({
                   </select>
                   <small>Para vincular varios, mantén Ctrl/Cmd al seleccionar. Crea primero las fichas nuevas de personaje.</small>
                 </label>
-                {field("lugar_personajes", "Notas sobre personajes en el lugar", "Detalles de interacción o uso…", 2)}
               </>
             )}
 
@@ -414,7 +413,7 @@ export function GalleryModal({
   );
 }
 
-function GalleryDetails({ item, characters, locations, scripts, scenes, isAdmin, onClose, onItemUpdate }) {
+function GalleryDetails({ item, items = [], characters, locations, scripts, scenes, isAdmin, onClose, onItemUpdate }) {
   const [versions, setVersions] = useState([]);
   const [loadingVersions, setLoadingVersions] = useState(true);
   const [versionsError, setVersionsError] = useState("");
@@ -435,7 +434,13 @@ function GalleryDetails({ item, characters, locations, scripts, scenes, isAdmin,
     ["Ubicación detallada", item.lugar_detalle_ubicacion],
     ["Objetos usados en el lugar", item.lugar_objetos],
     ["Fichas de personajes vinculadas", (item.personajes_vinculados || []).map((linked) => linked.nombre).join(", ")],
-    ["Personajes en el lugar", item.lugar_personajes],
+    ["Lugares vinculados", item.tipo === "personaje"
+      ? items
+        .filter((place) => place.tipo === "lugar"
+          && (place.personajes_vinculados || []).some((linked) => linked.id_galeria === item.id_galeria))
+        .map((place) => place.nombre)
+        .join(", ")
+      : ""],
     ["Último uso", item.ultimo_uso],
   ].filter(([, value]) => value);
 
@@ -877,6 +882,7 @@ export default function GaleriaScreen() {
       {detailsItem && (
         <GalleryDetails
           item={detailsItem}
+          items={items}
           characters={characters}
           locations={locations}
           scripts={scripts}

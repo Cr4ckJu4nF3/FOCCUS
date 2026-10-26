@@ -219,7 +219,12 @@ def remove_from_project(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_admin)
 ):
-    return remove_user_from_project(id_user, id_project, db)
+    return remove_user_from_project(
+        id_user,
+        id_project,
+        current_user["id_user"],
+        db,
+    )
 
 # ACTUALIZAR AREA/DEPARTAMENTO, CARGO O NIVEL DE ACCESO DE UN MIEMBRO
 # (solo administradores; permite el "click para editar" del area/rol
@@ -232,7 +237,13 @@ def edit_membership(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_admin)
 ):
-    return update_user_project_membership(id_user, id_project, data, db)
+    return update_user_project_membership(
+        id_user,
+        id_project,
+        data,
+        current_user["id_user"],
+        db,
+    )
 
 # ELIMINAR MI PROPIA CUENTA (cualquier usuario logueado, solo la suya)
 @router.delete("/users/me/account")

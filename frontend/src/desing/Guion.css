@@ -347,6 +347,35 @@
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.14);
 }
 
+.guion-editor-toolbar.is-collapsed {
+  display: none;
+}
+
+.guion-editor-toolbar__divider {
+  width: 1px;
+  height: 1.4rem;
+  background: rgba(127, 140, 160, 0.35);
+}
+
+.guion-editor-toolbar-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.45rem 0.75rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgba(127, 140, 160, 0.3);
+  border-radius: 999px;
+  background: rgba(127, 140, 160, 0.12);
+  color: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.guion-editor-toolbar-toggle:hover {
+  background: rgba(127, 140, 160, 0.25);
+}
+
 .guion-editor-toolbar {
   display: flex;
   align-items: center;

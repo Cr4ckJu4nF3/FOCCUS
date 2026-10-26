@@ -15,6 +15,7 @@ import {
   LoaderCircle,
   LogOut,
   Plus,
+  Trash2,
   UserRound,
   Users,
   X,
@@ -92,7 +93,8 @@ export default function AdminDashboardScreen() {
   }));
   const projectName = activeProject.name || "Selecciona un proyecto";
   const projectId = activeProject.id;
-  const isAdmin = getActiveRole() === 1001;
+  const [projectRole, setProjectRole] = useState(getActiveRole());
+  const isAdmin = projectRole === 1001;
   const isGlobalAdmin = Number(localStorage.getItem("id_rol")) === 1001;
   const [projects, setProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
@@ -127,7 +129,41 @@ export default function AdminDashboardScreen() {
           throw new Error(result.detail || result.message || "No se pudieron cargar los proyectos");
         }
         const items = result.data || result;
-        if (isCurrent) setProjects(Array.isArray(items) ? items : []);
+        const userProjects = Array.isArray(items) ? items : [];
+        if (isCurrent) setProjects(userProjects);
+        if (projectId) {
+          const selectedProject = userProjects.find(
+            (project) => String(project.id_project) === String(projectId),
+          );
+          if (!selectedProject) {
+            if (!isGlobalAdmin) {
+              ["projectId", "id_project", "projectName", "project_role", "project_role_project_id"].forEach((key) =>
+                localStorage.removeItem(key),
+              );
+              navigate("/seleccion-proyecto", { replace: true });
+            } else if (isCurrent) {
+              ["projectId", "id_project", "projectName", "project_role", "project_role_project_id"].forEach((key) =>
+                localStorage.removeItem(key),
+              );
+              setActiveProject({ id: "", name: "" });
+              setProjectRole(Number(localStorage.getItem("id_rol")) || 0);
+            }
+            return;
+          }
+          if (isCurrent) {
+            persistActiveProject(selectedProject);
+            setProjectRole(Number(selectedProject.id_rol) || 0);
+          }
+          if (Number(selectedProject.id_rol) !== 1001 && !isGlobalAdmin) {
+            navigate("/proyecto-dashboard", {
+              replace: true,
+              state: {
+                projectName: selectedProject.project_name,
+                projectId: selectedProject.id_project,
+              },
+            });
+          }
+        }
       } catch (loadError) {
         if (isCurrent) setProjectsError(loadError.message || "No se pudieron cargar los proyectos");
       } finally {
@@ -136,10 +172,12 @@ export default function AdminDashboardScreen() {
     };
 
     loadProjects();
+    window.addEventListener("focus", loadProjects);
     return () => {
       isCurrent = false;
+      window.removeEventListener("focus", loadProjects);
     };
-  }, []);
+  }, [isGlobalAdmin, navigate, projectId]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -365,12 +403,44 @@ export default function AdminDashboardScreen() {
     })),
   ].sort((first, second) => String(second.date || "").localeCompare(String(first.date || ""))).slice(0, 6), [dashboardData]);
 
-  if (!isAdmin) return <Navigate to="/proyecto-dashboard" replace />;
+  if (!isAdmin && !isGlobalAdmin) return <Navigate to="/proyecto-dashboard" replace />;
 
   const navigateToModule = (path) => navigate(path, { state: { projectName, projectId } });
   const handleLogout = () => {
     clearSession();
     navigate("/", { replace: true });
+  };
+  const handleDeleteProject = async () => {
+    if (!isAdmin || !projectId) return;
+    const confirmation = window.prompt(
+      `Esta acción eliminará definitivamente "${projectName}", sus miembros vinculados, guiones, escenas, galería, rodajes y archivos. Escribe el nombre exacto del proyecto para confirmar.`,
+    );
+    if (confirmation !== projectName) return;
+
+    try {
+      const response = await apiFetch(`/projects/${encodeURIComponent(projectId)}`, { method: "DELETE" });
+      const result = await response.json();
+      if (result.error === "FILE_CLEANUP_FAILED") {
+        ["projectId", "id_project", "projectName", "project_role", "project_role_project_id"].forEach((key) =>
+          localStorage.removeItem(key),
+        );
+        setActiveProject({ id: "", name: "" });
+        navigate("/seleccion-proyecto", { replace: true });
+        throw new Error(
+          `${result.message} ${result.data?.archivos_pendientes?.join("; ") || ""}`,
+        );
+      }
+      if (!response.ok || !result.success) {
+        throw new Error(result.detail || result.message || "No se pudo eliminar el proyecto");
+      }
+      ["projectId", "id_project", "projectName", "project_role", "project_role_project_id"].forEach((key) =>
+        localStorage.removeItem(key),
+      );
+      setActiveProject({ id: "", name: "" });
+      navigate("/seleccion-proyecto", { replace: true });
+    } catch (deleteError) {
+      window.alert(deleteError.message || "No se pudo eliminar el proyecto");
+    }
   };
 
   return (
@@ -494,6 +564,11 @@ export default function AdminDashboardScreen() {
                 <button type="button" role="menuitem" onClick={() => navigate("/perfil")}>
                   <UserRound size={16} /> Ver perfil
                 </button>
+                {isAdmin && projectId && (
+                  <button type="button" role="menuitem" onClick={handleDeleteProject}>
+                    <Trash2 size={16} /> Eliminar proyecto
+                  </button>
+                )}
                 <button type="button" role="menuitem" onClick={handleLogout}>
                   <LogOut size={16} /> Cerrar sesión
                 </button>

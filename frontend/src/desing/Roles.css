@@ -293,6 +293,29 @@
   font-weight: 600;
 }
 
+.rs-role-select {
+  max-width: 176px;
+  min-height: 34px;
+  padding: 0.35rem 1.8rem 0.35rem 0.65rem;
+  border: 1px solid rgba(123, 95, 207, 0.45);
+  border-radius: 999px;
+  color: #e8e3f7;
+  background: #202a3a;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.rs-role-select:focus-visible {
+  outline: 2px solid #a58ae8;
+  outline-offset: 2px;
+}
+
+.rs-role-select:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 /* Celdas editables (Area/Departamento y Rol/Cargo) */
 
 .rs-editable-cell {

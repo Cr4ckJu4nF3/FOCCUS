@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, UserPlus, Users, Mail, X, CheckCircle, Check, Plus } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
-import { apiFetch, getActiveRole } from "../api";
+import { apiFetch, getActiveRole, setActiveProject } from "../api";
 import "../desing/Roles.css";
 
 const rolLabels = {
@@ -36,28 +36,47 @@ export default function RolesScreen() {
   // Edicion en linea de Area/Departamento y Rol (cargo)
   const [editingCell, setEditingCell] = useState(null); // { idUser, field } | null
   const [editValue, setEditValue] = useState("");
+  const [savingRoleUserId, setSavingRoleUserId] = useState(null);
+  const [activeRole, setActiveRole] = useState(getActiveRole());
 
   const projectName = localStorage.getItem("projectName") || "Proyecto";
   const idProject = localStorage.getItem("projectId") || localStorage.getItem("id_project") || "";
   const idClient = localStorage.getItem("id_client") || "";
-  const idRolPropio = getActiveRole();
-  const esAdmin = idRolPropio === 1001;
+  const esAdmin = activeRole === 1001;
 
   // Cargar usuarios del proyecto
-  const fetchUsuarios = async () => {
+  const fetchUsuarios = useCallback(async () => {
     setLoadingUsers(true);
+    setError("");
     try {
       const response = await apiFetch(`/users/project/${idProject}`);
-      if (response.ok) {
-        const data = await response.json();
-        setUsuarios(Array.isArray(data) ? data : data.data || []);
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.detail || result.message || "No se pudo cargar los miembros del equipo");
       }
-    } catch (err) {
-      setError("No se pudo cargar los miembros del equipo");
+      const members = Array.isArray(result.data) ? result.data : Array.isArray(result) ? result : [];
+      setUsuarios(members);
+      const currentUserId = Number(localStorage.getItem("id_user"));
+      const currentMember = members.find((member) => member.id_user === currentUserId);
+      if (!currentMember) {
+        ["projectId", "id_project", "projectName", "project_role", "project_role_project_id"].forEach((key) =>
+          localStorage.removeItem(key),
+        );
+        navigate("/seleccion-proyecto", { replace: true });
+        return;
+      }
+      setActiveProject({
+        id_project: idProject,
+        project_name: projectName,
+        id_rol: currentMember.id_rol,
+      });
+      setActiveRole(Number(currentMember.id_rol) || 0);
+    } catch (loadError) {
+      setError(loadError.message || "No se pudo cargar los miembros del equipo");
     } finally {
       setLoadingUsers(false);
     }
-  };
+  }, [idProject, navigate, projectName]);
 
   const handleRemoveUser = async (idUser, nombreCompleto) => {
     if (!window.confirm(`¿Quitar a ${nombreCompleto} de este proyecto?`)) return;
@@ -76,8 +95,12 @@ export default function RolesScreen() {
   };
 
   useEffect(() => {
+    // Starts the asynchronous member request for the active project.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUsuarios();
-  }, []);
+    window.addEventListener("focus", fetchUsuarios);
+    return () => window.removeEventListener("focus", fetchUsuarios);
+  }, [fetchUsuarios]);
 
   // Edicion en linea: Area/Departamento y Rol (cargo)
   const startEdit = (idUser, field, valorActual) => {
@@ -117,6 +140,38 @@ export default function RolesScreen() {
       setError(err.message || "No se pudo guardar el cambio");
     } finally {
       cancelEdit();
+    }
+  };
+
+  const handleChangeRole = async (idUser, nextRole) => {
+    const currentUserId = Number(localStorage.getItem("id_user"));
+    if (!esAdmin || idUser === currentUserId || savingRoleUserId !== null) return;
+    const numericRole = Number(nextRole);
+    if (![1001, 1002, 1003, 1004, 1005].includes(numericRole)) return;
+    const member = usuarios.find((user) => user.id_user === idUser);
+    if (!member || member.id_rol === numericRole) return;
+    if (numericRole === 1001 && !window.confirm(`¿Dar permisos de administrador a ${member.nombre} ${member.apellido}?`)) return;
+
+    setError("");
+    setSuccess("");
+    setSavingRoleUserId(idUser);
+    try {
+      const response = await apiFetch(`/users/${idUser}/project/${idProject}`, {
+        method: "PATCH",
+        body: JSON.stringify({ id_rol: numericRole }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.detail || data.message || "No se pudo actualizar el rol");
+      }
+      setUsuarios((current) => current.map((user) => (
+        user.id_user === idUser ? { ...user, id_rol: data.data.id_rol } : user
+      )));
+      setSuccess(`Rol de ${member.nombre} ${member.apellido} actualizado a ${rolLabels[data.data.id_rol]}.`);
+    } catch (roleError) {
+      setError(roleError.message || "No se pudo actualizar el rol");
+    } finally {
+      setSavingRoleUserId(null);
     }
   };
 
@@ -190,7 +245,7 @@ export default function RolesScreen() {
             : result.message || "Error al enviar invitaciones";
         setError(mensaje);
       }
-    } catch (err) {
+    } catch {
       setError("No se pudo conectar con el servidor");
     } finally {
       setLoadingInvite(false);
@@ -339,16 +394,32 @@ export default function RolesScreen() {
                       </span>
 
                       <div className="rs-list-item-right">
-                        <span
-                          className="rs-role-badge"
-                          style={{
-                            backgroundColor: (rolColors[rol] || "#6B6B6B") + "20",
-                            color: rolColors[rol] || "#6B6B6B",
-                            border: `1px solid ${(rolColors[rol] || "#6B6B6B")}40`,
-                          }}
-                        >
-                          {rolLabels[rol] || "Sin rol"}
-                        </span>
+                        {esAdmin && user.id_user !== Number(localStorage.getItem("id_user")) ? (
+                          <select
+                            className="rs-role-select"
+                            value={rol}
+                            disabled={savingRoleUserId !== null}
+                            onChange={(event) => handleChangeRole(user.id_user, event.target.value)}
+                            aria-label={`Cambiar rol de ${user.nombre} ${user.apellido}`}
+                          >
+                            <option value={1001}>{rolLabels[1001]}</option>
+                            <option value={1005}>{rolLabels[1005]}</option>
+                            {![1001, 1005].includes(Number(user.id_rol)) && (
+                              <option value={user.id_rol}>{rolLabels[user.id_rol]} (actual)</option>
+                            )}
+                          </select>
+                        ) : (
+                          <span
+                            className="rs-role-badge"
+                            style={{
+                              backgroundColor: (rolColors[rol] || "#6B6B6B") + "20",
+                              color: rolColors[rol] || "#6B6B6B",
+                              border: `1px solid ${(rolColors[rol] || "#6B6B6B")}40`,
+                            }}
+                          >
+                            {rolLabels[rol] || "Sin rol"}
+                          </span>
+                        )}
                         {esAdmin && user.id_user !== Number(localStorage.getItem("id_user")) && (
                           <button
                             type="button"

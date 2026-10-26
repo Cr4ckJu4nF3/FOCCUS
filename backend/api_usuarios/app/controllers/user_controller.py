@@ -228,7 +228,12 @@ def delete_user(id: int, db: Session):
 # ==========================================
 # REMOVER USUARIO DE UN PROYECTO (sin borrar la cuenta)
 # ==========================================
-def remove_user_from_project(id_user: int, id_project: str, db: Session):
+def remove_user_from_project(
+    id_user: int,
+    id_project: str,
+    acting_user_id: int,
+    db: Session,
+):
     vinculo = db.query(UserProject).filter(
         UserProject.id_user == id_user,
         UserProject.id_project == id_project
@@ -236,6 +241,17 @@ def remove_user_from_project(id_user: int, id_project: str, db: Session):
 
     if not vinculo:
         return api_response(False, "El usuario no pertenece a este proyecto")
+
+    if id_user == acting_user_id:
+        return api_response(False, "No puedes quitarte a ti mismo del proyecto", error="SELF_REMOVAL")
+
+    if vinculo.id_rol == 1001:
+        admins = db.query(UserProject).filter(
+            UserProject.id_project == id_project,
+            UserProject.id_rol == 1001,
+        ).count()
+        if admins <= 1:
+            return api_response(False, "No puedes quitar al último administrador del proyecto", error="LAST_PROJECT_ADMIN")
 
     db.delete(vinculo)
     db.commit()
@@ -786,7 +802,13 @@ def get_users_by_project(id_project: str, db: Session):
 # ==========================================
 # UPDATE USER-PROJECT MEMBERSHIP (departamento / cargo / id_rol)
 # ==========================================
-def update_user_project_membership(id_user: int, id_project: str, data, db: Session):
+def update_user_project_membership(
+    id_user: int,
+    id_project: str,
+    data,
+    acting_user_id: int,
+    db: Session,
+):
     membership = db.query(UserProject).filter(
         UserProject.id_user == id_user,
         UserProject.id_project == id_project
@@ -796,6 +818,17 @@ def update_user_project_membership(id_user: int, id_project: str, data, db: Sess
         return api_response(False, "El usuario no pertenece a este proyecto", error="MEMBERSHIP_NOT_FOUND")
 
     update_data = data.model_dump(exclude_unset=True)
+    if "id_rol" in update_data:
+        if id_user == acting_user_id:
+            return api_response(False, "No puedes cambiar tu propio rol de proyecto", error="SELF_ROLE_CHANGE")
+        if membership.id_rol == 1001 and update_data["id_rol"] != 1001:
+            admins = db.query(UserProject).filter(
+                UserProject.id_project == id_project,
+                UserProject.id_rol == 1001,
+            ).count()
+            if admins <= 1:
+                return api_response(False, "No puedes quitar al último administrador del proyecto", error="LAST_PROJECT_ADMIN")
+
     for key, value in update_data.items():
         setattr(membership, key, value)
 

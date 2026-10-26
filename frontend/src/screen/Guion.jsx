@@ -31,7 +31,26 @@ import {
   Package,
   Search,
   Sun,
+  Sunrise,
+  Sunset,
   Trees,
+  Strikethrough,
+  ListOrdered,
+  Undo2,
+  Redo2,
+  Highlighter,
+  Indent,
+  Outdent,
+  AlignJustify,
+  Quote,
+  Minus,
+  RemoveFormatting,
+  Superscript,
+  Subscript,
+  ChevronUp,
+  ChevronDown,
+  MessageSquare,
+  ArrowRightToLine,
 } from "lucide-react";
 import API_URL, { getActiveRole, getProjectHeaders, getToken } from "../api";
 import { GalleryModal } from "./Galeria";
@@ -154,6 +173,7 @@ export default function GuionScreen() {
   const [editandoContenido, setEditandoContenido] = useState(false);
   const [contenidoEditado, setContenidoEditado] = useState("");
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
+  const [herramientasVisibles, setHerramientasVisibles] = useState(true);
   const [generandoPdf, setGenerandoPdf] = useState(false);
 
   // modal Nueva versión (dentro del detalle)
@@ -603,10 +623,55 @@ export default function GuionScreen() {
     guardarSeleccionEditor();
   };
 
+  const insertarBloqueEditor = (html) => {
+    if (!editorRef.current) return;
+    restaurarFocoEnEditor();
+    document.execCommand("insertHTML", false, html);
+    sincronizarDesdeEditor();
+    guardarSeleccionEditor();
+  };
+
+  const herramientasExtraEditor = () => {
+    const base = { type: "button", onMouseDown: (event) => event.preventDefault() };
+    return (
+      <>
+        <span className="guion-editor-toolbar__divider" aria-hidden="true" />
+        <button {...base} onClick={() => ejecutarComandoEditor("strikeThrough")} title="Tachado" aria-label="Tachado"><Strikethrough size={16} /></button>
+        <button {...base} onClick={() => ejecutarComandoEditor("hiliteColor", "#fde68a")} title="Resaltar" aria-label="Resaltar"><Highlighter size={16} /></button>
+        <button {...base} onClick={() => ejecutarComandoEditor("superscript")} title="Superíndice" aria-label="Superíndice"><Superscript size={16} /></button>
+        <button {...base} onClick={() => ejecutarComandoEditor("subscript")} title="Subíndice" aria-label="Subíndice"><Subscript size={16} /></button>
+        <button {...base} onClick={() => ejecutarComandoEditor("insertOrderedList")} title="Lista numerada" aria-label="Lista numerada"><ListOrdered size={16} /></button>
+        <button {...base} onClick={() => aplicarAlineacionTexto("justify")} title="Justificar" aria-label="Justificar"><AlignJustify size={16} /></button>
+        <button {...base} onClick={() => ejecutarComandoEditor("indent")} title="Aumentar sangría" aria-label="Aumentar sangría"><Indent size={16} /></button>
+        <button {...base} onClick={() => ejecutarComandoEditor("outdent")} title="Reducir sangría" aria-label="Reducir sangría"><Outdent size={16} /></button>
+        <button {...base} onClick={() => ejecutarComandoEditor("formatBlock", "BLOCKQUOTE")} title="Cita / nota" aria-label="Cita o nota"><Quote size={16} /></button>
+        <button {...base} onClick={() => ejecutarComandoEditor("insertHorizontalRule")} title="Línea separadora" aria-label="Línea separadora"><Minus size={16} /></button>
+        <button {...base} onClick={() => ejecutarComandoEditor("removeFormat")} title="Quitar formato" aria-label="Quitar formato"><RemoveFormatting size={16} /></button>
+        <button {...base} onClick={() => ejecutarComandoEditor("undo")} title="Deshacer" aria-label="Deshacer"><Undo2 size={16} /></button>
+        <button {...base} onClick={() => ejecutarComandoEditor("redo")} title="Rehacer" aria-label="Rehacer"><Redo2 size={16} /></button>
+        <span className="guion-editor-toolbar__divider" aria-hidden="true" />
+        <button {...base} className="guion-editor-scene-button" onClick={() => insertarBloqueEditor("<p style=\"text-align:center\">PERSONAJE</p><p style=\"text-align:center\"><em>(acotación)</em></p><p style=\"text-align:center\">Diálogo…</p><p><br></p>")} title="Insertar bloque de diálogo"><MessageSquare size={15} /> Diálogo</button>
+        <button {...base} className="guion-editor-scene-button" onClick={() => insertarBloqueEditor("<p style=\"text-align:right\"><strong>CORTE A:</strong></p><p><br></p>")} title="Insertar transición"><ArrowRightToLine size={15} /> Transición</button>
+      </>
+    );
+  };
+
+  const botonOcultarHerramientas = () => (
+    <button
+      type="button"
+      className="guion-editor-toolbar-toggle"
+      onClick={() => setHerramientasVisibles((visible) => !visible)}
+      aria-expanded={herramientasVisibles}
+    >
+      {herramientasVisibles ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+      {herramientasVisibles ? "Ocultar herramientas" : "Mostrar herramientas"}
+    </button>
+  );
+
   const aplicarAlineacionTexto = (tipo) => {
     if (!editorRef.current) return;
     restaurarFocoEnEditor();
-    const comando = { left: "justifyLeft", center: "justifyCenter", right: "justifyRight" }[tipo];
+    const comando = { left: "justifyLeft", center: "justifyCenter", right: "justifyRight", justify: "justifyFull" }[tipo];
     document.execCommand(comando);
     setAlineacionTexto(tipo);
     sincronizarDesdeEditor();
@@ -794,7 +859,11 @@ export default function GuionScreen() {
     try {
       const formData = new FormData();
       Object.entries(values).forEach(([key, value]) => {
-        if (value !== null && value !== "") formData.append(key, String(value));
+        if (Array.isArray(value)) {
+          value.forEach((entry) => formData.append(key, String(entry)));
+        } else if (value !== null && value !== "") {
+          formData.append(key, String(value));
+        }
       });
       formData.append("foto", photo);
       const token = getToken();
@@ -1490,7 +1559,8 @@ export default function GuionScreen() {
 
               <div className="guion-editor-layout">
                 <div className="guion-editor-shell">
-                  <div className="guion-editor-toolbar">
+                  {botonOcultarHerramientas()}
+                  <div className={`guion-editor-toolbar ${herramientasVisibles ? "" : "is-collapsed"}`}>
                     <button type="button" onClick={() => ejecutarComandoEditor("bold")} title="Negrita"><Bold size={16} /></button>
                     <button type="button" onClick={() => ejecutarComandoEditor("italic")} title="Cursiva"><Italic size={16} /></button>
                     <button type="button" onClick={() => ejecutarComandoEditor("underline")} title="Subrayado"><Underline size={16} /></button>
@@ -1499,6 +1569,7 @@ export default function GuionScreen() {
                     <button type="button" onClick={() => aplicarAlineacionTexto("left")} title="Alinear izquierda"><AlignLeft size={16} /></button>
                     <button type="button" onClick={() => aplicarAlineacionTexto("center")} title="Centrar"><AlignCenter size={16} /></button>
                     <button type="button" onClick={() => aplicarAlineacionTexto("right")} title="Alinear derecha"><AlignRight size={16} /></button>
+                    {herramientasExtraEditor()}
                     <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("personaje")}><Users size={15} /> Personaje</button>
                     <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("lugar")}><MapPin size={15} /> Lugar</button>
                     <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("objeto")}><Package size={15} /> Objeto</button>
@@ -1964,7 +2035,8 @@ export default function GuionScreen() {
                     <p className="guion-reader__notice">No se pudo extraer texto editable. Puedes escribir o pegar aquí el contenido.</p>
                   )}
                   <div className="guion-editor-shell guion-reader__editor-shell">
-                    <div className="guion-editor-toolbar" role="toolbar" aria-label="Herramientas de edición del guion">
+                    {botonOcultarHerramientas()}
+                    <div className={`guion-editor-toolbar ${herramientasVisibles ? "" : "is-collapsed"}`} role="toolbar" aria-label="Herramientas de edición del guion">
                       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => ejecutarComandoEditor("bold")} title="Negrita" aria-label="Negrita"><Bold size={16} /></button>
                       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => ejecutarComandoEditor("italic")} title="Cursiva" aria-label="Cursiva"><Italic size={16} /></button>
                       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => ejecutarComandoEditor("underline")} title="Subrayado" aria-label="Subrayado"><Underline size={16} /></button>
@@ -1973,6 +2045,7 @@ export default function GuionScreen() {
                       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => aplicarAlineacionTexto("left")} title="Alinear izquierda" aria-label="Alinear izquierda"><AlignLeft size={16} /></button>
                       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => aplicarAlineacionTexto("center")} title="Centrar" aria-label="Centrar"><AlignCenter size={16} /></button>
                       <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => aplicarAlineacionTexto("right")} title="Alinear derecha" aria-label="Alinear derecha"><AlignRight size={16} /></button>
+                      {herramientasExtraEditor()}
                       <button className="guion-editor-scene-button" type="button" onMouseDown={(event) => event.preventDefault()} onClick={insertarEscenaEnEdicion}>
                         <Clapperboard size={15} /> Insertar escena
                       </button>
@@ -2129,6 +2202,9 @@ export default function GuionScreen() {
           key={`${galleryEditorType}-${galleryInitialName}`}
           item={null}
           characters={[]}
+          galleryCharacters={galleryItems
+            .filter((item) => item.tipo === "personaje")
+            .map((item) => ({ value: item.id_galeria, label: item.nombre }))}
           locations={[]}
           scripts={[]}
           scenes={[]}
@@ -2189,6 +2265,8 @@ export default function GuionScreen() {
               {[
                 ["DÍA", "Día", Sun],
                 ["NOCHE", "Noche", Moon],
+                ["AMANECER", "Amanecer", Sunrise],
+                ["ATARDECER", "Atardecer", Sunset],
               ].map(([valor, etiqueta, Icon]) => (
                 <button
                   key={valor}
