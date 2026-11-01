@@ -20,6 +20,7 @@ import re
 from typing import Iterable, Optional
 
 from sqlalchemy import (
+    event,
     Column,
     DateTime,
     Index,
@@ -193,6 +194,46 @@ def asignar_codigo(db: Session, tipo: str, entidad_id, id_project: str) -> Optio
             return None
     logger.warning("No se pudo asignar código %s a %s tras %s intentos", tipo, entidad_id, MAX_REINTENTOS)
     return None
+
+
+# ---------------------------------------------------------------------------
+# Limpieza: al borrar una entidad se borra su fila de código (el contador no
+# retrocede, así que el número nunca se reutiliza)
+# ---------------------------------------------------------------------------
+# nombre de tabla -> (prefijos posibles, columna id)
+_TABLAS_CON_CODIGO = {
+    "projects": (("PRO",), "id_project"),
+    "guion": (("GUI",), "id_guion"),
+    "guion_version": (("VGU",), "id_guion_version"),
+    "escenas": (("ESC",), "id_escena"),
+    "personajes": (("PER",), "id_personaje"),
+    "escenarios": (("LOC",), "id_escenario"),
+    "galeria_items": (("OBJ", "VES"), "id_galeria"),
+    "rodaje": (("DRO",), "id_rodaje"),
+}
+
+
+def _limpiar_codigos_borrados(session, flush_context, instances):
+    for obj in list(session.deleted):
+        tabla = getattr(obj, "__tablename__", None)
+        if tabla not in _TABLAS_CON_CODIGO:
+            continue
+        prefijos, columna = _TABLAS_CON_CODIGO[tabla]
+        entidad_id = getattr(obj, columna, None)
+        if entidad_id is None:
+            continue
+        try:
+            session.execute(
+                delete(codigos_entidad).where(
+                    codigos_entidad.c.tipo.in_(prefijos),
+                    codigos_entidad.c.entidad_id == str(entidad_id),
+                )
+            )
+        except SQLAlchemyError:
+            logger.warning("No se pudo limpiar el código de %s %s", tabla, entidad_id)
+
+
+event.listen(Session, "before_flush", _limpiar_codigos_borrados)
 
 
 # ---------------------------------------------------------------------------

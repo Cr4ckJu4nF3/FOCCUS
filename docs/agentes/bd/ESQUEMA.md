@@ -14,4 +14,4 @@ Relaciones principales: `projects` ← `user_projects` (id_user, id_project, id_
 Índices: `uq_codigos_ambito_codigo` (ambito, codigo) único; `uq_codigos_tipo_entidad` (tipo, entidad_id) único; `ix_codigos_proyecto_codigo` (id_project, codigo).
 
 Tipos: PRO proyecto, GUI guion, VGU versión de guion, ESC escena, PER personaje, LOC lugar, OBJ utilería, VES vestuario, DRO jornada de rodaje. Formato `XXX-NNN`. Solo el admin del proyecto (rol 1001) los ve.
-Pendiente de decisión: el borrado de una entidad no limpia su fila en `codigos_entidad` (queda huérfana).
+Al borrar una entidad (con `db.delete`), un listener de SQLAlchemy en `utils/codigos.py` borra su fila de `codigos_entidad`. El contador no retrocede, así que el número no se reutiliza.
