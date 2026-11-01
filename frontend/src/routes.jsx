@@ -15,6 +15,7 @@ import Escena from "./screen/Escena";
 import Rodaje from "./screen/Rodaje";
 import Desglose from "./screen/Desglose";
 import Galeria from "./screen/Galeria";
+import BuscarCodigo from "./screen/BuscarCodigo";
 import ProtectedRoute from "./screen/ProtectedRoute";
 
 export const router = createBrowserRouter([
@@ -87,6 +88,10 @@ export const router = createBrowserRouter([
   {
     path: "/desglose",
     element: <ProtectedRoute><Desglose /></ProtectedRoute>,
+  },
+  {
+    path: "/buscar-codigo",
+    element: <ProtectedRoute><BuscarCodigo /></ProtectedRoute>,
   },
   {
     path: "/galeria",
