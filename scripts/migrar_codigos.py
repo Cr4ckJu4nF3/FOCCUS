@@ -126,7 +126,8 @@ def main():
             print("DRY-RUN terminado: no se escribió nada. Usa --apply para aplicar.")
             return
 
-        with db.begin():
+        db.rollback()  # cierra la transaccion de lectura; la escritura va en una sola transaccion
+        try:
             for amb, tipo, pid, eid, cod in nuevos:
                 db.execute(insert(codigos_entidad).values(ambito=amb, tipo=tipo, id_project=pid, entidad_id=eid, codigo=cod))
             for (amb, tipo), ultimo in maximos.items():
@@ -143,6 +144,10 @@ def main():
                         .where(codigos_contador.c.ambito == amb, codigos_contador.c.tipo == tipo)
                         .values(ultimo=ultimo)
                     )
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
         # Verificación
         duplicados = db.execute(
