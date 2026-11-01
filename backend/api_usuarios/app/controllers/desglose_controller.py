@@ -14,7 +14,7 @@ from app.schemas.desglose_schema import (
     EscenaGaleriaItemSchema,
 )
 from app.utils.response import api_response
-from app.utils.codigos import asignar_codigo
+from app.utils.codigos import adjuntar_codigos, asignar_codigo
 from app.utils.desglose_parser import parse_desglose_pdf, extraer_texto_pdf
 
 
@@ -179,7 +179,7 @@ def get_desglose_by_escena(id_escena: str, db: Session, id_project: str | None =
 # resumen de conteos por departamento (para las etiquetas de la lista
 # principal, ej. "Props (3) SFX (1)")
 
-def get_desglose_by_guion(id_guion: int, db: Session, id_project: str | None = None):
+def get_desglose_by_guion(id_guion: int, db: Session, id_project: str | None = None, incluir_codigo: bool = False):
     escenas_query = db.query(Escena).filter(Escena.id_guion == id_guion)
     if id_project:
         guion = db.query(Guion.id_guion).filter(
@@ -248,7 +248,7 @@ def get_desglose_by_guion(id_guion: int, db: Session, id_project: str | None = N
             ]
         })
 
-    return api_response(True, "Desglose del guion", resultado)
+    return api_response(True, "Desglose del guion", adjuntar_codigos(db, resultado, "ESC", "id_escena", incluir_codigo))
 
 
 def add_gallery_item_to_scene(
