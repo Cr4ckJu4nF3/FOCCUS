@@ -15,6 +15,7 @@ from app.routes.personaje_routes import router as personaje_router
 from app.routes.escenario_routes import router as escenario_router
 from app.routes.desglose_routes import router as desglose_router
 from app.routes.galeria_routes import router as galeria_router
+from app.routes.codigo_routes import router as codigo_router
 from app.config.database import Base, engine
 from app.models.user_project_model import UserProject
 from app.models.rodaje_model import Rodaje
@@ -76,6 +77,7 @@ app.include_router(personaje_router)
 app.include_router(escenario_router)
 app.include_router(desglose_router)
 app.include_router(galeria_router)
+app.include_router(codigo_router)
 
 # ARCHIVOS ESTATICOS
 # Sirve lo guardado por app/utils/file_storage.py (guiones subidos,
