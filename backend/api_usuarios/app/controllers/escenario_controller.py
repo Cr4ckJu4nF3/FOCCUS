@@ -65,8 +65,12 @@ def update_escenario(id_escenario: str, data: EscenarioUpdateSchema, db: Session
     if not escenario:
         return api_response(False, "Escenario no encontrado")
 
-    for key, value in data.model_dump(exclude_unset=True).items():
-        setattr(escenario, key, value)
+    cambios = data.model_dump(exclude_unset=True)
+    if "nombre" in cambios and not (cambios["nombre"] or "").strip():
+        return api_response(False, "El nombre del escenario no puede estar vacío")
+
+    for key, value in cambios.items():
+        setattr(escenario, key, value.strip() if key == "nombre" else value)
 
     db.commit()
     db.refresh(escenario)

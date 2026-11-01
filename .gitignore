@@ -4,3 +4,6 @@ __pycache__/
 .venv/
 *.pyc
 .env
+   mobile/build/
+   mobile/.dart_tool/
+   backend/api_usuarios/app/assets/uploads/

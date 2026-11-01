@@ -13,11 +13,11 @@ import {
   MapPin,
   CheckSquare,
 } from "lucide-react";
-import { apiFetch, getToken } from "../api";
+import { apiFetch, getActiveRole, getProjectHeaders, getToken } from "../api";
 import API_URL from "../api";
 import "../desing/Rodaje.css";
 
-const ESTADOS = ["Pendiente", "Confirmado", "En Rodaje", "Finalizado"];
+const ESTADOS = ["Pendiente", "Confirmado", "En Rodaje", "Finalizado", "Completado"];
 
 function normalizarEstado(estado) {
   if (!estado) return "pendiente";
@@ -38,7 +38,7 @@ export default function RodajeScreen() {
   const navigate = useNavigate();
   const projectId = localStorage.getItem("projectId") || "";
   const projectName = localStorage.getItem("projectName") || "Proyecto";
-  const idRol = Number(localStorage.getItem("id_rol")) || 0;
+  const idRol = getActiveRole();
   const esAdmin = idRol === 1001;
 
   const [vista, setVista] = useState("lista"); // lista | detalle
@@ -64,6 +64,7 @@ export default function RodajeScreen() {
 
   const [procesos, setProcesos] = useState([]);
   const [loadingProcesos, setLoadingProcesos] = useState(false);
+  const [updatingEstado, setUpdatingEstado] = useState("");
   const [showProcesoForm, setShowProcesoForm] = useState(false);
   const [procesoForm, setProcesoForm] = useState({ nombre: "", ubicacion: "", fecha: "", encargado: "", estado: "Pendiente", descripcion: "" });
 
@@ -139,7 +140,7 @@ export default function RodajeScreen() {
       const token = getToken();
       const response = await fetch(`${API_URL}/projects/${projectId}/rodajes/importar`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...getProjectHeaders(), Authorization: `Bearer ${token}` },
         body: formData,
       });
       const data = await response.json();
@@ -165,6 +166,28 @@ export default function RodajeScreen() {
       await fetchRodajes();
     } catch (err) {
       setError(err.message || "No se pudo eliminar el día");
+    }
+  };
+
+  const handleEstadoRodaje = async (rodaje, estado) => {
+    const key = `dia-${rodaje.id_rodaje}`;
+    setUpdatingEstado(key);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await apiFetch(`/rodajes/${rodaje.id_rodaje}`, {
+        method: "PATCH",
+        body: JSON.stringify({ estado }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.detail || data.message || "No se pudo actualizar el estado del día");
+      setRodajes((current) => current.map((item) => item.id_rodaje === rodaje.id_rodaje ? data.data : item));
+      setRodajeActivo((current) => current?.id_rodaje === rodaje.id_rodaje ? data.data : current);
+      setSuccess("Estado del día actualizado.");
+    } catch (err) {
+      setError(err.message || "No se pudo actualizar el estado del día");
+    } finally {
+      setUpdatingEstado("");
     }
   };
 
@@ -267,6 +290,27 @@ export default function RodajeScreen() {
     }
   };
 
+  const handleEstadoProceso = async (proceso, estado) => {
+    const key = `proceso-${proceso.id_proceso}`;
+    setUpdatingEstado(key);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await apiFetch(`/rodajes/procesos/${proceso.id_proceso}`, {
+        method: "PATCH",
+        body: JSON.stringify({ estado }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.detail || data.message || "No se pudo actualizar el estado del proceso");
+      setProcesos((current) => current.map((item) => item.id_proceso === proceso.id_proceso ? { ...item, estado } : item));
+      setSuccess("Estado del proceso actualizado.");
+    } catch (err) {
+      setError(err.message || "No se pudo actualizar el estado del proceso");
+    } finally {
+      setUpdatingEstado("");
+    }
+  };
+
   // Agrupar por semana para la vista principal
   const semanas = {};
   rodajes.forEach((r) => {
@@ -276,7 +320,7 @@ export default function RodajeScreen() {
   });
 
   return (
-    <div className="rdj-page">
+    <div className={`rdj-page ${esAdmin ? "module-role-admin" : "module-role-user"}`}>
       <header className="rdj-header">
         <div className="rdj-header__inner">
           <button type="button" className="rdj-back" onClick={() => navigate("/proyecto-dashboard")}>
@@ -325,7 +369,23 @@ export default function RodajeScreen() {
                       <div key={r.id_rodaje} className="rdj-day-card" onClick={() => abrirDetalle(r)}>
                         <div className="rdj-day-card__head">
                           <strong>{r.nombre}</strong>
-                          <span className={`rdj-badge rdj-badge--${normalizarEstado(r.estado)}`}>{r.estado || "Pendiente"}</span>
+                          {esAdmin ? (
+                            <select
+                              className={`rdj-badge rdj-badge--${normalizarEstado(r.estado)} rdj-status-select`}
+                              value={r.estado || "Pendiente"}
+                              disabled={updatingEstado === `dia-${r.id_rodaje}`}
+                              aria-label={`Estado de ${r.nombre}`}
+                              onClick={(evt) => evt.stopPropagation()}
+                              onChange={(evt) => {
+                                evt.stopPropagation();
+                                handleEstadoRodaje(r, evt.target.value);
+                              }}
+                            >
+                              {ESTADOS.map((estado) => <option key={estado} value={estado}>{estado}</option>)}
+                            </select>
+                          ) : (
+                            <span className={`rdj-badge rdj-badge--${normalizarEstado(r.estado)}`}>{r.estado || "Pendiente"}</span>
+                          )}
                         </div>
                         <div className="rdj-day-card__meta">
                           <span>{r.fecha_inicio}</span>
@@ -435,6 +495,11 @@ export default function RodajeScreen() {
                       <label>Encargado<input value={procesoForm.encargado} onChange={(e) => setProcesoForm({ ...procesoForm, encargado: e.target.value })} /></label>
                     </div>
                     <label>Descripción<textarea rows={2} value={procesoForm.descripcion} onChange={(e) => setProcesoForm({ ...procesoForm, descripcion: e.target.value })} /></label>
+                    <label>Estado
+                      <select value={procesoForm.estado} onChange={(e) => setProcesoForm({ ...procesoForm, estado: e.target.value })}>
+                        {ESTADOS.map((estado) => <option key={estado} value={estado}>{estado}</option>)}
+                      </select>
+                    </label>
                     <div className="rdj-form__actions">
                       <button type="button" className="rdj-button rdj-button--ghost" onClick={() => setShowProcesoForm(false)}>Cancelar</button>
                       <button type="submit" className="rdj-button"><Plus size={15} /> Agregar</button>
@@ -453,6 +518,19 @@ export default function RodajeScreen() {
                         <CheckSquare size={15} />
                         <strong>{p.nombre}</strong>
                         <span className="rdj-scene-row__momento">{p.ubicacion} · {p.fecha}</span>
+                        {esAdmin ? (
+                          <select
+                            className={`rdj-badge rdj-badge--${normalizarEstado(p.estado)} rdj-status-select`}
+                            value={p.estado || "Pendiente"}
+                            disabled={updatingEstado === `proceso-${p.id_proceso}`}
+                            aria-label={`Estado de ${p.nombre}`}
+                            onChange={(evt) => handleEstadoProceso(p, evt.target.value)}
+                          >
+                            {ESTADOS.map((estado) => <option key={estado} value={estado}>{estado}</option>)}
+                          </select>
+                        ) : (
+                          <span className={`rdj-badge rdj-badge--${normalizarEstado(p.estado)}`}>{p.estado || "Pendiente"}</span>
+                        )}
                         {esAdmin && (
                           <button type="button" className="rdj-scene-row__remove" onClick={() => handleEliminarProceso(p.id_proceso)}>
                             <X size={15} />

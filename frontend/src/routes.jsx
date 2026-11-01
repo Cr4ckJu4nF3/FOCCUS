@@ -1,10 +1,11 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import Login from "./screen/Login";
 import TwoFactor from "./screen/TwoFactor";
+import CompleteInvitation from "./screen/CompleteInvitation";
 import ForgotPassword from "./screen/ForgotPassword";
-import ProjectRegistration from "./screen/ProjectRegistration";
 import ProjectSelection from "./screen/ProjectSelection";
 import ProjectDashboard from "./screen/ProjectDashboard";
+import AdminDashboard from "./screen/AdminDashboard";
 import Profile from "./screen/Profile";
 import Dashboard from "./screen/Dashboard";
 import Landing from "./screen/Landing";
@@ -13,6 +14,7 @@ import Guion from "./screen/Guion";
 import Escena from "./screen/Escena";
 import Rodaje from "./screen/Rodaje";
 import Desglose from "./screen/Desglose";
+import Galeria from "./screen/Galeria";
 import ProtectedRoute from "./screen/ProtectedRoute";
 
 export const router = createBrowserRouter([
@@ -29,6 +31,10 @@ export const router = createBrowserRouter([
     path: "/verificacion",
     element: <ProtectedRoute><TwoFactor /></ProtectedRoute>,
   },
+  {
+    path: "/completar-cuenta",
+    element: <ProtectedRoute><CompleteInvitation /></ProtectedRoute>,
+  },
 
   {
     path: "/recuperar-acceso",
@@ -36,7 +42,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/registro-proyecto",
-    element: <ProtectedRoute><ProjectRegistration /></ProtectedRoute>,
+    element: <ProtectedRoute><ProjectSelection /></ProtectedRoute>,
   },
   {
     path: "/seleccion-proyecto",
@@ -45,6 +51,10 @@ export const router = createBrowserRouter([
   {
     path: "/proyecto-dashboard",
     element: <ProtectedRoute><ProjectDashboard /></ProtectedRoute>,
+  },
+  {
+    path: "/admin-dashboard",
+    element: <ProtectedRoute><AdminDashboard /></ProtectedRoute>,
   },
   {
     path: "/perfil",
@@ -67,11 +77,19 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute><Escena /></ProtectedRoute>,
   },
   {
+    path: "/personajes",
+    element: <ProtectedRoute><Navigate to="/galeria" replace /></ProtectedRoute>,
+  },
+  {
     path: "/rodaje",
     element: <ProtectedRoute><Rodaje /></ProtectedRoute>,
   },
   {
     path: "/desglose",
     element: <ProtectedRoute><Desglose /></ProtectedRoute>,
+  },
+  {
+    path: "/galeria",
+    element: <ProtectedRoute><Galeria /></ProtectedRoute>,
   },
 ]);

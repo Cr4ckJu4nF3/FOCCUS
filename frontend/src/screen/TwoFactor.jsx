@@ -24,7 +24,7 @@ export default function TwoFactorScreen() {
       const deviceId = getDeviceId();
       const response = await apiFetch("/users/2fa/verify", {
         method: "POST",
-        body: JSON.stringify({ mail, codigo, device_id: deviceId }),
+        body: JSON.stringify({ mail, codigo, device_id: deviceId, remember_me: Boolean(location.state?.rememberMe) }),
       });
 
       const result = await response.json();
@@ -33,9 +33,18 @@ export default function TwoFactorScreen() {
         const data = result.data;
         // El backend reemite el token tras verificar el segundo factor
         if (data?.access_token) {
-          setToken(data.access_token);
+          setToken(data.access_token, Boolean(location.state?.rememberMe));
         }
-        navigate("/seleccion-proyecto");
+        const needsProfileCompletion = location.state?.needsProfileCompletion
+          || localStorage.getItem("needs_profile_completion") === "true";
+        if (needsProfileCompletion) {
+          navigate("/completar-cuenta", { replace: true });
+          return;
+        }
+        const dashboardPath = Number(localStorage.getItem("id_rol")) === 1001
+          ? "/admin-dashboard"
+          : "/seleccion-proyecto";
+        navigate(dashboardPath, { replace: true });
       } else {
         setError(result.detail || result.message || result.error || "Código incorrecto o expirado");
       }
