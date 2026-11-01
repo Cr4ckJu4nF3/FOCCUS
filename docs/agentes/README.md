@@ -24,6 +24,8 @@ Los agentes se llaman entre sí con la herramienta de subagentes, sin que el usu
 - investigador → web (si el usuario pide investigar **y** hacer).
 - web → investigador (si falta investigar algo) y web → mobile (cuando hay cambios que adaptar).
 - mobile → web (si falta un endpoint o hay un bug) y mobile → investigador (dudas de producto).
+- web → bd (cambios de tablas, migraciones, backups, consultas de datos); bd → web (si el cambio exige tocar modelos/consultas); bd → investigador (dudas de diseño).
+- mobile → web e investigador, y mobile → bd solo para consultas.
 
 ## Archivos compartidos
 - `docs\agentes\investigacion\` – informes del investigador (más un `README.md` índice).

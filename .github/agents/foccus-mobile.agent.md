@@ -35,3 +35,4 @@ Tienes la herramienta de subagentes (`task`). Úsala tú mismo, no le pidas al u
 - **Falta un endpoint, cambia un schema o hay un bug de backend** → llama a `foccus-web` con el detalle exacto (ruta, datos, error) y espera el resultado antes de seguir.
 - Al llamar a otro agente, dale contexto completo (qué necesitas, dónde mirar, cómo devolverte el resultado) y resume al usuario lo que se hizo.
 - No cambies backend/frontend tú mismo: delégalo a `foccus-web`.
+- **Dudas sobre tablas, datos o relaciones** → consulta a `foccus-bd`. No cambies la BD.
