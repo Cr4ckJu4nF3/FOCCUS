@@ -676,6 +676,23 @@ html[data-theme="dark"] .admin-dashboard .admin-welcome__badge {
   color: #c0cbda;
 }
 
+html[data-theme="dark"] .admin-dashboard .admin-project-picker__card {
+  border-color: var(--admin-border);
+  color: var(--admin-text-secondary);
+  background: var(--admin-surface-muted);
+}
+
+html[data-theme="dark"] .admin-dashboard .admin-project-picker__card:hover {
+  border-color: #456386;
+  background: #202d3f;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+}
+
+html[data-theme="dark"] .admin-dashboard .admin-project-picker__icon {
+  color: #a6c9e8;
+  background: #243b53;
+}
+
 html[data-theme="light"] .admin-dashboard .admin-error {
   border-color: #f3d1d1;
   color: #a53e46;
@@ -888,4 +905,377 @@ html[data-theme="light"] :is(
   border-color: #a9d8bb;
   color: #17633f;
   background: #e8f6ee;
+}
+
+html[data-theme="light"] :is(
+  .dsg-page,
+  .rdj-page,
+  .guion-page,
+  .escena-page,
+  .personajes-page,
+  .rs-page
+) {
+  color: #273448;
+  background: #f3f5f9;
+  background-image: none;
+}
+
+html[data-theme="light"] :is(.dsg-header, .rdj-header, .guion-header, .escena-header, .personajes-header, .rs-header) {
+  border-color: #e2e7ef;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+html[data-theme="light"] :is(
+  .dsg-panel, .dsg-modal, .rdj-panel, .rdj-modal, .guion-panel, .guion-modal,
+  .escena-panel, .escena-modal, .personajes-panel, .personajes-modal, .rs-list-card, .rs-modal
+) {
+  border-color: #e2e7ef;
+  color: #344256;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(30, 46, 70, 0.07);
+}
+
+html[data-theme="light"] :is(
+  .dsg-scene-row, .dsg-req-item, .rdj-day-card, .rdj-scene-row, .rdj-choice-card,
+  .guion-item, .guion-version-card, .guion-card, .guion-choice-card, .guion-sidebar__item,
+  .escena-row, .escena-foto-card, .personajes-card, .personajes-row, .personajes-foto-card,
+  .rs-list-item, .rs-editable-cell
+) {
+  border-color: #e5eaf1;
+  color: #344256;
+  background: #f8fafd;
+  box-shadow: none;
+}
+
+html[data-theme="light"] :is(
+  .dsg-page, .rdj-page, .guion-page, .escena-page, .personajes-page, .rs-page
+) :is(h1, h2, h3, h4, p, label, li, small, td, th, time, dt, dd) {
+  color: #344256;
+}
+
+html[data-theme="light"] :is(
+  .dsg-page, .rdj-page, .guion-page, .escena-page, .personajes-page, .rs-page
+) :is(
+  [class*="title"], [class*="subtitle"], [class*="description"], [class*="heading"],
+  [class*="label"], [class*="name"], [class*="detail"], [class*="empty"], [class*="text"],
+  [class*="date"], [class*="meta"], [class*="info"], [class*="momento"], [class*="back"],
+  .dsg-scene-row__numero, .escena-card__number, .personajes-card__number
+) {
+  color: #344256;
+}
+
+html[data-theme="light"] :is(
+  .dsg-scene-row, .rdj-day-card, .guion-card, .guion-item, .escena-card, .personajes-card
+):hover {
+  border-color: #bfd0e4;
+  background: #f0f5fb;
+  box-shadow: 0 10px 24px rgba(30, 46, 70, 0.08);
+}
+
+html[data-theme="light"] :is(.dsg-filtro-chip, .dsg-rodaje-tag) {
+  border-color: #d7e2ef;
+  color: #405b78;
+  background: #edf4fb;
+}
+
+html[data-theme="light"] .dsg-filtro-chip:not(.dsg-filtro-chip--active):hover {
+  border-color: #b7c9df;
+  color: #225f94;
+  background: #e5eef8;
+}
+
+html[data-theme="light"] .dsg-filtro-chip--active {
+  border-color: #d77755;
+  color: #fff;
+  background: #c56545;
+}
+
+html[data-theme="light"] .dsg-filtro-chip--active:hover {
+  border-color: #b95739;
+  color: #fff;
+  background: #b95739;
+}
+
+html[data-theme="light"] .dsg-rodaje-tag--sin-asignar,
+html[data-theme="light"] .dsg-tag--empty {
+  border-color: #e1e6ed;
+  color: #65748a;
+  background: #f2f4f7;
+}
+
+html[data-theme="light"] :is(
+  .dsg-page, .rdj-page, .guion-page, .escena-page, .personajes-page, .rs-page
+) :is(.dsg-back, .rdj-back, .guion-back, .escena-back, .personajes-back, .rs-back-button) {
+  border-color: #d7deea;
+  color: #40516a;
+  background: transparent;
+}
+
+html[data-theme="light"] :is(
+  .dsg-page, .rdj-page, .guion-page, .escena-page, .personajes-page, .rs-page
+) :is(.dsg-back, .rdj-back, .guion-back, .escena-back, .personajes-back, .rs-back-button):hover {
+  border-color: #b7c9df;
+  color: #225f94;
+  background: #edf3fa;
+}
+
+html[data-theme="light"] :is(
+  .dsg-page, .rdj-page, .guion-page, .escena-page, .personajes-page, .rs-page
+) :is(input, select, textarea, [contenteditable="true"]) {
+  border-color: #d7deea;
+  color: #29384d;
+  background-color: #fff;
+  box-shadow: none;
+}
+
+html[data-theme="light"] :is(
+  .dsg-page, .rdj-page, .guion-page, .escena-page, .personajes-page, .rs-page
+) :is(input, select, textarea, [contenteditable="true"])::placeholder {
+  color: #8995a6;
+}
+
+html[data-theme="light"] :is(
+  .dsg-page, .rdj-page, .guion-page, .escena-page, .personajes-page, .rs-page
+) :is(
+  .dsg-back, .rdj-back, .guion-back, .escena-back, .personajes-back, .rs-back-button,
+  .dsg-tabs__tab, .rdj-tabs__tab, .guion-tabs__tab, .escena-tabs__tab, .personajes-tabs__tab,
+  .guion-item__delete, .guion-card__edit, .escena-row__actions button, .personajes-row__actions button,
+  .dsg-req-item__delete, .rdj-day-card__actions button, .rdj-scene-row__remove,
+  .dsg-rodaje-block__quitar, .rs-remove-btn, .rs-editable-input-row button, .rs-modal-close
+) {
+  color: #52637a;
+}
+
+html[data-theme="light"] :is(
+  .dsg-page, .rdj-page, .guion-page, .escena-page, .personajes-page, .rs-page
+) :is(
+  .dsg-tabs__tab, .rdj-tabs__tab, .guion-tabs__tab, .escena-tabs__tab, .personajes-tabs__tab,
+  .guion-item__delete, .guion-card__edit, .escena-row__actions button, .personajes-row__actions button,
+  .dsg-req-item__delete, .rdj-day-card__actions button, .rdj-scene-row__remove,
+  .dsg-rodaje-block__quitar, .rs-remove-btn, .rs-editable-input-row button, .rs-modal-close
+):hover {
+  color: #225f94;
+  background-color: #edf3fa;
+}
+
+html[data-theme="light"] :is(
+  .dsg-page, .rdj-page, .guion-page, .escena-page, .personajes-page, .rs-page
+) button:not(
+  .dsg-button, .rdj-button, .guion-button, .escena-button, .personajes-button,
+  .dsg-filtro-chip, .rs-invite-button, .rs-modal-submit, .rs-modal-cancel, .theme-toggle
+):hover {
+  border-color: #cbd8e8;
+  color: #244f7b;
+  background-color: #edf3fa;
+}
+
+html[data-theme="light"] :is(.dsg-button, .rdj-button, .guion-button, .escena-button, .personajes-button, .rs-invite-button, .rs-modal-submit):hover {
+  color: #fff;
+  filter: brightness(0.94);
+}
+
+html[data-theme="light"] :is(.dsg-button--ghost, .rdj-button--ghost, .escena-button--ghost, .personajes-button--ghost, .rs-modal-cancel) {
+  border: 1px solid #d7deea;
+  color: #40516a;
+  background: #f2f5f9;
+}
+
+html[data-theme="light"] :is(.dsg-button--ghost, .rdj-button--ghost, .escena-button--ghost, .personajes-button--ghost, .rs-modal-cancel):hover {
+  border-color: #b7c9df;
+  color: #225f94;
+  background: #e7eff8;
+  filter: none;
+}
+
+html[data-theme="light"] :is(.dsg-message, .rdj-message, .guion-message, .escena-message, .personajes-message, .rs-alert) {
+  color: #344256;
+}
+
+html[data-theme="light"] :is(.dsg-message--error, .rdj-message--error, .guion-message--error, .escena-message--error, .personajes-message--error, .rs-alert--error) {
+  border-color: #f0c4c7;
+  color: #a53843;
+  background: #fff1f2;
+}
+
+html[data-theme="light"] :is(.dsg-badge, .rdj-badge, .guion-badge, .guion-version-card__state, .rs-role-badge, .rs-state-badge) {
+  border-color: #d8e1eb;
+  color: #40516a;
+  background: #edf2f7;
+}
+
+html[data-theme="light"] :is(.rdj-badge--confirmado, .guion-version-card__state--aprobado, .rs-state-badge--activo) {
+  border-color: #c8dcf2;
+  color: #285b8b;
+  background: #eaf3fc;
+}
+
+html[data-theme="light"] :is(.rdj-badge--en-rodaje, .guion-version-card__state--en-rodaje) {
+  border-color: #efd5c7;
+  color: #98553a;
+  background: #fff1e9;
+}
+
+html[data-theme="light"] :is(.guion-badge--revision, .guion-version-card__state--en-revision, .guion-version-card__state--en-revisión) {
+  border-color: #c8dcf2;
+  color: #285b8b;
+  background: #eaf3fc;
+}
+
+html[data-theme="light"] :is(.guion-badge--aprobado, .guion-version-card__state--aprobado) {
+  border-color: #c5e5d7;
+  color: #287455;
+  background: #eaf7f0;
+}
+
+html[data-theme="light"] :is(.guion-badge--archivado, .guion-badge--sin-version, .guion-version-card__state--archivado) {
+  border-color: #e1e6ed;
+  color: #65748a;
+  background: #f2f4f7;
+}
+
+html[data-theme="light"] :is(.rdj-badge--finalizado, .rdj-badge--completado, .guion-version-card__state--publicado) {
+  border-color: #c5e5d7;
+  color: #287455;
+  background: #eaf7f0;
+}
+
+html[data-theme="light"] .admin-breakdown__summary > div {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-muted);
+}
+
+html[data-theme="light"] .admin-breakdown__summary strong,
+html[data-theme="light"] .admin-breakdown__department-heading strong {
+  color: var(--admin-text-secondary);
+}
+
+html[data-theme="light"] .admin-breakdown__summary span,
+html[data-theme="light"] .admin-breakdown__department-heading span {
+  color: var(--admin-text-muted);
+}
+
+html[data-theme="dark"] .module-role-admin:is(
+  .dsg-page, .rdj-page, .guion-page, .escena-page, .personajes-page, .rs-page
+) {
+  color: #ecf1f8;
+  background-color: #0c111b;
+  background-image:
+    radial-gradient(ellipse at 82% 4%, rgba(72, 74, 150, 0.11), transparent 34%),
+    linear-gradient(135deg, #0c111b, #101927);
+}
+
+html[data-theme="dark"] .module-role-admin :is(.dsg-header, .rdj-header, .guion-header, .escena-header, .personajes-header, .rs-header) {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(16, 25, 39, 0.94);
+}
+
+html[data-theme="dark"] .module-role-admin :is(
+  .dsg-panel, .dsg-modal, .rdj-panel, .rdj-modal, .guion-panel, .guion-modal,
+  .escena-panel, .escena-modal, .personajes-panel, .personajes-modal, .rs-list-card, .rs-modal
+) {
+  border-color: rgba(255, 255, 255, 0.09);
+  color: #e3eaf3;
+  background: #151d2a;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2);
+}
+
+html[data-theme="dark"] .module-role-admin :is(
+  .dsg-scene-row, .dsg-req-item, .rdj-day-card, .rdj-scene-row, .rdj-choice-card,
+  .guion-item, .guion-version-card, .guion-card, .guion-choice-card, .guion-sidebar__item,
+  .escena-row, .escena-foto-card, .personajes-card, .personajes-row, .personajes-foto-card,
+  .rs-list-item, .rs-editable-cell
+) {
+  border-color: rgba(255, 255, 255, 0.07);
+  color: #d7e0ec;
+  background: #1b2635;
+}
+
+html[data-theme="dark"] .module-role-admin:is(
+  .dsg-page, .rdj-page, .guion-page, .escena-page, .personajes-page, .rs-page
+) :is(input, select, textarea, [contenteditable="true"]) {
+  border-color: rgba(255, 255, 255, 0.13);
+  color: #ecf1f8;
+  background-color: #101722;
+}
+
+html[data-theme="dark"] .module-role-admin:is(
+  .dsg-page, .rdj-page, .guion-page, .escena-page, .personajes-page, .rs-page
+) :is(input, select, textarea, [contenteditable="true"])::placeholder {
+  color: #8997aa;
+}
+
+html[data-theme="dark"] .module-role-admin.rs-page .rs-header,
+html[data-theme="dark"] .module-role-admin.rs-page .rs-list-card,
+html[data-theme="dark"] .module-role-admin.rs-page .rs-modal {
+  background-color: #151d2a;
+}
+
+html[data-theme="dark"] .module-role-user:is(
+  .dsg-page, .rdj-page, .guion-page, .escena-page, .personajes-page, .rs-page
+) {
+  color: #fafafa;
+  background-color: #0a0a0a;
+  background-image: none;
+}
+
+html[data-theme="dark"] .module-role-user :is(.dsg-header, .rdj-header, .guion-header, .escena-header, .personajes-header, .rs-header) {
+  border-color: #2a2a2a;
+  background: #1a1a1a;
+}
+
+html[data-theme="dark"] .module-role-user :is(
+  .dsg-panel, .dsg-modal, .rdj-panel, .rdj-modal, .guion-panel, .guion-modal,
+  .escena-panel, .escena-modal, .personajes-panel, .personajes-modal, .rs-list-card, .rs-modal
+) {
+  border-color: #2a2a2a;
+  color: #fafafa;
+  background: #1a1a1a;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2);
+}
+
+html[data-theme="dark"] .module-role-user :is(
+  .dsg-scene-row, .dsg-req-item, .rdj-day-card, .rdj-scene-row, .rdj-choice-card,
+  .guion-item, .guion-version-card, .guion-card, .guion-choice-card, .guion-sidebar__item,
+  .escena-row, .escena-foto-card, .personajes-card, .personajes-row, .personajes-foto-card,
+  .rs-list-item, .rs-editable-cell
+) {
+  border-color: #292929;
+  color: #f1f1f1;
+  background: #111;
+}
+
+html[data-theme="dark"] .module-role-user:is(
+  .dsg-page, .rdj-page, .guion-page, .escena-page, .personajes-page, .rs-page
+) :is(input, select, textarea, [contenteditable="true"]) {
+  border-color: #343434;
+  color: #fafafa;
+  background-color: #0a0a0a;
+}
+
+html[data-theme="dark"] .module-role-user:is(
+  .dsg-page, .rdj-page, .guion-page, .escena-page, .personajes-page, .rs-page
+) :is(input, select, textarea, [contenteditable="true"])::placeholder {
+  color: #929292;
+}
+
+html[data-theme="dark"] .module-role-admin.gallery-page {
+  --gallery-bg: #0c111b;
+  --gallery-surface: #151d2a;
+  --gallery-surface-raised: #1b2635;
+  --gallery-border: rgba(255, 255, 255, 0.09);
+  --gallery-text: #ecf1f8;
+  --gallery-muted: #a3adbd;
+  --gallery-soft: #8997aa;
+  --gallery-input: #101722;
+}
+
+html[data-theme="dark"] .module-role-user.gallery-page {
+  --gallery-bg: #0a0a0a;
+  --gallery-surface: #1a1a1a;
+  --gallery-surface-raised: #111;
+  --gallery-border: #2a2a2a;
+  --gallery-text: #fafafa;
+  --gallery-muted: #b9c2cf;
+  --gallery-soft: #929292;
+  --gallery-input: #0a0a0a;
 }

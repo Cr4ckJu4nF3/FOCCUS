@@ -576,3 +576,262 @@
     align-items: flex-start;
   }
 }
+
+/* Modern workspace dashboard */
+.pds-page {
+  background-image:
+    radial-gradient(ellipse at 82% 4%, rgba(72, 74, 150, 0.2), transparent 34%),
+    linear-gradient(135deg, rgba(7, 10, 15, 0.93), rgba(15, 17, 22, 0.86)),
+    url("../assets/dashboard.jpeg");
+  background-attachment: scroll;
+}
+
+.pds-header {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  background: rgba(13, 17, 25, 0.86);
+  backdrop-filter: blur(18px);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.pds-main {
+  padding-top: clamp(2rem, 5vw, 3.5rem);
+  animation: pds-enter 0.55s cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+.pds-project-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.pds-project-eyebrow {
+  margin: 0 0 0.5rem;
+  color: #99a7bc;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.pds-project-title {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 650;
+  letter-spacing: -0.045em;
+}
+
+.pds-project-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.pds-admin-dashboard-button,
+.pds-menu-toggle {
+  min-height: 42px;
+  border-radius: 0.75rem;
+  transition: transform 0.22s ease, border-color 0.22s ease, background-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.pds-admin-dashboard-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.58rem 0.9rem;
+  border: 1px solid rgba(126, 131, 226, 0.42);
+  color: #e6e6ff;
+  background: linear-gradient(110deg, rgba(45, 117, 181, 0.32), rgba(111, 80, 172, 0.3));
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.pds-admin-dashboard-button:hover {
+  border-color: rgba(165, 151, 255, 0.76);
+  background-color: rgba(98, 83, 178, 0.3);
+  box-shadow: 0 8px 24px rgba(83, 77, 174, 0.18);
+  transform: translateY(-2px);
+}
+
+.pds-menu-toggle {
+  padding: 0.55rem 0.9rem;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(17, 20, 25, 0.72);
+}
+
+.pds-menu-toggle:hover {
+  border-color: rgba(139, 127, 222, 0.5);
+  background-color: rgba(123, 95, 207, 0.12);
+  transform: translateY(-2px);
+}
+
+.pds-content {
+  align-items: flex-start;
+  gap: 1.1rem;
+}
+
+.pds-sidebar {
+  position: sticky;
+  top: 94px;
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  background: rgba(17, 20, 29, 0.84);
+  backdrop-filter: blur(16px);
+  animation: pds-enter 0.28s ease-out both;
+}
+
+.pds-sidebar-item {
+  border-radius: 0.65rem;
+  margin: 0.1rem 0;
+}
+
+.pds-sidebar-item--default:hover,
+.pds-sidebar-item--roles:hover {
+  background-color: rgba(255, 255, 255, 0.07);
+}
+
+.pds-modules-grid {
+  gap: 1rem;
+}
+
+.pds-module-card {
+  position: relative;
+  min-height: 245px;
+  padding: 2rem 1.5rem;
+  overflow: hidden;
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: 1.2rem;
+  background:
+    radial-gradient(circle at 50% 0, rgba(255, 255, 255, 0.055), transparent 52%),
+    rgba(21, 24, 33, 0.86);
+  backdrop-filter: blur(14px);
+  animation: pds-enter 0.55s cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  transition: border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.pds-module-card:nth-child(2) { animation-delay: 0.06s; }
+.pds-module-card:nth-child(3) { animation-delay: 0.12s; }
+.pds-module-card:nth-child(4) { animation-delay: 0.18s; }
+
+.pds-module-card:hover {
+  border-color: rgba(145, 129, 228, 0.42);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.28), 0 0 28px rgba(75, 91, 185, 0.11);
+  transform: translateY(-5px);
+}
+
+.pds-module-icon-wrapper {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.pds-module-card:hover .pds-module-icon-wrapper {
+  transform: translateY(-3px) scale(1.06);
+}
+
+.pds-module-title {
+  color: #f6f7fb;
+  font-weight: 600;
+}
+
+.pds-module-button {
+  border-radius: 999px;
+  background: linear-gradient(100deg, #236fa7, #6c59b7);
+  box-shadow: 0 7px 20px rgba(55, 94, 172, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pds-module-card:hover .pds-module-button {
+  box-shadow: 0 10px 24px rgba(75, 91, 185, 0.35);
+  transform: translateY(-1px);
+}
+
+.pds-updates {
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: 1.2rem;
+  background: rgba(17, 20, 29, 0.86);
+  backdrop-filter: blur(16px);
+  animation: pds-enter 0.6s 0.12s ease both;
+}
+
+.pds-update-column {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(9, 12, 19, 0.58);
+}
+
+.pds-update-item {
+  transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.pds-update-item:hover {
+  border-color: rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.055);
+  transform: translateY(-2px);
+}
+
+.pds-back-button {
+  color: #bec7d4;
+}
+
+.pds-back-button:hover {
+  color: #b6a5ff;
+}
+
+@keyframes pds-enter {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 767px) {
+  .pds-project-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pds-project-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .pds-sidebar {
+    position: static;
+    width: 100%;
+  }
+
+  .pds-content {
+    flex-direction: column;
+  }
+
+  .pds-module-card--full {
+    min-height: 230px;
+    padding: 2rem 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .pds-main {
+    padding: 1.6rem 1rem;
+  }
+
+  .pds-admin-dashboard-button {
+    flex: 1;
+  }
+
+  .pds-updates {
+    margin-top: 1.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pds-page *,
+  .pds-page *::before,
+  .pds-page *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

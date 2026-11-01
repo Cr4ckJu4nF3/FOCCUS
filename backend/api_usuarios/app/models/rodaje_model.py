@@ -48,8 +48,9 @@ class Rodaje(Base):
     )  # agrupacion "Semana N" en pantalla
 
     llamado = Column(
-        String(20)
-    )  # hora de llamado general del dia, ej "5:30 AM"
+        String(100)
+    )  # hora de llamado general del dia; puede incluir hora de salida,
+       # ej "5:30 AM" o "5:30 AM - Wrap: 7:00 PM"
 
     locacion = Column(
         String(255)

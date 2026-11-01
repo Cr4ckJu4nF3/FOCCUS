@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { Menu, User, LogOut, Trash2, ChartNoAxesCombined } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Menu, User, LogOut, Trash2, ChartNoAxesCombined, FolderOpen } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
-import { apiFetch, clearSession } from "../api";
+import { apiFetch, clearSession, getActiveRole, setActiveProject } from "../api";
 import "../desing/ProjectDashboard.css";
 
 const modules = [
@@ -27,8 +27,11 @@ function ProjectDashboardScreen() {
 
   const nombre = localStorage.getItem("nombre") || "";
   const apellido = localStorage.getItem("apellido") || "";
-  const idRol = parseInt(localStorage.getItem("id_rol")) || 0;
+  const [projectRole, setProjectRole] = useState(getActiveRole());
+  const [roleRefreshError, setRoleRefreshError] = useState("");
+  const idRol = projectRole;
   const esAdmin = idRol === 1001;
+  const esAdminGlobal = Number(localStorage.getItem("id_rol")) === 1001;
   const rolLabel = esAdmin ? "Administrador" : "Usuario";
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -39,15 +42,64 @@ function ProjectDashboardScreen() {
   const menuRef = useRef(null);
   const profileRef = useRef(null);
 
+  useEffect(() => {
+    let isCurrent = true;
+    const refreshProjectRole = async () => {
+      if (!projectId) return;
+      setRoleRefreshError("");
+      try {
+        const userId = localStorage.getItem("id_user");
+        const response = await apiFetch(`/users/${encodeURIComponent(userId || "")}/projects`);
+        const result = await response.json();
+        if (!response.ok || result.success === false) {
+          throw new Error(result.detail || result.message || "No se pudo verificar tu rol en el proyecto");
+        }
+        const projects = Array.isArray(result.data) ? result.data : [];
+        const currentProject = projects.find((project) => String(project.id_project) === String(projectId));
+        if (!currentProject) {
+          ["projectId", "id_project", "projectName", "project_role", "project_role_project_id"].forEach((key) =>
+            localStorage.removeItem(key),
+          );
+          navigate("/seleccion-proyecto", { replace: true });
+          return;
+        }
+        if (isCurrent) {
+          setActiveProject(currentProject);
+          setProjectRole(Number(currentProject.id_rol) || 0);
+        }
+      } catch (roleError) {
+        if (isCurrent) setRoleRefreshError(roleError.message || "No se pudo verificar tu rol en el proyecto");
+      }
+    };
+
+    refreshProjectRole();
+    window.addEventListener("focus", refreshProjectRole);
+    return () => {
+      isCurrent = false;
+      window.removeEventListener("focus", refreshProjectRole);
+    };
+  }, [navigate, projectId]);
+
+  useEffect(() => {
+    if (projectRole === 1001) {
+      navigate("/admin-dashboard", { replace: true, state: { projectName, projectId } });
+    }
+  }, [navigate, projectId, projectName, projectRole]);
+
   // Guardar datos del proyecto en localStorage
   useEffect(() => {
     if (location.state?.projectName) {
       localStorage.setItem("projectName", location.state.projectName);
     }
     if (location.state?.projectId) {
-      localStorage.setItem("projectId", location.state.projectId);
+      const currentRole = getActiveRole();
+      setActiveProject({
+        id_project: location.state.projectId,
+        project_name: location.state.projectName || projectName,
+        id_rol: currentRole,
+      });
     }
-  }, [location.state]);
+  }, [location.state, projectName]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -136,7 +188,6 @@ function ProjectDashboardScreen() {
   const menuOptions = [
     "Guión",
     "Crear Escenas",
-    "Personajes",
     "Plan de Rodaje",
     "Desglose",
     "Galería",
@@ -160,11 +211,6 @@ function ProjectDashboardScreen() {
       return;
     }
 
-    if (option === "Personajes") {
-      navigate("/personajes", { state: { projectName, projectId } });
-      return;
-    }
-
     if (option === "Plan de Rodaje") {
       navigate("/rodaje", { state: { projectName, projectId } });
       return;
@@ -172,6 +218,11 @@ function ProjectDashboardScreen() {
 
     if (option === "Desglose") {
       navigate("/desglose", { state: { projectName, projectId } });
+      return;
+    }
+
+    if (option === "Galería") {
+      navigate("/galeria", { state: { projectName, projectId } });
     }
   };
 
@@ -193,16 +244,29 @@ function ProjectDashboardScreen() {
       return;
     }
 
-    if (!window.confirm(`¿Eliminar el proyecto "${projectName}"? Borra todo su contenido y no se puede deshacer.`)) return;
+    const confirmation = window.prompt(
+      `Esta acción eliminará definitivamente "${projectName}", sus miembros vinculados, guiones, escenas, galería, rodajes y archivos. Escribe el nombre exacto del proyecto para confirmar.`,
+    );
+    if (confirmation !== projectName) return;
 
     try {
-      const response = await apiFetch(`/projects/${projectId}/delete`, { method: "POST" });
+      const response = await apiFetch(`/projects/${encodeURIComponent(projectId)}`, { method: "DELETE" });
       const data = await response.json();
+      if (data.error === "FILE_CLEANUP_FAILED") {
+        ["projectId", "id_project", "projectName", "project_role", "project_role_project_id"].forEach((key) =>
+          localStorage.removeItem(key),
+        );
+        navigate("/seleccion-proyecto", { replace: true });
+        throw new Error(
+          `${data.message} ${data.data?.archivos_pendientes?.join("; ") || ""}`,
+        );
+      }
       if (!response.ok || !data.success) {
         throw new Error(data.detail || data.message || "No se pudo eliminar el proyecto");
       }
-      localStorage.removeItem("projectId");
-      localStorage.removeItem("projectName");
+      ["projectId", "id_project", "projectName", "project_role", "project_role_project_id"].forEach((key) =>
+        localStorage.removeItem(key),
+      );
       navigate("/seleccion-proyecto", { replace: true });
     } catch (err) {
       alert(err.message || "No se pudo eliminar el proyecto");
@@ -283,6 +347,7 @@ function ProjectDashboardScreen() {
 
       {/* Main Content */}
       <main className="pds-main">
+        {roleRefreshError && <p className="pds-update-empty" role="alert">{roleRefreshError}</p>}
         {/* Project Name and Menu Button */}
         <div className="pds-project-header" ref={menuRef}>
           <div>
@@ -290,6 +355,21 @@ function ProjectDashboardScreen() {
             <h1 className="pds-project-title">{projectName}</h1>
           </div>
           <div className="pds-project-actions">
+            {esAdminGlobal && !esAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  ["projectId", "id_project", "projectName", "project_role", "project_role_project_id"].forEach((key) =>
+                    localStorage.removeItem(key),
+                  );
+                  navigate("/admin-dashboard", { replace: true });
+                }}
+                className="pds-admin-dashboard-button"
+              >
+                <FolderOpen size={18} />
+                <span>Cambiar proyecto</span>
+              </button>
+            )}
             {esAdmin && (
               <button
                 type="button"
@@ -422,8 +502,5 @@ function ProjectDashboardScreen() {
 }
 
 export default function ProjectDashboard() {
-  if (Number(localStorage.getItem("id_rol")) === 1001) {
-    return <Navigate to="/admin-dashboard" replace />;
-  }
   return <ProjectDashboardScreen />;
 }

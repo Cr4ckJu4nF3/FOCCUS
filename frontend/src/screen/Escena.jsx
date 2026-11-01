@@ -11,8 +11,14 @@ import {
   X,
   Image as ImageIcon,
 } from "lucide-react";
-import API_URL, { getToken } from "../api";
+import API_URL, { getActiveRole, getProjectHeaders, getToken } from "../api";
 import "../desing/Escena.css";
+
+const fetchWithProject = (url, options = {}) =>
+  globalThis.fetch(url, {
+    ...options,
+    headers: { ...(options.headers || {}), ...getProjectHeaders() },
+  });
 
 const modoVistaOptions = ["Int", "Ext", "Int/Ext", "Ext/Int"];
 const momentoDiaOptions = ["Día", "Noche", "Amanecer", "Atardecer", "Mañana", "Tarde"];
@@ -44,7 +50,7 @@ export default function EscenaScreen() {
   const navigate = useNavigate();
   const projectId = localStorage.getItem("projectId") || "";
   const projectName = localStorage.getItem("projectName") || "Proyecto";
-  const idRol = Number(localStorage.getItem("id_rol")) || 0;
+  const idRol = getActiveRole();
   const esAdmin = idRol === 1001;
 
   // vista: lista | detalle
@@ -87,7 +93,7 @@ export default function EscenaScreen() {
     setError("");
     try {
       const token = getToken();
-      const response = await fetch(`${API_URL}/guiones?id_project=${projectId}`, {
+      const response = await fetchWithProject(`${API_URL}/guiones?id_project=${projectId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -120,7 +126,7 @@ export default function EscenaScreen() {
     setLoadingEscenas(true);
     try {
       const token = getToken();
-      const response = await fetch(`${API_URL}/guiones/${idGuion}/escenas`, {
+      const response = await fetchWithProject(`${API_URL}/guiones/${idGuion}/escenas`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -198,7 +204,7 @@ export default function EscenaScreen() {
       const url = esEdicion ? `${API_URL}/escenas/${editandoEscenaId}` : `${API_URL}/escenas`;
       const payload = esEdicion ? payloadBase : { ...payloadBase, id_guion: Number(selectedGuionId) };
 
-      const response = await fetch(url, {
+      const response = await fetchWithProject(url, {
         method: esEdicion ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
@@ -227,7 +233,7 @@ export default function EscenaScreen() {
     if (!window.confirm("¿Eliminar esta escena? No se puede deshacer.")) return;
     try {
       const token = getToken();
-      const response = await fetch(`${API_URL}/escenas/${idEscena}`, {
+      const response = await fetchWithProject(`${API_URL}/escenas/${idEscena}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -263,7 +269,7 @@ export default function EscenaScreen() {
     setLoadingVersiones(true);
     try {
       const token = getToken();
-      const res = await fetch(`${API_URL}/escenas/${idEscena}/versiones`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetchWithProject(`${API_URL}/escenas/${idEscena}/versiones`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || data.message || "No se pudieron cargar las versiones");
       const items = Array.isArray(data.data) ? data.data : [];
@@ -290,7 +296,7 @@ export default function EscenaScreen() {
     setLoadingFotos(true);
     try {
       const token = getToken();
-      const res = await fetch(`${API_URL}/escenas/versiones/${idVersion}/fotos`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetchWithProject(`${API_URL}/escenas/versiones/${idVersion}/fotos`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || data.message || "No se pudieron cargar las fotos");
       setFotos(Array.isArray(data.data) ? data.data : []);
@@ -309,7 +315,7 @@ export default function EscenaScreen() {
       const token = getToken();
       const fd = new FormData();
       fd.append("comentario_cambio", "Nueva versión de continuidad");
-      const res = await fetch(`${API_URL}/escenas/${escenaActiva.id_escena}/versiones`, {
+      const res = await fetchWithProject(`${API_URL}/escenas/${escenaActiva.id_escena}/versiones`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
@@ -344,7 +350,7 @@ export default function EscenaScreen() {
       if (continuidadForm.notas) fd.append("notas", continuidadForm.notas);
       continuidadForm.archivos.forEach((f) => fd.append("archivos", f));
 
-      const res = await fetch(`${API_URL}/escenas/versiones/${selectedVersionId}/fotos`, {
+      const res = await fetchWithProject(`${API_URL}/escenas/versiones/${selectedVersionId}/fotos`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
@@ -361,7 +367,7 @@ export default function EscenaScreen() {
   };
 
   return (
-    <div className="escena-page">
+    <div className={`escena-page ${esAdmin ? "module-role-admin" : "module-role-user"}`}>
       <header className="escena-header">
         <div className="escena-header__inner">
           <button type="button" className="escena-back" onClick={() => navigate("/guion")}>

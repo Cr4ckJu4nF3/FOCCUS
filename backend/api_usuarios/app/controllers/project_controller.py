@@ -1,9 +1,31 @@
+import shutil
+from pathlib import Path
+
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from app.models.project_model import Project
 from app.schemas.project_schema import ProjectSchema
 from app.utils.response import api_response
 from app.models.user_model import User
 from app.models.user_project_model import UserProject
+from app.models.Guion import Guion
+from app.models.guion_version_model import GuionVersion
+from app.models.guion_nota_model import GuionNota
+from app.models.escena_model import Escena
+from app.models.escena_version_model import EscenaVersion
+from app.models.continuidad_foto_model import ContinuidadFoto
+from app.models.desglose_model import Desglose
+from app.models.desglose_requerimiento_model import DesgloseRequerimiento
+from app.models.rodaje_model import Rodaje
+from app.models.proceso_rodaje_model import ProcesoRodaje
+from app.models.personajes_model import Personaje
+from app.models.escenario_model import Escenario
+from app.models.galeria_model import GaleriaItem
+from app.models.escena_galeria_item_model import EscenaGaleriaItem
+from app.models.galeria_lugar_personaje_model import GaleriaLugarPersonaje
+from app.models.galeria_version_model import GaleriaVersion
+from app.models.galeria_version_foto_model import GaleriaVersionFoto
+from app.utils.file_storage import BASE_UPLOAD_DIR
 
 # GET ALL PROJECTS
 
@@ -124,10 +146,175 @@ def delete_project(id: str, db: Session):
     if not project:
         return api_response(False, "Proyecto no encontrado")
 
-    db.delete(project)
-    db.commit()
+    guion_ids = [
+        guion_id
+        for (guion_id,) in db.query(Guion.id_guion).filter(Guion.id_project == id).all()
+    ]
+    scene_ids = [
+        scene_id
+        for (scene_id,) in db.query(Escena.id_escena).join(
+            Guion, Escena.id_guion == Guion.id_guion
+        ).filter(Guion.id_project == id).all()
+    ]
+    scene_versions = db.query(EscenaVersion.id_escena_version).filter(
+        EscenaVersion.id_escena.in_(scene_ids)
+    ).all() if scene_ids else []
+    scene_version_ids = [version_id for (version_id,) in scene_versions]
+    desglose_ids = [
+        desglose_id
+        for (desglose_id,) in db.query(Escena.id_desglose).filter(
+            Escena.id_escena.in_(scene_ids),
+            Escena.id_desglose.is_not(None),
+        ).all()
+    ] if scene_ids else []
+    rodaje_ids = [
+        rodaje_id
+        for (rodaje_id,) in db.query(Rodaje.id_rodaje).filter(Rodaje.id_project == id).all()
+    ]
+    galeria_ids = [
+        galeria_id
+        for (galeria_id,) in db.query(GaleriaItem.id_galeria).filter(GaleriaItem.id_project == id).all()
+    ]
 
-    return api_response(True, "Proyecto eliminado")
+    upload_paths = set()
+    if guion_ids:
+        upload_paths.update(path for (path,) in db.query(GuionVersion.archivo).filter(
+            GuionVersion.id_guion.in_(guion_ids),
+            GuionVersion.archivo.is_not(None),
+        ).all())
+    if scene_version_ids:
+        upload_paths.update(path for (path,) in db.query(ContinuidadFoto.archivo_path).filter(
+            ContinuidadFoto.id_escena_version.in_(scene_version_ids),
+        ).all())
+    if galeria_ids:
+        upload_paths.update(path for (path,) in db.query(GaleriaItem.archivo_path).filter(
+            GaleriaItem.id_galeria.in_(galeria_ids),
+            GaleriaItem.archivo_path != "",
+        ).all())
+    upload_paths.update(path for (path,) in db.query(GaleriaVersionFoto.archivo_path).filter(
+        GaleriaVersionFoto.id_project == id,
+    ).all())
+    if rodaje_ids:
+        upload_paths.update(path for (path,) in db.query(Rodaje.archivo).filter(
+            Rodaje.id_rodaje.in_(rodaje_ids),
+            Rodaje.archivo.is_not(None),
+        ).all())
+        upload_paths.update(path for (path,) in db.query(ProcesoRodaje.archivo).filter(
+            ProcesoRodaje.id_rodaje.in_(rodaje_ids),
+            ProcesoRodaje.archivo.is_not(None),
+        ).all())
+
+    upload_directories = [f"galeria/{id}"]
+    upload_directories.extend(f"guiones/{guion_id}" for guion_id in guion_ids)
+    upload_directories.extend(f"escenas/{scene_id}/continuidad" for scene_id in scene_ids)
+
+    try:
+        if scene_ids or galeria_ids:
+            scene_gallery_filters = []
+            if scene_ids:
+                scene_gallery_filters.append(EscenaGaleriaItem.id_escena.in_(scene_ids))
+            if galeria_ids:
+                scene_gallery_filters.append(EscenaGaleriaItem.id_galeria.in_(galeria_ids))
+            db.query(EscenaGaleriaItem).filter(
+                or_(*scene_gallery_filters)
+            ).delete(synchronize_session=False)
+        if galeria_ids:
+            db.query(GaleriaLugarPersonaje).filter(
+                (GaleriaLugarPersonaje.id_lugar_galeria.in_(galeria_ids))
+                | (GaleriaLugarPersonaje.id_personaje_galeria.in_(galeria_ids))
+            ).delete(synchronize_session=False)
+        if scene_version_ids:
+            db.query(ContinuidadFoto).filter(
+                ContinuidadFoto.id_escena_version.in_(scene_version_ids)
+            ).delete(synchronize_session=False)
+            db.query(EscenaVersion).filter(
+                EscenaVersion.id_escena_version.in_(scene_version_ids)
+            ).delete(synchronize_session=False)
+        db.query(GaleriaVersionFoto).filter(
+            GaleriaVersionFoto.id_project == id
+        ).delete(synchronize_session=False)
+        db.query(GaleriaVersion).filter(
+            GaleriaVersion.id_project == id
+        ).delete(synchronize_session=False)
+        if guion_ids:
+            guion_version_ids = [
+                version_id
+                for (version_id,) in db.query(GuionVersion.id_guion_version).filter(
+                    GuionVersion.id_guion.in_(guion_ids)
+                ).all()
+            ]
+            if guion_version_ids:
+                db.query(GuionNota).filter(
+                    GuionNota.id_guion_version.in_(guion_version_ids)
+                ).delete(synchronize_session=False)
+            db.query(Guion).filter(
+                Guion.id_guion.in_(guion_ids)
+            ).update(
+                {Guion.id_guion_version_actual: None},
+                synchronize_session=False,
+            )
+            db.query(GuionVersion).filter(
+                GuionVersion.id_guion.in_(guion_ids)
+            ).delete(synchronize_session=False)
+        if desglose_ids:
+            db.query(DesgloseRequerimiento).filter(
+                DesgloseRequerimiento.id_desglose.in_(desglose_ids)
+            ).delete(synchronize_session=False)
+        if scene_ids:
+            db.query(Escena).filter(Escena.id_escena.in_(scene_ids)).delete(synchronize_session=False)
+        if desglose_ids:
+            db.query(Desglose).filter(Desglose.id_desglose.in_(desglose_ids)).delete(synchronize_session=False)
+        if rodaje_ids:
+            db.query(ProcesoRodaje).filter(
+                ProcesoRodaje.id_rodaje.in_(rodaje_ids)
+            ).delete(synchronize_session=False)
+        if galeria_ids:
+            db.query(GaleriaItem).filter(GaleriaItem.id_galeria.in_(galeria_ids)).delete(synchronize_session=False)
+        db.query(Personaje).filter(Personaje.id_project == id).delete(synchronize_session=False)
+        db.query(Escenario).filter(Escenario.id_project == id).delete(synchronize_session=False)
+        if guion_ids:
+            db.query(Guion).filter(Guion.id_guion.in_(guion_ids)).delete(synchronize_session=False)
+        if rodaje_ids:
+            db.query(Rodaje).filter(Rodaje.id_rodaje.in_(rodaje_ids)).delete(synchronize_session=False)
+        db.query(UserProject).filter(UserProject.id_project == id).delete(synchronize_session=False)
+        db.query(User).filter(User.id_project == id).update(
+            {User.id_project: None},
+            synchronize_session=False,
+        )
+        db.delete(project)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    upload_root = Path(BASE_UPLOAD_DIR).resolve()
+    cleanup_failures = []
+    for relative_directory in upload_directories:
+        directory = (upload_root / relative_directory).resolve()
+        if directory.is_relative_to(upload_root) and directory.is_dir():
+            try:
+                shutil.rmtree(directory)
+            except OSError as error:
+                cleanup_failures.append(f"{relative_directory}: {error}")
+
+    for relative_path in upload_paths:
+        if not relative_path:
+            continue
+        file_path = (upload_root.parent / relative_path).resolve()
+        if file_path.is_relative_to(upload_root) and file_path.is_file():
+            try:
+                file_path.unlink()
+            except OSError as error:
+                cleanup_failures.append(f"{relative_path}: {error}")
+
+    if cleanup_failures:
+        return api_response(
+            False,
+            "Los datos del proyecto fueron eliminados, pero algunos archivos no pudieron borrarse.",
+            {"archivos_pendientes": cleanup_failures},
+            error="FILE_CLEANUP_FAILED",
+        )
+    return api_response(True, "Proyecto y todo su contenido eliminados")
 
 
 # GET PROJECTS BY CLIENT
