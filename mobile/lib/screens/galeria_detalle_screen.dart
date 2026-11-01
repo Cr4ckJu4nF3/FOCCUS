@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/galeria_item.dart';
 import '../services/api_client.dart';
 import '../services/session.dart';
+import '../widgets/codigo_chip.dart';
 import '../widgets/foccus_ui.dart';
 import 'galeria_form.dart';
 
@@ -260,6 +261,7 @@ class _GaleriaDetalleScreenState extends State<GaleriaDetalleScreen> {
                   spacing: FoccusDims.gap,
                   runSpacing: FoccusDims.gap,
                   children: [
+                    if (it.codigo != null) CodigoChip(it.codigo),
                     _chip(it.tipoLabel),
                     if (it.categoria.isNotEmpty)
                       _chip(it.categoria,

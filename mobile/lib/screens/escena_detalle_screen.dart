@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../services/api_client.dart';
 import '../services/session.dart';
+import '../widgets/codigo_chip.dart';
 import '../widgets/foccus_ui.dart';
 import 'escenas_screen.dart' show colorEstadoEscena, kSinConexion;
 
@@ -234,6 +235,10 @@ class _EscenaDetalleScreenState extends State<EscenaDetalleScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 StatusChip(estado, color: colorEstadoEscena(estado)),
+                if (codigoDe(_escena['codigo']) != null) ...[
+                  const SizedBox(height: 8),
+                  CodigoChip(codigoDe(_escena['codigo'])),
+                ],
                 const SizedBox(height: 8),
                 _dato('Modo de vista', _escena['modo_vista']),
                 _dato('Momento', _escena['momento_dia']),

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/galeria_item.dart';
 import '../services/api_client.dart';
 import '../services/session.dart';
+import '../widgets/codigo_chip.dart';
 import '../widgets/foccus_ui.dart';
 import 'galeria_detalle_screen.dart';
 import 'galeria_form.dart';
@@ -208,15 +209,21 @@ class _GaleriaScreenState extends State<GaleriaScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(FoccusDims.radiusCard)),
-                child: Hero(
-                  tag: 'galeria-${i.id}',
-                  child: FoccusNetworkImage(i.foto,
-                      width: double.infinity, height: double.infinity),
+              child: Stack(children: [
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(FoccusDims.radiusCard)),
+                    child: Hero(
+                      tag: 'galeria-${i.id}',
+                      child: FoccusNetworkImage(i.foto,
+                          width: double.infinity, height: double.infinity),
+                    ),
+                  ),
                 ),
-              ),
+                if (i.codigo != null)
+                  Positioned(top: 6, left: 6, child: CodigoChip(i.codigo)),
+              ]),
             ),
             Padding(
               padding: const EdgeInsets.all(12),

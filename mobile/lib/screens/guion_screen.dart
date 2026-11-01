@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/guion.dart';
 import '../services/guion_service.dart';
 import '../services/session.dart';
+import '../widgets/codigo_chip.dart';
 import '../widgets/foccus_ui.dart';
 import 'guion_detail_screen.dart';
 import 'guion_editor_screen.dart';
@@ -325,6 +326,10 @@ class _GuionScreenState extends State<GuionScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           EstadoChip(g.estadoActual),
+          if (g.codigo != null) ...[
+            const SizedBox(width: 8),
+            CodigoChip(g.codigo),
+          ],
           const Spacer(),
           if (_isAdmin)
             PopupMenuButton<String>(

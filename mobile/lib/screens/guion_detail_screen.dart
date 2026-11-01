@@ -6,6 +6,7 @@ import '../config/api_config.dart';
 import '../models/guion.dart';
 import '../services/guion_service.dart';
 import '../services/session.dart';
+import '../widgets/codigo_chip.dart';
 import '../widgets/foccus_ui.dart';
 import 'guion_compare_screen.dart';
 import 'guion_editor_screen.dart';
@@ -240,6 +241,13 @@ class _GuionDetailScreenState extends State<GuionDetailScreen>
             Tab(text: 'Versiones (${_versiones.length})'),
           ],
         ),
+        if (_guion.codigo != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Align(
+                alignment: Alignment.centerLeft,
+                child: CodigoChip(_guion.codigo)),
+          ),
         if (_error != null || _exito != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -506,6 +514,10 @@ class _GuionDetailScreenState extends State<GuionDetailScreen>
                       fontWeight: FontWeight.w600, color: context.fc.text))),
           EstadoChip(v.estado),
         ]),
+        if (v.codigo != null) ...[
+          const SizedBox(height: 6),
+          Align(alignment: Alignment.centerLeft, child: CodigoChip(v.codigo)),
+        ],
         const SizedBox(height: 4),
         Text(v.fecha,
             style: GoogleFonts.inter(fontSize: 12, color: context.fc.textMuted)),

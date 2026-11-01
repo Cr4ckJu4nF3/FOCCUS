@@ -57,6 +57,12 @@ class GaleriaItem {
   String s(String key) => (json[key] ?? '').toString();
 
   int get id => (json['id_galeria'] as num?)?.toInt() ?? 0;
+  /// Código legible (PER-004, LOC-002...). Solo llega si el usuario es admin.
+  String? get codigo {
+    final c = s('codigo').trim();
+    return c.isEmpty ? null : c;
+  }
+
   String get tipo => s('tipo');
   String get tipoLabel => tipos[tipo] ?? tipo;
   String get categoria => s('categoria');

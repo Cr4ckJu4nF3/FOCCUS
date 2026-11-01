@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_client.dart';
 import '../services/session.dart';
+import '../widgets/codigo_chip.dart';
 import '../widgets/foccus_ui.dart';
 import 'login_screen.dart' show LoginColors;
 
@@ -284,6 +285,10 @@ class _RodajeScreenState extends State<RodajeScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
+                if (codigoDe(r['codigo']) != null) ...[
+                  CodigoChip(codigoDe(r['codigo'])),
+                  const SizedBox(height: 6),
+                ],
                 Text(fechas,
                     style: GoogleFonts.inter(color: context.fc.textMuted)),
                 if (_txt(r['locacion']).isNotEmpty)
@@ -701,6 +706,10 @@ class _RodajeDetalleState extends State<_RodajeDetalle>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (codigoDe(_rodaje['codigo']) != null) ...[
+                  CodigoChip(codigoDe(_rodaje['codigo'])),
+                  const SizedBox(height: 6),
+                ],
                 Text(
                     fin.isEmpty
                         ? _txt(_rodaje['fecha_inicio'])
@@ -757,6 +766,10 @@ class _RodajeDetalleState extends State<_RodajeDetalle>
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(color: context.fc.textSubtle)),
+                      if (codigoDe(e['codigo']) != null) ...[
+                        const SizedBox(height: 6),
+                        CodigoChip(codigoDe(e['codigo'])),
+                      ],
                       const SizedBox(height: 6),
                       if (estado.isNotEmpty)
                         StatusChip(estado, color: _colorEstado(estado)),

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_client.dart';
 import '../services/session.dart';
+import '../widgets/codigo_chip.dart';
 import '../widgets/foccus_ui.dart';
 import 'login_screen.dart' show LoginColors;
 
@@ -294,6 +295,10 @@ class _DesgloseScreenState extends State<DesgloseScreen> {
               StatusChip('${e['total_requerimientos'] ?? 0} req.'),
             ],
           ),
+          if (codigoDe(e['codigo']) != null) ...[
+            const SizedBox(height: 6),
+            CodigoChip(codigoDe(e['codigo'])),
+          ],
           if (resumen.isNotEmpty) ...[
             const SizedBox(height: 8),
             Wrap(

@@ -7,6 +7,7 @@ import '../services/session.dart';
 import '../services/theme_controller.dart';
 import '../widgets/foccus_ui.dart';
 import 'desglose_screen.dart';
+import 'buscar_codigo_screen.dart';
 import 'escenas_screen.dart';
 import 'galeria_screen.dart';
 import 'guion_screen.dart';
@@ -378,6 +379,8 @@ class _ProjectHomeScreenState extends State<ProjectHomeScreen> {
       'Desglose' => DesgloseScreen(projectId: id, projectName: project),
       'Galería' => GaleriaScreen(projectId: id, projectName: project),
       'Roles' => RolesScreen(projectId: id, projectName: project),
+      'Buscar código' =>
+        BuscarCodigoScreen(projectId: id, projectName: project),
       _ => null,
     };
     if (screen == null) return;
@@ -625,7 +628,8 @@ class _ProjectHomeScreenState extends State<ProjectHomeScreen> {
 
   Widget _buildMenu() {
     final fc = context.fc;
-    final items = _isAdmin ? [..._menuItems, 'Roles'] : _menuItems;
+    final items =
+        _isAdmin ? [..._menuItems, 'Buscar código', 'Roles'] : _menuItems;
     return Container(
       decoration: BoxDecoration(
         color: fc.surface,

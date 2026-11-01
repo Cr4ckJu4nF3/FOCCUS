@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_client.dart';
 import '../services/session.dart';
+import '../widgets/codigo_chip.dart';
 import '../widgets/foccus_ui.dart';
 import 'escena_detalle_screen.dart';
 
@@ -304,11 +305,14 @@ class _EscenasScreenState extends State<EscenasScreen> {
                               fontSize: 15,
                               fontWeight: FontWeight.w600)),
                       const SizedBox(height: 8),
-                      StatusChip(estado, color: colorEstadoEscena(estado)),
+                      Wrap(spacing: 8, runSpacing: 6, children: [
+                        StatusChip(estado, color: colorEstadoEscena(estado)),
+                        if (codigoDe(e['codigo']) != null)
+                          CodigoChip(codigoDe(e['codigo'])),
+                      ]),
                     ],
                   ),
                 ),
-                if (admin)
                   PopupMenuButton<String>(
                     iconColor: context.fc.textMuted,
                     onSelected: (v) =>

@@ -22,6 +22,12 @@ String normalizarEstado(String? estado) {
 
 String _str(dynamic value) => value?.toString() ?? '';
 
+/// `codigo` opcional: null si no viene o está vacío (no-admin).
+String? _codigoOpcional(dynamic value) {
+  final t = value?.toString().trim() ?? '';
+  return t.isEmpty ? null : t;
+}
+
 class Guion {
   const Guion({
     required this.id,
@@ -31,6 +37,7 @@ class Guion {
     this.estadoActual,
     this.numeroVersionActual,
     this.origenActual,
+    this.codigo,
   });
 
   final int id;
@@ -40,6 +47,8 @@ class Guion {
   final String? estadoActual;
   final String? numeroVersionActual;
   final String? origenActual;
+  /// Código legible (GUI-001). Solo llega si el usuario es admin.
+  final String? codigo;
 
   factory Guion.fromJson(Map<String, dynamic> json) => Guion(
         id: (json['id_guion'] as num).toInt(),
@@ -49,6 +58,7 @@ class Guion {
         estadoActual: json['estado_actual']?.toString(),
         numeroVersionActual: json['numero_de_version_actual']?.toString(),
         origenActual: json['origen_actual']?.toString(),
+        codigo: _codigoOpcional(json['codigo']),
       );
 
   Guion copyWith({String? nombre, String? descripcion}) => Guion(
@@ -59,6 +69,7 @@ class Guion {
         estadoActual: estadoActual,
         numeroVersionActual: numeroVersionActual,
         origenActual: origenActual,
+        codigo: codigo,
       );
 }
 
@@ -72,6 +83,7 @@ class GuionVersion {
     required this.fechaCreacion,
     this.archivo,
     this.contenido,
+    this.codigo,
   });
 
   final int id;
@@ -82,6 +94,8 @@ class GuionVersion {
   final String fechaCreacion;
   final String? archivo;
   final String? contenido;
+  /// Código legible (VGU-001). Solo llega si el usuario es admin.
+  final String? codigo;
 
   bool get esTexto => contenido != null && contenido!.isNotEmpty;
   bool get tieneArchivo => archivo != null && archivo!.isNotEmpty;
@@ -96,6 +110,7 @@ class GuionVersion {
         fechaCreacion: _str(json['fecha_creacion']),
         archivo: json['archivo']?.toString(),
         contenido: json['contenido']?.toString(),
+        codigo: _codigoOpcional(json['codigo']),
       );
 }
 
