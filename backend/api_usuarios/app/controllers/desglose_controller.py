@@ -14,6 +14,7 @@ from app.schemas.desglose_schema import (
     EscenaGaleriaItemSchema,
 )
 from app.utils.response import api_response
+from app.utils.codigos import asignar_codigo
 from app.utils.desglose_parser import parse_desglose_pdf, extraer_texto_pdf
 
 
@@ -382,6 +383,9 @@ def importar_desglose_pdf(id_guion: int, ruta_temporal: str, db: Session):
         )
 
     escenas_creadas = 0
+    # Proyecto del guion (para asignar códigos ESC a las escenas nuevas)
+    guion_importado = db.query(Guion).filter(Guion.id_guion == id_guion).first()
+    id_project_guion = guion_importado.id_project if guion_importado else None
     escenas_actualizadas = 0
     requerimientos_creados = 0
 
@@ -425,6 +429,7 @@ def importar_desglose_pdf(id_guion: int, ruta_temporal: str, db: Session):
             )
             db.add(escena)
             db.flush()
+            asignar_codigo(db, "ESC", escena.id_escena, id_project_guion)
             escenas_creadas += 1
         else:
             escenas_actualizadas += 1

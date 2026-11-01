@@ -4,6 +4,7 @@ import tempfile
 import os
 from app.config.database import get_db
 from app.utils.auth import get_current_user, require_project_admin, require_project_member
+from app.utils.codigos import es_admin
 from app.controllers.rodaje_controller import (
     get_rodajes_by_project,
     get_rodaje,
@@ -25,7 +26,7 @@ router = APIRouter()
 
 @router.get("/projects/{id_project}/rodajes")
 def rodajes_del_proyecto(id_project: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
-    return get_rodajes_by_project(id_project, db)
+    return get_rodajes_by_project(id_project, db, incluir_codigo=es_admin(current_user))
 
 @router.get("/projects/{id_project}/escenas-disponibles")
 def escenas_disponibles_del_proyecto(id_project: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
@@ -33,7 +34,7 @@ def escenas_disponibles_del_proyecto(id_project: str, db: Session = Depends(get_
 
 @router.get("/rodajes/{id_rodaje}")
 def rodaje(id_rodaje: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
-    return get_rodaje(id_rodaje, db)
+    return get_rodaje(id_rodaje, db, incluir_codigo=es_admin(current_user))
 
 @router.post("/rodajes")
 def store_rodaje(data: RodajeSchema, db: Session = Depends(get_db), current_user: dict = Depends(require_project_admin)):

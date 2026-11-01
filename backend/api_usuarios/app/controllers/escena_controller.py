@@ -3,6 +3,7 @@ from app.models.escena_model import Escena
 from app.models.Guion import Guion
 from app.schemas.escena_schema import EscenaSchema, EscenaUpdateSchema
 from app.utils.response import api_response
+from app.utils.codigos import adjuntar_codigos, asignar_codigo
 
 
 # GENERAR ID DE ESCENA (esc0001, esc0002, ...) - mismo patron que
@@ -44,7 +45,7 @@ def _serializar_escena(e: Escena):
 
 # LISTAR ESCENAS DE UN GUION
 
-def get_escenas_by_guion(id_guion: int, db: Session):
+def get_escenas_by_guion(id_guion: int, db: Session, incluir_codigo: bool = False):
     escenas = (
         db.query(Escena)
         .filter(Escena.id_guion == id_guion)
@@ -52,18 +53,23 @@ def get_escenas_by_guion(id_guion: int, db: Session):
         .all()
     )
 
-    return api_response(True, "Escenas del guion", [_serializar_escena(e) for e in escenas])
+    data = [_serializar_escena(e) for e in escenas]
+    # `codigo` solo para el admin del proyecto
+    adjuntar_codigos(db, data, "ESC", "id_escena", incluir_codigo)
+    return api_response(True, "Escenas del guion", data)
 
 
 # GET ESCENA BY ID
 
-def get_escena(id_escena: str, db: Session):
+def get_escena(id_escena: str, db: Session, incluir_codigo: bool = False):
     escena = db.query(Escena).filter(Escena.id_escena == id_escena).first()
 
     if not escena:
         return api_response(False, "Escena no encontrada")
 
-    return api_response(True, "Escena encontrada", _serializar_escena(escena))
+    data = _serializar_escena(escena)
+    adjuntar_codigos(db, [data], "ESC", "id_escena", incluir_codigo)
+    return api_response(True, "Escena encontrada", data)
 
 
 # CREAR ESCENA (subdividir un guion en escenas)
@@ -93,10 +99,17 @@ def create_escena(escena: EscenaSchema, db: Session):
     )
 
     db.add(new_escena)
+    db.flush()
+    # Código FOCCUS (ESC-001...): se asigna en la misma transacción. La ruta de
+    # creación es solo-admin, así que se puede devolver.
+    codigo = asignar_codigo(db, "ESC", new_escena.id_escena, guion.id_project)
     db.commit()
     db.refresh(new_escena)
 
-    return api_response(True, "Escena creada", _serializar_escena(new_escena))
+    data = _serializar_escena(new_escena)
+    if codigo:
+        data["codigo"] = codigo
+    return api_response(True, "Escena creada", data)
 
 
 # UPDATE ESCENA (PATCH)
@@ -114,7 +127,10 @@ def update_escena(id_escena: str, escena: EscenaUpdateSchema, db: Session):
     db.commit()
     db.refresh(escena_db)
 
-    return api_response(True, "Escena actualizada", _serializar_escena(escena_db))
+    data = _serializar_escena(escena_db)
+    # la ruta PATCH es solo-admin; el código es inmutable y no viene en el schema
+    adjuntar_codigos(db, [data], "ESC", "id_escena", True)
+    return api_response(True, "Escena actualizada", data)
 
 
 # DELETE ESCENA

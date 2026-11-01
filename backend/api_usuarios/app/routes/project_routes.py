@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.utils.auth import get_current_user, require_admin, require_project_admin, require_project_member
+from app.utils.codigos import es_admin
 from app.controllers.project_controller import (
     get_projects,
     get_project,
@@ -49,7 +50,7 @@ def projects_by_client(
 
 @router.get("/projects/{id}")
 def project(id: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
-    return get_project(id, db)
+    return get_project(id, db, incluir_codigo=es_admin(current_user))
 
 @router.post("/projects")
 def store_project(

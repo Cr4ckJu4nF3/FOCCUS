@@ -6,6 +6,7 @@ from app.models.escena_model import Escena
 from app.models.Guion import Guion
 from app.schemas.rodaje_schema import RodajeSchema, RodajeUpdateSchema, ProcesoRodajeSchema, ProcesoRodajeUpdateSchema
 from app.utils.response import api_response
+from app.utils.codigos import adjuntar_codigos, asignar_codigo
 from app.utils.desglose_parser import parse_rodaje_pdf, extraer_texto_pdf
 
 
@@ -61,22 +62,26 @@ def _serializar_rodaje(r: Rodaje, db: Session):
     }
 
 
-def get_rodajes_by_project(id_project: str, db: Session):
+def get_rodajes_by_project(id_project: str, db: Session, incluir_codigo: bool = False):
     rodajes = (
         db.query(Rodaje)
         .filter(Rodaje.id_project == id_project)
         .order_by(Rodaje.dia_dramatico.asc(), Rodaje.fecha_inicio.asc())
         .all()
     )
-    return api_response(True, "Plan de rodaje del proyecto", [_serializar_rodaje(r, db) for r in rodajes])
+    data = [_serializar_rodaje(r, db) for r in rodajes]
+    adjuntar_codigos(db, data, "DRO", "id_rodaje", incluir_codigo)  # solo admin
+    return api_response(True, "Plan de rodaje del proyecto", data)
 
 
-def get_rodaje(id_rodaje: str, db: Session):
+def get_rodaje(id_rodaje: str, db: Session, incluir_codigo: bool = False):
     rodaje = db.query(Rodaje).filter(Rodaje.id_rodaje == id_rodaje).first()
     if not rodaje:
         return api_response(False, "Plan de rodaje no encontrado")
 
-    return api_response(True, "Plan de rodaje encontrado", _serializar_rodaje(rodaje, db))
+    data = _serializar_rodaje(rodaje, db)
+    adjuntar_codigos(db, [data], "DRO", "id_rodaje", incluir_codigo)
+    return api_response(True, "Plan de rodaje encontrado", data)
 
 
 def create_rodaje(data: RodajeSchema, db: Session):
@@ -100,10 +105,15 @@ def create_rodaje(data: RodajeSchema, db: Session):
     )
 
     db.add(new_rodaje)
+    db.flush()
+    codigo = asignar_codigo(db, "DRO", new_rodaje.id_rodaje, new_rodaje.id_project)
     db.commit()
     db.refresh(new_rodaje)
 
-    return api_response(True, "Plan de rodaje creado", _serializar_rodaje(new_rodaje, db))
+    respuesta = _serializar_rodaje(new_rodaje, db)
+    if codigo:  # creación solo-admin
+        respuesta["codigo"] = codigo
+    return api_response(True, "Plan de rodaje creado", respuesta)
 
 
 def update_rodaje(id_rodaje: str, data: RodajeUpdateSchema, db: Session):
@@ -118,7 +128,9 @@ def update_rodaje(id_rodaje: str, data: RodajeUpdateSchema, db: Session):
     db.commit()
     db.refresh(rodaje)
 
-    return api_response(True, "Plan de rodaje actualizado", _serializar_rodaje(rodaje, db))
+    respuesta = _serializar_rodaje(rodaje, db)
+    adjuntar_codigos(db, [respuesta], "DRO", "id_rodaje", True)  # PATCH es solo-admin
+    return api_response(True, "Plan de rodaje actualizado", respuesta)
 
 
 def delete_rodaje(id_rodaje: str, db: Session):
@@ -232,6 +244,7 @@ def importar_rodaje_pdf(id_project: str, ruta_temporal: str, db: Session):
             )
             db.add(rodaje)
             db.flush()
+            asignar_codigo(db, "DRO", rodaje.id_rodaje, id_project)
             dias_creados += 1
         else:
             rodaje.fecha_inicio = dia_data["fecha"] or rodaje.fecha_inicio

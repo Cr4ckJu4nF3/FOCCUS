@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from app.models.personajes_model import Personaje
 from app.schemas.personaje_schema import PersonajeSchema, PersonajeUpdateSchema
 from app.utils.response import api_response
+from app.utils.codigos import adjuntar_codigos, asignar_codigo
 
 
 # GENERAR ID DE PERSONAJE (psj0001, psj0002, ...) - mismo patron que
@@ -32,14 +33,16 @@ def _serialize(p: Personaje):
 
 # LISTAR PERSONAJES DE UN PROYECTO
 
-def get_personajes_by_project(id_project: str, db: Session):
+def get_personajes_by_project(id_project: str, db: Session, incluir_codigo: bool = False):
     personajes = (
         db.query(Personaje)
         .filter(Personaje.id_project == id_project)
         .order_by(Personaje.nombre.asc())
         .all()
     )
-    return api_response(True, "Lista de personajes", [_serialize(p) for p in personajes])
+    data = [_serialize(p) for p in personajes]
+    adjuntar_codigos(db, data, "PER", "id_personaje", incluir_codigo)  # solo admin
+    return api_response(True, "Lista de personajes", data)
 
 
 # CREAR PERSONAJE
@@ -52,9 +55,14 @@ def create_personaje(data: PersonajeSchema, db: Session):
         id_project=data.id_project,
     )
     db.add(nuevo)
+    db.flush()
+    codigo = asignar_codigo(db, "PER", nuevo.id_personaje, nuevo.id_project)
     db.commit()
     db.refresh(nuevo)
-    return api_response(True, "Personaje creado", _serialize(nuevo))
+    respuesta = _serialize(nuevo)
+    if codigo:  # la ruta de creación es solo-admin
+        respuesta["codigo"] = codigo
+    return api_response(True, "Personaje creado", respuesta)
 
 
 # ACTUALIZAR PERSONAJE
@@ -73,7 +81,9 @@ def update_personaje(id_personaje: str, data: PersonajeUpdateSchema, db: Session
 
     db.commit()
     db.refresh(personaje)
-    return api_response(True, "Personaje actualizado", _serialize(personaje))
+    respuesta = _serialize(personaje)
+    adjuntar_codigos(db, [respuesta], "PER", "id_personaje", True)  # PATCH es solo-admin
+    return api_response(True, "Personaje actualizado", respuesta)
 
 
 # ELIMINAR PERSONAJE

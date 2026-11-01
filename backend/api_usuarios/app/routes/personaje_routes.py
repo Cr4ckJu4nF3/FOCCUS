@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.utils.auth import get_current_user, require_project_admin, require_project_member
+from app.utils.codigos import es_admin
 from app.controllers.personaje_controller import (
     get_personajes_by_project,
     create_personaje,
@@ -15,7 +16,7 @@ router = APIRouter()
 
 @router.get("/projects/{id_project}/personajes")
 def personajes_del_proyecto(id_project: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
-    return get_personajes_by_project(id_project, db)
+    return get_personajes_by_project(id_project, db, incluir_codigo=es_admin(current_user))
 
 
 @router.post("/personajes")

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.utils.auth import get_current_user, require_project_admin, require_project_member
+from app.utils.codigos import es_admin
 from app.controllers.escena_controller import (
     get_escenas_by_guion,
     get_escena,
@@ -15,11 +16,11 @@ router = APIRouter()
 
 @router.get("/guiones/{id_guion}/escenas")
 def escenas_del_guion(id_guion: int, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
-    return get_escenas_by_guion(id_guion, db)
+    return get_escenas_by_guion(id_guion, db, incluir_codigo=es_admin(current_user))
 
 @router.get("/escenas/{id_escena}")
 def escena(id_escena: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
-    return get_escena(id_escena, db)
+    return get_escena(id_escena, db, incluir_codigo=es_admin(current_user))
 
 # CREAR ESCENA (subdividir el guion en escenas) - solo administradores
 @router.post("/escenas")

@@ -15,6 +15,7 @@ from app.schemas.guion_schema import (
     GuionNotaSchema
 )
 from app.utils.response import api_response
+from app.utils.codigos import adjuntar_codigos, asignar_codigo
 from app.utils.file_storage import guardar_archivo, EXTENSIONES_GUION
 from app.utils.guion_content import extraer_contenido_guion
 
@@ -42,25 +43,28 @@ def _serializar_guion_con_version_actual(g: Guion, db: Session):
     }
 
 
-def get_guiones(db: Session, id_project: str = None):
+def get_guiones(db: Session, id_project: str = None, incluir_codigo: bool = False):
     query = db.query(Guion)
     if id_project:
         query = query.filter(Guion.id_project == id_project)
     guiones = query.order_by(Guion.id_guion.desc()).all()
 
     guiones_list = [_serializar_guion_con_version_actual(g, db) for g in guiones]
+    adjuntar_codigos(db, guiones_list, "GUI", "id_guion", incluir_codigo)  # solo admin
     return api_response(True, "Lista de guiones", guiones_list)
 
 
 # GET GUION BY ID
 
-def get_guion(id_guion: int, db: Session):
+def get_guion(id_guion: int, db: Session, incluir_codigo: bool = False):
     guion = db.query(Guion).filter(Guion.id_guion == id_guion).first()
 
     if not guion:
         return api_response(False, "Guion no encontrado")
 
-    return api_response(True, "Guion encontrado", _serializar_guion_con_version_actual(guion, db))
+    data = _serializar_guion_con_version_actual(guion, db)
+    adjuntar_codigos(db, [data], "GUI", "id_guion", incluir_codigo)
+    return api_response(True, "Guion encontrado", data)
 
 
 # CREATE GUION (solo crea el registro maestro; la primera version se
@@ -75,14 +79,19 @@ def create_guion(guion: GuionSchema, db: Session):
     )
 
     db.add(new_guion)
+    db.flush()
+    codigo_guion = asignar_codigo(db, "GUI", new_guion.id_guion, new_guion.id_project)
     db.commit()
     db.refresh(new_guion)
 
-    return api_response(True, "Guion creado", {
+    respuesta = {
         "id_guion": new_guion.id_guion,
         "nombre": new_guion.nombre,
         "id_project": new_guion.id_project
-    })
+    }
+    if codigo_guion:  # creación solo-admin
+        respuesta["codigo"] = codigo_guion
+    return api_response(True, "Guion creado", respuesta)
 
 
 # CREAR GUION DESDE CERO (crea el maestro + primera version escrita
@@ -109,19 +118,26 @@ def crear_guion_desde_cero(data: GuionDesdeCeroSchema, id_user: int, db: Session
     )
     db.add(primera_version)
     db.flush()
+    codigo_guion = asignar_codigo(db, "GUI", new_guion.id_guion, new_guion.id_project)
+    codigo_version = asignar_codigo(db, "VGU", primera_version.id_guion_version, new_guion.id_project)
 
     new_guion.id_guion_version_actual = primera_version.id_guion_version
     db.commit()
     db.refresh(new_guion)
     db.refresh(primera_version)
 
-    return api_response(True, "Guion creado desde cero", {
+    respuesta = {
         "id_guion": new_guion.id_guion,
         "nombre": new_guion.nombre,
         "id_project": new_guion.id_project,
         "id_guion_version": primera_version.id_guion_version,
         "numero_de_version": primera_version.numero_de_version
-    })
+    }
+    if codigo_guion:  # creación solo-admin
+        respuesta["codigo"] = codigo_guion
+    if codigo_version:
+        respuesta["codigo_version"] = codigo_version
+    return api_response(True, "Guion creado desde cero", respuesta)
 
 
 # SUBIR GUION (crea el maestro + primera version en un solo paso, a
@@ -160,13 +176,15 @@ def crear_guion_desde_archivo(nombre: str, descripcion: str, id_project: str, ar
     )
     db.add(primera_version)
     db.flush()
+    codigo_guion = asignar_codigo(db, "GUI", new_guion.id_guion, new_guion.id_project)
+    codigo_version = asignar_codigo(db, "VGU", primera_version.id_guion_version, new_guion.id_project)
 
     new_guion.id_guion_version_actual = primera_version.id_guion_version
     db.commit()
     db.refresh(new_guion)
     db.refresh(primera_version)
 
-    return api_response(True, "Guion subido correctamente", {
+    respuesta = {
         "id_guion": new_guion.id_guion,
         "nombre": new_guion.nombre,
         "id_project": new_guion.id_project,
@@ -174,7 +192,12 @@ def crear_guion_desde_archivo(nombre: str, descripcion: str, id_project: str, ar
         "numero_de_version": primera_version.numero_de_version,
         "archivo": primera_version.archivo,
         "mensaje_extraccion": mensaje_extraccion
-    })
+    }
+    if codigo_guion:  # creación solo-admin
+        respuesta["codigo"] = codigo_guion
+    if codigo_version:
+        respuesta["codigo_version"] = codigo_version
+    return api_response(True, "Guion subido correctamente", respuesta)
 
 
 # UPDATE GUION (PATCH)
@@ -248,18 +271,22 @@ def subir_version(id_guion: int, data: GuionVersionSchema, archivo: UploadFile, 
 
     db.add(nueva_version)
     db.flush()  # asigna id_guion_version antes del commit
+    codigo_version = asignar_codigo(db, "VGU", nueva_version.id_guion_version, guion.id_project)
 
     guion.id_guion_version_actual = nueva_version.id_guion_version
     db.commit()
     db.refresh(nueva_version)
 
-    return api_response(True, "Nueva version del guion subida", {
+    respuesta = {
         "id_guion_version": nueva_version.id_guion_version,
         "numero_de_version": nueva_version.numero_de_version,
         "archivo": nueva_version.archivo,
         "estado": nueva_version.estado,
         "mensaje_extraccion": mensaje_extraccion
-    })
+    }
+    if codigo_version:  # creación solo-admin
+        respuesta["codigo"] = codigo_version
+    return api_response(True, "Nueva version del guion subida", respuesta)
 
 
 # CREAR NUEVA VERSION ESCRITA DIRECTO EN EL SISTEMA (sin archivo)
@@ -289,22 +316,26 @@ def crear_version_texto(id_guion: int, data: GuionVersionTextoSchema, id_user: i
 
     db.add(nueva_version)
     db.flush()  # asigna id_guion_version antes del commit
+    codigo_version = asignar_codigo(db, "VGU", nueva_version.id_guion_version, guion.id_project)
 
     guion.id_guion_version_actual = nueva_version.id_guion_version
     db.commit()
     db.refresh(nueva_version)
 
-    return api_response(True, "Nueva version del guion guardada", {
+    respuesta = {
         "id_guion_version": nueva_version.id_guion_version,
         "numero_de_version": nueva_version.numero_de_version,
         "contenido": nueva_version.contenido,
         "estado": nueva_version.estado
-    })
+    }
+    if codigo_version:  # creación solo-admin
+        respuesta["codigo"] = codigo_version
+    return api_response(True, "Nueva version del guion guardada", respuesta)
 
 
 # LISTAR VERSIONES DE UN GUION
 
-def get_versiones(id_guion: int, db: Session):
+def get_versiones(id_guion: int, db: Session, incluir_codigo: bool = False):
     versiones = (
         db.query(GuionVersion)
         .filter(GuionVersion.id_guion == id_guion)
@@ -330,6 +361,7 @@ def get_versiones(id_guion: int, db: Session):
             "fecha_creacion": str(v.fecha_creacion),
             "mensaje_extraccion": mensaje_extraccion
         })
+    adjuntar_codigos(db, versiones_list, "VGU", "id_guion_version", incluir_codigo)  # solo admin
     return api_response(True, "Versiones del guion", versiones_list)
 
 

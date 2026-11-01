@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.project_model import Project
 from app.schemas.project_schema import ProjectSchema
 from app.utils.response import api_response
+from app.utils.codigos import adjuntar_codigos, asignar_codigo
 from app.models.user_model import User
 from app.models.user_project_model import UserProject
 from app.models.Guion import Guion
@@ -48,13 +49,13 @@ def get_projects(db: Session):
 
 # GET PROJECT BY ID
 
-def get_project(id: str, db: Session):
+def get_project(id: str, db: Session, incluir_codigo: bool = False):
     project = db.query(Project).filter(Project.id_project == id).first()
 
     if not project:
         return api_response(False, "Proyecto no encontrado")
 
-    return api_response(True, "Proyecto encontrado", {
+    data = {
         "id_project": project.id_project,
         "project_name": project.project_name,
         "formato_de_produccion": project.formato_de_produccion,
@@ -62,7 +63,9 @@ def get_project(id: str, db: Session):
         "sinopsis": project.sinopsis,
         "director": project.director,
         "id_client": project.id_client
-    })
+    }
+    adjuntar_codigos(db, [data], "PRO", "id_project", incluir_codigo)  # solo admin del proyecto
+    return api_response(True, "Proyecto encontrado", data)
 
 # CREATE PROJECT
 
@@ -372,6 +375,10 @@ def create_project(project: ProjectSchema, db: Session):
     )
 
     db.add(new_project)
+    db.flush()
+    # Código PRO-001 (global). El creador es admin del proyecto, pero la
+    # respuesta no lo incluye: se ve desde GET /projects/{id} como admin.
+    asignar_codigo(db, "PRO", new_project.id_project, new_project.id_project)
     db.commit()
     db.refresh(new_project)
 
