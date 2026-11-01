@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import CodigoChip from "../componentes/CodigoChip";
 import {
   ArrowLeft,
   Camera,
@@ -55,7 +56,9 @@ export default function EscenaScreen() {
 
   // vista: lista | detalle
   const [vista, setVista] = useState("lista");
-
+  const [searchParams, setSearchParams] = useSearchParams();
+  const guionParam = searchParams.get("guion");
+  const escenaParam = searchParams.get("escena");
   const [guiones, setGuiones] = useState([]);
   const [selectedGuionId, setSelectedGuionId] = useState("");
   const [escenas, setEscenas] = useState([]);
@@ -104,7 +107,9 @@ export default function EscenaScreen() {
       const items = Array.isArray(data.data) ? data.data : [];
       setGuiones(items);
       if (items.length > 0) {
-        const nextId = String(items[0].id_guion);
+        // Enlace del buscador de códigos: /escenas?guion=ID&escena=ID
+        const pedido = items.find((g) => String(g.id_guion) === guionParam);
+        const nextId = String(pedido ? pedido.id_guion : items[0].id_guion);
         setSelectedGuionId(nextId);
         await fetchEscenas(nextId);
       } else {
@@ -264,6 +269,17 @@ export default function EscenaScreen() {
     setSelectedVersionId("");
     fetchEscenas(selectedGuionId);
   };
+
+  // Enlace desde el buscador de códigos: /escenas?guion=ID&escena=ID
+  useEffect(() => {
+    if (!escenaParam || loading || loadingEscenas) return;
+    const found = escenas.find((e) => String(e.id_escena) === escenaParam);
+    if (!found && escenas.length === 0) return; // aún no cargan
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (found) abrirDetalle(found, "info");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [escenaParam, loading, loadingEscenas, escenas]);
 
   const fetchVersionesEscena = async (idEscena) => {
     setLoadingVersiones(true);
@@ -444,7 +460,7 @@ export default function EscenaScreen() {
                 {escenas.map((escena) => (
                   <div key={escena.id_escena} className="escena-row" onClick={() => abrirDetalle(escena, "info")}>
                     <span className="escena-row__numero">#{escena.numero_de_escena}</span>
-                    <span className="escena-row__encabezado">{escena.encabezado}</span>
+                    <span className="escena-row__encabezado">{escena.encabezado} <CodigoChip codigo={escena.codigo} /></span>
                     <span className="escena-row__dia">{escena.dia_dramatico ? `Día ${escena.dia_dramatico}` : "-"}</span>
                     <span className={`escena-badge escena-badge--${normalizarEstado(escena.estado)}`}>
                       {escena.estado || "Pendiente"}
@@ -478,7 +494,7 @@ export default function EscenaScreen() {
               <div className="escena-panel__title-row">
                 <Camera size={20} />
                 <div>
-                  <h2 style={{ margin: 0 }}>Escena #{escenaActiva.numero_de_escena} — {escenaActiva.encabezado}</h2>
+                  <h2 style={{ margin: 0 }}>Escena #{escenaActiva.numero_de_escena} — {escenaActiva.encabezado} <CodigoChip codigo={escenaActiva.codigo} /></h2>
                 </div>
               </div>
               <button type="button" className="escena-back" onClick={volverALista}>

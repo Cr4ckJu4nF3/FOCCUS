@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { apiFetch, getActiveRole, getProjectHeaders, getToken } from "../api";
 import API_URL from "../api";
+import CodigoChip from "../componentes/CodigoChip";
 import "../desing/Rodaje.css";
 
 const ESTADOS = ["Pendiente", "Confirmado", "En Rodaje", "Finalizado", "Completado"];
@@ -380,6 +381,7 @@ export default function RodajeScreen() {
                       <div key={r.id_rodaje} className="rdj-day-card" onClick={() => abrirDetalle(r)}>
                         <div className="rdj-day-card__head">
                           <strong>{r.nombre}</strong>
+                          <CodigoChip codigo={r.codigo} />
                           {esAdmin ? (
                             <select
                               className={`rdj-badge rdj-badge--${normalizarEstado(r.estado)} rdj-status-select`}
@@ -434,7 +436,7 @@ export default function RodajeScreen() {
               <div className="rdj-panel__title-row">
                 <CalendarDays size={20} />
                 <div>
-                  <h2 style={{ margin: 0 }}>{rodajeActivo.nombre}</h2>
+                  <h2 style={{ margin: 0 }}>{rodajeActivo.nombre} <CodigoChip codigo={rodajeActivo.codigo} /></h2>
                   <span>{rodajeActivo.fecha_inicio} {rodajeActivo.locacion ? `· ${rodajeActivo.locacion}` : ""} {rodajeActivo.llamado ? `· Llamado ${rodajeActivo.llamado}` : ""}</span>
                 </div>
               </div>
@@ -474,6 +476,7 @@ export default function RodajeScreen() {
                       <div key={e.id_escena} className="rdj-scene-row">
                         <span className="rdj-scene-row__numero">#{e.numero_de_escena}</span>
                         <strong>{e.encabezado}</strong>
+                        <CodigoChip codigo={e.codigo} />
                         {e.momento_dia && <span className="rdj-scene-row__momento">{e.momento_dia}</span>}
                         {esAdmin && (
                           <button type="button" className="rdj-scene-row__remove" onClick={() => handleQuitarEscena(e.id_escena)} title="Quitar de este día">

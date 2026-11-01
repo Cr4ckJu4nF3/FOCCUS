@@ -71,6 +71,8 @@ def get_rodajes_by_project(id_project: str, db: Session, incluir_codigo: bool = 
     )
     data = [_serializar_rodaje(r, db) for r in rodajes]
     adjuntar_codigos(db, data, "DRO", "id_rodaje", incluir_codigo)  # solo admin
+    for d in data:
+        adjuntar_codigos(db, d["escenas"], "ESC", "id_escena", incluir_codigo)
     return api_response(True, "Plan de rodaje del proyecto", data)
 
 
@@ -81,6 +83,7 @@ def get_rodaje(id_rodaje: str, db: Session, incluir_codigo: bool = False):
 
     data = _serializar_rodaje(rodaje, db)
     adjuntar_codigos(db, [data], "DRO", "id_rodaje", incluir_codigo)
+    adjuntar_codigos(db, data["escenas"], "ESC", "id_escena", incluir_codigo)
     return api_response(True, "Plan de rodaje encontrado", data)
 
 

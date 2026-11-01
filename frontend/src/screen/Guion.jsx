@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import CodigoChip from "../componentes/CodigoChip";
 import {
   ArrowLeft,
   FileText,
@@ -330,6 +331,19 @@ export default function GuionScreen() {
     setVista("detalle");
     await fetchVersiones(guion.id_guion);
   };
+
+  // Enlace desde el buscador de códigos: /guion?guion=ID (y &version=ID abre la pestaña de versiones)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const guionParam = searchParams.get("guion");
+  const versionParam = searchParams.get("version");
+  useEffect(() => {
+    if (!guionParam || loading) return;
+    const found = guiones.find((g) => String(g.id_guion) === guionParam);
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (found) abrirDetalle(found, versionParam ? "versiones" : "contenido");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guionParam, versionParam, loading, guiones]);
 
   const volverALista = () => {
     setVista("lista");
@@ -1483,6 +1497,7 @@ export default function GuionScreen() {
                       )}
                     </div>
                     <strong>{g.nombre}</strong>
+                    <CodigoChip codigo={g.codigo} />
                     {g.descripcion && <small>{g.descripcion}</small>}
                     <div className="guion-card__meta">
                       <span>{g.numero_de_version_actual ? `Versión v${g.numero_de_version_actual}` : "Sin versiones"}</span>
@@ -1697,6 +1712,7 @@ export default function GuionScreen() {
                             >
                               {p.nombre}
                             </button>
+                            <CodigoChip codigo={p.codigo} />
                             <button type="button" title="Editar personaje" onClick={() => iniciarEdicionPersonaje(p)}>
                               <PenLine size={14} />
                             </button>
@@ -1765,6 +1781,7 @@ export default function GuionScreen() {
                             >
                               {esc.nombre}
                             </button>
+                            <CodigoChip codigo={esc.codigo} />
                             <button type="button" title="Editar escenario" onClick={() => iniciarEdicionEscenario(esc)}>
                               <PenLine size={14} />
                             </button>
@@ -1810,7 +1827,7 @@ export default function GuionScreen() {
               <div className="guion-panel__title-row">
                 <FileText size={18} />
                 <div>
-                  <h2 style={{ margin: 0 }}>{guionActivo.nombre}</h2>
+                  <h2 style={{ margin: 0 }}>{guionActivo.nombre} <CodigoChip codigo={guionActivo.codigo} /></h2>
                   {guionActivo.descripcion && <span>{guionActivo.descripcion}</span>}
                 </div>
               </div>
@@ -1907,7 +1924,7 @@ export default function GuionScreen() {
                     {versiones.map((v) => (
                       <div key={v.id_guion_version} className="guion-version-card">
                         <div className="guion-version-card__header">
-                          <span className="guion-version-card__version">Versión {v.numero_de_version}</span>
+                          <span className="guion-version-card__version">Versión {v.numero_de_version} <CodigoChip codigo={v.codigo} /></span>
                           <span className={`guion-version-card__state guion-version-card__state--${normalizarEstado(v.estado)}`}>
                             {v.estado}
                           </span>

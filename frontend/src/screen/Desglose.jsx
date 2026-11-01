@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { apiFetch, getActiveRole, getProjectHeaders, getToken } from "../api";
 import API_URL from "../api";
+import CodigoChip from "../componentes/CodigoChip";
 import "../desing/Desglose.css";
 
 const MOMENTOS = ["Todos", "Día", "Noche", "Amanecer", "Atardecer"];
@@ -508,6 +509,7 @@ export default function DesgloseScreen() {
                       <div className="dsg-scene-row__head">
                         <span className="dsg-scene-row__numero">#{escena.numero_de_escena}</span>
                         <strong>{escena.encabezado}</strong>
+                        <CodigoChip codigo={escena.codigo} />
                         {escena.momento_dia && <span className="dsg-scene-row__momento">{escena.momento_dia}</span>}
                       </div>
                       <div className="dsg-scene-row__rodaje">

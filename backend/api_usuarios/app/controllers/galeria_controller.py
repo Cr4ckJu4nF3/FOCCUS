@@ -554,6 +554,8 @@ def create_item(
     })
     if codigo_item:  # creación solo-admin (create_item_for_scene también)
         response_data["codigo"] = codigo_item
+    else:  # personaje/lugar: código PER/LOC de su ficha
+        adjuntar_codigos_galeria(db, [response_data], True)
     return api_response(True, "Elemento agregado a la galería", response_data)
 
 

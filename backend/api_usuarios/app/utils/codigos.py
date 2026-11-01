@@ -281,15 +281,25 @@ def adjuntar_codigos(db: Session, items: list, tipo, clave_id: str, incluir: boo
 
 
 def adjuntar_codigos_galeria(db: Session, items: list, incluir: bool) -> list:
-    """Solo para ítems de galería tipo 'objeto' (OBJ o VES, según su categoría
-    al crearse; el código no cambia aunque luego cambie la categoría).
-    Personajes y lugares usan el código PER/LOC de su propia ficha, no uno de galería."""
+    """`codigo` de cada ítem de galería (solo admin):
+    - tipo 'objeto' → OBJ o VES (según su categoría al crearse; no cambia después).
+    - tipo 'personaje' → PER de su ficha de personaje (id_personaje).
+    - tipo 'lugar' → LOC de su ficha de escenario (id_escenario).
+    Si la ficha aún no está vinculada, `codigo` queda en None."""
     if not incluir or not items:
         return items
     objetos = [i for i in items if i.get("tipo") == "objeto"]
     mapa = codigos_de(db, ("OBJ", "VES"), (i.get("id_galeria") for i in objetos))
     for item in objetos:
         item["codigo"] = mapa.get(str(item.get("id_galeria")))
+    personajes = [i for i in items if i.get("tipo") == "personaje"]
+    mapa = codigos_de(db, "PER", (i.get("id_personaje") for i in personajes))
+    for item in personajes:
+        item["codigo"] = mapa.get(str(item.get("id_personaje")))
+    lugares = [i for i in items if i.get("tipo") == "lugar"]
+    mapa = codigos_de(db, "LOC", (i.get("id_escenario") for i in lugares))
+    for item in lugares:
+        item["codigo"] = mapa.get(str(item.get("id_escenario")))
     return items
 
 

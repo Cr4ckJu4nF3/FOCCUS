@@ -15,6 +15,7 @@ import {
   LoaderCircle,
   LogOut,
   Plus,
+  Search,
   Trash2,
   UserRound,
   Users,
@@ -22,7 +23,7 @@ import {
 } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
 import { apiFetch, clearSession, getActiveRole, setActiveProject as persistActiveProject } from "../api";
-import BuscadorCodigos from "../components/BuscadorCodigos";
+import CodigoChip from "../componentes/CodigoChip";
 import "../desing/AdminDashboard.css";
 
 const formatOptions = [
@@ -404,6 +405,22 @@ export default function AdminDashboardScreen() {
     })),
   ].sort((first, second) => String(second.date || "").localeCompare(String(first.date || ""))).slice(0, 6), [dashboardData]);
 
+  const [projectCode, setProjectCode] = useState({ id: "", codigo: "" });
+  useEffect(() => {
+    let isCurrent = true;
+    if (!projectId || !isAdmin) return undefined;
+    (async () => {
+      try {
+        const response = await apiFetch(`/projects/${encodeURIComponent(projectId)}`);
+        const result = await response.json();
+        if (isCurrent && response.ok && result.data?.codigo) setProjectCode({ id: projectId, codigo: result.data.codigo });
+      } catch {
+        /* el código es opcional: si falla, simplemente no se muestra */
+      }
+    })();
+    return () => { isCurrent = false; };
+  }, [projectId, isAdmin]);
+
   if (!isAdmin && !isGlobalAdmin) return <Navigate to="/proyecto-dashboard" replace />;
 
   const navigateToModule = (path) => navigate(path, { state: { projectName, projectId } });
@@ -473,6 +490,11 @@ export default function AdminDashboardScreen() {
           <button className="admin-navigation__item" disabled={!projectId} onClick={() => navigateToModule("/roles")} type="button">
             <Users size={18} /> Equipo y roles
           </button>
+          {isAdmin && (
+            <button className="admin-navigation__item" disabled={!projectId} onClick={() => navigateToModule("/buscar-codigo")} type="button">
+              <Search size={18} /> Buscar código
+            </button>
+          )}
         </nav>
         <div className="admin-project-control">
           <button
@@ -541,10 +563,10 @@ export default function AdminDashboardScreen() {
         <header className="admin-topbar">
           <div className="admin-topbar__context">
             <span title={projectId ? projectName : "FOCCUS"}>{projectId ? projectName : "FOCCUS"}</span>
+            {projectCode.id === projectId && <CodigoChip codigo={projectCode.codigo} />}
             <span>/</span>
             <strong>Administrador</strong>
           </div>
-          {isAdmin && projectId && <BuscadorCodigos projectId={projectId} />}
           <div className="admin-profile">
             <button
               type="button"

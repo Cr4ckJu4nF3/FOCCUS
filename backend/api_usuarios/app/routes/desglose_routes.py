@@ -4,6 +4,7 @@ import tempfile
 import os
 from app.config.database import get_db
 from app.utils.auth import get_current_user, require_project_admin, require_project_member
+from app.utils.codigos import es_admin
 from app.controllers.galeria_controller import create_item_for_scene
 from app.controllers.desglose_controller import (
     get_desglose_by_guion,
@@ -28,7 +29,7 @@ router = APIRouter()
 # por departamento (para la lista principal de Desglose)
 @router.get("/guiones/{id_guion}/desglose")
 def desglose_del_guion(id_guion: int, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
-    return get_desglose_by_guion(id_guion, db, current_user["id_project"])
+    return get_desglose_by_guion(id_guion, db, current_user["id_project"], incluir_codigo=es_admin(current_user))
 
 
 # Detalle de UNA escena: sus requerimientos completos por departamento
