@@ -24,7 +24,9 @@ export function setToken(token) {
 }
 
 export function clearSession() {
+  const theme = localStorage.getItem("foccus-theme");
   localStorage.clear();
+  if (theme) localStorage.setItem("foccus-theme", theme);
 }
 
 // Lee la fecha de expiración del token sin verificar la firma (eso lo

@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { Menu, User, LogOut, Trash2 } from "lucide-react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Menu, User, LogOut, Trash2, ChartNoAxesCombined } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
-import { apiFetch } from "../api";
+import { apiFetch, clearSession } from "../api";
 import "../desing/ProjectDashboard.css";
 
 const modules = [
@@ -19,7 +19,7 @@ const normalizeUpdateStatus = (status) => {
   return "pendiente";
 };
 
-export default function ProjectDashboardScreen() {
+function ProjectDashboardScreen() {
   const location = useLocation();
   const navigate = useNavigate();
   const projectName = location.state?.projectName || localStorage.getItem("projectName") || "Proyecto";
@@ -176,9 +176,9 @@ export default function ProjectDashboardScreen() {
   };
 
   const handleLogout = () => {
-  localStorage.clear();
-  navigate("/", { replace: true });
-  window.history.pushState(null, "", "/");
+    clearSession();
+    navigate("/", { replace: true });
+    window.history.pushState(null, "", "/");
   };
 
   const handleDeleteProject = async () => {
@@ -285,15 +285,31 @@ export default function ProjectDashboardScreen() {
       <main className="pds-main">
         {/* Project Name and Menu Button */}
         <div className="pds-project-header" ref={menuRef}>
-          <h1 className="pds-project-title">{projectName}</h1>
-          <div className="pds-menu-toggle-wrapper">
+          <div>
+            <p className="pds-project-eyebrow">ESPACIO DE TRABAJO</p>
+            <h1 className="pds-project-title">{projectName}</h1>
+          </div>
+          <div className="pds-project-actions">
+            {esAdmin && (
+              <button
+                type="button"
+                onClick={() => navigate("/admin-dashboard", { state: { projectName, projectId } })}
+                className="pds-admin-dashboard-button"
+              >
+                <ChartNoAxesCombined size={18} />
+                <span>Panel administrativo</span>
+              </button>
+            )}
+            <div className="pds-menu-toggle-wrapper">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="pds-menu-toggle"
+              aria-expanded={isMenuOpen}
             >
               <Menu className="pds-menu-toggle-icon" />
               <span className="pds-menu-toggle-label">Menú</span>
             </button>
+            </div>
           </div>
         </div>
 
@@ -400,16 +416,14 @@ export default function ProjectDashboardScreen() {
           )}
         </section>
 
-        {/* Volver */}
-        <div className="pds-back-wrapper">
-          <button
-            onClick={() => navigate("/seleccion-proyecto")}
-            className="pds-back-button"
-          >
-            ← Volver a Proyectos
-          </button>
-        </div>
       </main>
     </div>
   );
+}
+
+export default function ProjectDashboard() {
+  if (Number(localStorage.getItem("id_rol")) === 1001) {
+    return <Navigate to="/admin-dashboard" replace />;
+  }
+  return <ProjectDashboardScreen />;
 }

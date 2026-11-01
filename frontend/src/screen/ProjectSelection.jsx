@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { FolderOpen, Plus, ChevronRight, X, Film, Clapperboard, LogOut } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
 import { apiFetch, clearSession } from "../api";
@@ -128,6 +128,8 @@ export default function ProjectSelectionScreen() {
       setLoadingCreate(false);
     }
   };
+
+  if (esAdmin) return <Navigate to="/admin-dashboard" replace />;
 
   return (
     <div className="pss-page">

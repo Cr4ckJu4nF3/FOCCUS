@@ -2,9 +2,9 @@ import { createBrowserRouter } from "react-router-dom";
 import Login from "./screen/Login";
 import TwoFactor from "./screen/TwoFactor";
 import ForgotPassword from "./screen/ForgotPassword";
-import ProjectRegistration from "./screen/ProjectRegistration";
 import ProjectSelection from "./screen/ProjectSelection";
 import ProjectDashboard from "./screen/ProjectDashboard";
+import AdminDashboard from "./screen/AdminDashboard";
 import Profile from "./screen/Profile";
 import Dashboard from "./screen/Dashboard";
 import Landing from "./screen/Landing";
@@ -37,7 +37,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/registro-proyecto",
-    element: <ProtectedRoute><ProjectRegistration /></ProtectedRoute>,
+    element: <ProtectedRoute><ProjectSelection /></ProtectedRoute>,
   },
   {
     path: "/seleccion-proyecto",
@@ -46,6 +46,10 @@ export const router = createBrowserRouter([
   {
     path: "/proyecto-dashboard",
     element: <ProtectedRoute><ProjectDashboard /></ProtectedRoute>,
+  },
+  {
+    path: "/admin-dashboard",
+    element: <ProtectedRoute><AdminDashboard /></ProtectedRoute>,
   },
   {
     path: "/perfil",
