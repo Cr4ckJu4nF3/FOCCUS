@@ -13,6 +13,16 @@ Formato de cada entrada:
 - Estado para móvil: pendiente | hecho en móvil (fecha)
 ```
 
+## 2026-11-01 – Códigos visibles en la web y módulo «Buscar código» (solo admin)
+- Rama/commit: `feat/codigos-visibles` (solo commits locales).
+- Qué cambió (web/backend):
+  - Web: componente `CodigoChip` (etiqueta monoespaciada ≥12px, clic = copiar). Se muestra solo si el backend manda `codigo` (admin).
+  - Backend: `codigo` ahora también en galería para personaje (PER) y lugar (LOC) además de OBJ/VES; en `escenas` de cada rodaje (ESC) y en el desglose por guion (ESC).
+  - Nuevo módulo web `/buscar-codigo` (barra lateral del admin, ítem «Buscar código»); se quitó el cuadro de AdminDashboard. Deep-links nuevos: `/guion?guion=ID[&version=ID]` y `/escenas?guion=ID&escena=ID`.
+- Endpoints modificados (campo opcional `codigo`, solo admin): `GET /projects/{id}/galeria` (ahora también personaje/lugar y respuesta de crear), `GET /projects/{id}/rodajes` y `GET /rodajes/{id}` (`escenas[].codigo`), `GET /guiones/{id}/desglose` (`[].codigo`). Sin cambios de contrato para no-admin (no reciben la clave).
+- Pantallas web afectadas: Guion (tarjetas, ficha, versiones, personajes/escenarios del lateral), Escena (lista y ficha), Galería (tarjetas y ficha), Rodaje (jornadas, ficha y escenas), Desglose, AdminDashboard (código del proyecto), BuscarCodigo.
+- Estado para móvil: pendiente
+
 ## 2026-11-01 – Códigos únicos legibles y buscador (solo admin)
 - Rama/commit: `feat/codigos-y-buscador` (commits `feat(backend)` y `feat(web)`).
 - Qué cambió (backend/BD/web):
