@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import API_URL, { apiFetch, getActiveRole } from "../api";
+import CodigoChip from "../componentes/CodigoChip";
 import "../desing/Galeria.css";
 
 const emptyForm = {
@@ -503,6 +504,7 @@ function GalleryDetails({ item, items = [], characters, locations, scripts, scen
           <div>
             <span className="gallery-eyebrow">{tipoLabels[item.tipo]}{item.categoria ? ` · ${item.categoria}` : ""}</span>
             <h2 id="gallery-details-title">{item.nombre}</h2>
+            <CodigoChip codigo={item.codigo} />
           </div>
           <button type="button" className="gallery-icon-button" onClick={onClose} aria-label="Cerrar"><X size={19} /></button>
         </header>
@@ -842,6 +844,7 @@ export default function GaleriaScreen() {
                   <div className="gallery-card__heading">
                     <div>
                       <h2>{item.nombre}</h2>
+                      <CodigoChip codigo={item.codigo} />
                       {item.categoria && <span>{item.categoria}</span>}
                     </div>
                     <span className={`gallery-status gallery-status--${item.estado.toLowerCase().replace(/\s+/g, "-")}`}>{item.estado}</span>

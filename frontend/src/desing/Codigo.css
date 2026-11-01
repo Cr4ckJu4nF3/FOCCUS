@@ -1,0 +1,62 @@
+/* Etiqueta de código FOCCUS (solo admin) y página del buscador de códigos */
+.codigo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+  padding: 1px var(--space-2, 8px);
+  border: 1px solid var(--theme-border, rgba(255, 255, 255, 0.1));
+  border-radius: 999px;
+  background: transparent;
+  color: var(--theme-muted, #a3adbd);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: var(--text-xs, 0.75rem);
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  cursor: copy;
+  vertical-align: middle;
+}
+.codigo-chip:hover { color: var(--color-primary, #7db8ee); border-color: var(--color-primary, #7db8ee); }
+.codigo-chip:focus-visible { outline: 2px solid var(--color-focus, #a99bf5); outline-offset: 2px; }
+.codigo-chip--copiado { color: var(--color-success, #4ade80); border-color: var(--color-success, #4ade80); }
+.codigo-chip__estado:empty { display: none; }
+
+.buscador-page__cuerpo { padding: var(--space-5, 24px); max-width: 860px; }
+.buscador-page__form { display: flex; gap: var(--space-3, 12px); margin: var(--space-4, 16px) 0; }
+.buscador-page__input {
+  flex: 1;
+  padding: var(--space-3, 12px) var(--space-4, 16px);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--admin-border, var(--theme-border));
+  background: var(--admin-surface, var(--theme-surface));
+  color: var(--admin-text, var(--theme-foreground));
+  font-size: var(--text-base, 1rem);
+}
+.buscador-page__input:focus-visible { outline: 2px solid var(--color-focus, #a99bf5); outline-offset: 1px; }
+.buscador-page__lista { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2, 8px); }
+.buscador-page__fila {
+  display: grid;
+  grid-template-columns: 150px 130px 1fr auto;
+  align-items: center;
+  gap: var(--space-3, 12px);
+  padding: var(--space-3, 12px) var(--space-4, 16px);
+  border: 1px solid var(--admin-border, var(--theme-border));
+  border-radius: var(--radius-md, 8px);
+  background: var(--admin-surface, var(--theme-surface));
+  color: var(--admin-text, var(--theme-foreground));
+}
+.buscador-page__tipo { font-size: var(--text-sm, 0.875rem); color: var(--admin-text-secondary, var(--theme-muted)); text-transform: capitalize; }
+.buscador-page__enlace {
+  padding: 6px 12px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-primary, #7db8ee);
+  background: transparent;
+  color: var(--color-primary, #7db8ee);
+  cursor: pointer;
+  font-size: var(--text-sm, 0.875rem);
+}
+.buscador-page__enlace:hover { background: var(--color-primary-solid, #276da7); color: #fff; }
+.buscador-page__ayuda { font-size: var(--text-sm, 0.875rem); color: var(--admin-text-secondary, var(--theme-muted)); }
+@media (max-width: 640px) {
+  .buscador-page__fila { grid-template-columns: 1fr; }
+  .buscador-page__form { flex-direction: column; }
+}
