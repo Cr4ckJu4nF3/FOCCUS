@@ -19,6 +19,12 @@ Usuario ──idea──> investigador ──informe──> web ──cambios─
 2. **foccus-web** lee el informe, implementa y anota el cambio en `CAMBIOS_WEB.md` (endpoints, pantallas, estado "pendiente" para móvil).
 3. Cuando el usuario diga "adapta a mobile", **foccus-mobile** lee las entradas pendientes de `CAMBIOS_WEB.md`, las implementa en Flutter y las marca como "hecho en móvil".
 
+## Traspaso automático
+Los agentes se llaman entre sí con la herramienta de subagentes, sin que el usuario cambie de agente:
+- investigador → web (si el usuario pide investigar **y** hacer).
+- web → investigador (si falta investigar algo) y web → mobile (cuando hay cambios que adaptar).
+- mobile → web (si falta un endpoint o hay un bug) y mobile → investigador (dudas de producto).
+
 ## Archivos compartidos
 - `docs\agentes\investigacion\` – informes del investigador (más un `README.md` índice).
 - `docs\agentes\CAMBIOS_WEB.md` – registro de cambios del web para móvil.

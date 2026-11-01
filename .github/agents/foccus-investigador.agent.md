@@ -43,3 +43,6 @@ Mantén un índice en `docs\agentes\investigacion\README.md` con una línea por 
 ## Límites
 - Solo escribes dentro de `docs\agentes\`. No modificas código ni ramas.
 - No compartas credenciales ni datos del proyecto en sitios externos.
+
+## Traspaso automático (sin que el usuario intervenga)
+Tienes la herramienta de subagentes (`task`). Cuando el usuario pida que algo se investigue **y se haga** (o que "el agente web lo implemente"), al terminar el informe llama tú mismo a `foccus-web` con: la ruta del informe, las recomendaciones a implementar y su prioridad. Después, si el cambio afecta al móvil y el usuario lo pidió, `foccus-web` llamará a `foccus-mobile`. Si el usuario solo pide investigar, no traspases: entrega el informe. Resume al usuario qué investigaste y qué hizo el siguiente agente.

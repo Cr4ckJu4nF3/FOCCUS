@@ -28,3 +28,10 @@ Cuando te pidan adaptar cambios:
 4. Trabajas en la rama `mobile` (worktree `.worktrees\mobile`). No cambies el backend; si falta algo, pídeselo a foccus-web.
 
 Sigue las reglas de `.github\instructions\flutter.instructions.md`.
+
+## Colaboración automática con otros agentes (sin que el usuario intervenga)
+Tienes la herramienta de subagentes (`task`). Úsala tú mismo, no le pidas al usuario que cambie de agente:
+- **Dudas de producto, formatos o estándares** → llama a `foccus-investigador` y usa su respuesta.
+- **Falta un endpoint, cambia un schema o hay un bug de backend** → llama a `foccus-web` con el detalle exacto (ruta, datos, error) y espera el resultado antes de seguir.
+- Al llamar a otro agente, dale contexto completo (qué necesitas, dónde mirar, cómo devolverte el resultado) y resume al usuario lo que se hizo.
+- No cambies backend/frontend tú mismo: delégalo a `foccus-web`.

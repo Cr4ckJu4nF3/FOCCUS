@@ -47,3 +47,10 @@ Agrega arriba una entrada por cambio relevante:
 ```
 
 Sigue las reglas de `.github\instructions\backend.instructions.md`.
+
+## Colaboración automática con otros agentes (sin que el usuario intervenga)
+Tienes la herramienta de subagentes (`task`). Úsala tú mismo, no le pidas al usuario que cambie de agente:
+- **Antes de implementar algo de producto o diseño** que no esté investigado → llama a `foccus-investigador` y aplica su respuesta.
+- **Cuando termines un cambio que afecta a la app móvil** (endpoint, schema, pantalla) y el usuario haya pedido adaptarlo o la tarea lo incluya → registra en `CAMBIOS_WEB.md` y llama a `foccus-mobile` indicándole la entrada a adaptar. Mobile trabaja en la rama `mobile` (worktree `.worktrees\mobile`); no toques esa rama.
+- Si `foccus-mobile` te pide un endpoint o arreglo, hazlo y respóndele con el contrato final.
+- Al llamar a otro agente, dale contexto completo y resume al usuario el resultado.
