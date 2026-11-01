@@ -1,0 +1,133 @@
+/* Página de guion (editor, lector): Courier 12 pt con las sangrías del
+   formato estándar. Se mide en "ch": a 12 pt Courier cada carácter es 0.1",
+   así que 60ch = 6" de texto y las sangrías coinciden con las pulgadas.
+   El PDF usa las mismas columnas (ver utils/guionBloques.js). */
+
+.guion-pagina {
+  box-sizing: content-box;
+  width: 60ch;
+  max-width: calc(100% - 2.5in);
+  min-height: 11in;
+  margin: 1.5rem auto;
+  padding: 1in 1in 1in 1.5in;
+  border: 1px solid rgba(17, 24, 39, 0.1);
+  background: #ffffff !important;
+  box-shadow: 0 1px 0 rgba(17, 24, 39, 0.05), 0 18px 30px rgba(0, 0, 0, 0.12);
+  font-family: "Courier Prime", "Courier New", Courier, monospace !important;
+  font-size: 12pt;
+  line-height: 1;
+  color: #111827 !important;
+  text-align: left;
+  white-space: normal;
+  resize: none;
+}
+
+.guion-pagina:focus {
+  outline: 2px solid #5b9dda;
+  outline-offset: 2px;
+}
+
+.guion-pagina--lector {
+  min-height: 0;
+}
+
+.guion-pagina .gb {
+  margin: 1em 0 0;
+  padding: 0;
+  min-height: 1em;
+  border: 0;
+  background: none !important;
+  box-shadow: none;
+  color: #111827 !important;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  text-align: left;
+}
+
+.guion-pagina .gb:first-child {
+  margin-top: 0;
+}
+
+.guion-pagina .gb-escena,
+.guion-pagina .gb-personaje,
+.guion-pagina .gb-transicion {
+  text-transform: uppercase;
+}
+
+.guion-pagina .gb-escena { font-weight: 700; }
+
+.guion-pagina .gb-personaje {
+  margin-left: 22ch;
+  width: 33ch;
+}
+
+.guion-pagina .gb-parentesis {
+  margin-left: 16ch;
+  width: 25ch;
+}
+
+.guion-pagina .gb-dialogo {
+  margin-left: 10ch;
+  width: 35ch;
+}
+
+.guion-pagina .gb-transicion {
+  margin-left: auto;
+  width: 15ch;
+  text-align: right;
+}
+
+/* Personaje, paréntesis y diálogo van pegados (sin línea en blanco) */
+.guion-pagina .gb-personaje + .gb-parentesis,
+.guion-pagina .gb-personaje + .gb-dialogo,
+.guion-pagina .gb-parentesis + .gb-dialogo {
+  margin-top: 0;
+}
+
+/* Texto del guion con formato libre antiguo que aún conserve etiquetas */
+.guion-pagina h1,
+.guion-pagina h2,
+.guion-pagina h3 {
+  margin: 1em 0 0;
+  font-size: inherit;
+  font-weight: 700;
+  color: inherit;
+}
+
+/* Rótulo del tipo de bloque junto al cursor (solo en el editor) */
+.guion-pagina[contenteditable="true"] .gb {
+  position: relative;
+}
+
+.guion-editor-tipo-bloque {
+  min-height: 2.2rem;
+  padding: 0 0.5rem;
+  border: 1px solid rgba(17, 24, 39, 0.2);
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.guion-reader__meta {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  text-align: center;
+  opacity: 0.8;
+}
+
+/* Pantallas angostas: se reducen márgenes y las sangrías pasan a porcentajes */
+@media (max-width: 900px) {
+  .guion-pagina {
+    width: auto;
+    max-width: none;
+    min-height: 60vh;
+    padding: 1rem;
+    font-size: 11pt;
+  }
+
+  .guion-pagina .gb-personaje { margin-left: 30%; width: auto; }
+  .guion-pagina .gb-parentesis { margin-left: 22%; width: auto; }
+  .guion-pagina .gb-dialogo { margin-left: 14%; width: auto; }
+  .guion-pagina .gb-transicion { margin-left: 40%; width: auto; }
+}

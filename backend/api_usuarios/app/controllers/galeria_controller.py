@@ -22,6 +22,7 @@ from app.controllers.escenario_controller import _generar_id_escenario
 from app.schemas.galeria_schema import TIPOS_GALERIA, GaleriaUpdateSchema
 from app.utils.file_storage import BASE_UPLOAD_DIR, EXTENSIONES_FOTO, guardar_archivo
 from app.utils.response import api_response
+from app.utils.codigos import adjuntar_codigos_galeria, asignar_codigo, tipo_galeria
 
 MAX_FOTO_BYTES = 10 * 1024 * 1024
 
@@ -202,6 +203,7 @@ def _get_or_create_project_character(id_project: str, values: dict, db: Session)
     )
     db.add(character)
     db.flush()
+    asignar_codigo(db, "PER", character.id_personaje, id_project)
     return character, True
 
 
@@ -228,6 +230,7 @@ def _get_or_create_project_location(id_project: str, values: dict, db: Session) 
     )
     db.add(location)
     db.flush()
+    asignar_codigo(db, "LOC", location.id_escenario, id_project)
     return location, True
 
 
@@ -266,7 +269,7 @@ def _remove_uploaded_file_if_unused(relative_path: Optional[str], db: Session) -
         _remove_uploaded_file(relative_path)
 
 
-def get_items(id_project: str, db: Session):
+def get_items(id_project: str, db: Session, incluir_codigo: bool = False):
     items = db.query(GaleriaItem).filter(
         GaleriaItem.id_project == id_project
     ).order_by(GaleriaItem.fecha_actualizacion.desc(), GaleriaItem.id_galeria.desc()).all()
@@ -307,19 +310,17 @@ def get_items(id_project: str, db: Session):
                 "id_galeria": id_character,
                 "nombre": character_name,
             })
-    return api_response(
-        True,
-        "Galería del proyecto",
-        [
-            _serialize(
-                item,
-                version_counts.get(item.id_galeria, 0),
-                pending_photo_counts.get(item.id_galeria, 0),
-                linked_characters.get(item.id_galeria, []),
-            )
-            for item in items
-        ],
-    )
+    data = [
+        _serialize(
+            item,
+            version_counts.get(item.id_galeria, 0),
+            pending_photo_counts.get(item.id_galeria, 0),
+            linked_characters.get(item.id_galeria, []),
+        )
+        for item in items
+    ]
+    adjuntar_codigos_galeria(db, data, incluir_codigo)  # solo admin
+    return api_response(True, "Galería del proyecto", data)
 
 
 def get_item_versions(id_project: str, id_galeria: int, db: Session):
@@ -526,6 +527,10 @@ def create_item(
     try:
         db.add(item)
         db.flush()
+        codigo_item = None
+        prefijo_item = tipo_galeria(item.tipo, item.categoria)
+        if prefijo_item:  # OBJ o VES; personaje/lugar ya tienen PER/LOC propios
+            codigo_item = asignar_codigo(db, prefijo_item, item.id_galeria, id_project)
         if character_ids:
             _sync_linked_characters(item.id_galeria, character_ids, db)
         if scene_link:
@@ -547,6 +552,8 @@ def create_item(
         "entidad_vinculada": linked_entity,
         "entidad_creada": entity_created,
     })
+    if codigo_item:  # creación solo-admin (create_item_for_scene también)
+        response_data["codigo"] = codigo_item
     return api_response(True, "Elemento agregado a la galería", response_data)
 
 
@@ -621,11 +628,9 @@ def update_item(id_project: str, id_galeria: int, data: GaleriaUpdateSchema, db:
         _sync_linked_characters(item.id_galeria, [], db)
     db.commit()
     db.refresh(item)
-    return api_response(
-        True,
-        "Elemento actualizado",
-        _serialize(item, personajes_vinculados=_get_linked_characters(item.id_galeria, db)),
-    )
+    respuesta = _serialize(item, personajes_vinculados=_get_linked_characters(item.id_galeria, db))
+    adjuntar_codigos_galeria(db, [respuesta], True)  # PATCH es solo-admin
+    return api_response(True, "Elemento actualizado", respuesta)
 
 
 def replace_photo(id_project: str, id_galeria: int, photo: UploadFile, db: Session):

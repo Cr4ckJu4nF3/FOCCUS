@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from app.config.database import get_db
 from app.utils.auth import get_current_user, require_project_admin, require_project_member
+from app.utils.codigos import es_admin
 from app.controllers.guion_controller import (
     get_guiones,
     get_guion,
@@ -38,11 +39,11 @@ def guiones(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_member)
 ):
-    return get_guiones(db, id_project)
+    return get_guiones(db, id_project, incluir_codigo=es_admin(current_user))
 
 @router.get("/guiones/{id_guion}")
 def guion(id_guion: int, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
-    return get_guion(id_guion, db)
+    return get_guion(id_guion, db, incluir_codigo=es_admin(current_user))
 
 # CREAR GUION (solo administradores)
 @router.post("/guiones")
@@ -111,7 +112,7 @@ def store_version(
 
 @router.get("/guiones/{id_guion}/versiones")
 def versiones(id_guion: int, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
-    return get_versiones(id_guion, db)
+    return get_versiones(id_guion, db, incluir_codigo=es_admin(current_user))
 
 @router.patch("/guiones/{id_guion}/versiones/{id_guion_version}/estado")
 def patch_estado_version(

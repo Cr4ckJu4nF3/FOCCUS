@@ -17,6 +17,7 @@ from app.controllers.galeria_controller import (
 )
 from app.schemas.galeria_schema import GaleriaUpdateSchema, GaleriaVersionCreateSchema
 from app.utils.auth import require_project_admin, require_project_member
+from app.utils.codigos import es_admin
 
 router = APIRouter()
 
@@ -27,7 +28,7 @@ def gallery_items(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_member),
 ):
-    return get_items(id_project, db)
+    return get_items(id_project, db, incluir_codigo=es_admin(current_user))
 
 
 @router.get("/projects/{id_project}/galeria/{id_galeria}/versiones")

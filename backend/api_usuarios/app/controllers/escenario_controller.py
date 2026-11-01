@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from app.models.escenario_model import Escenario
 from app.schemas.escenario_schema import EscenarioSchema, EscenarioUpdateSchema
 from app.utils.response import api_response
+from app.utils.codigos import adjuntar_codigos, asignar_codigo
 
 
 # GENERAR ID DE ESCENARIO (loc0001, loc0002, ...)
@@ -32,14 +33,16 @@ def _serialize(e: Escenario):
 
 # LISTAR ESCENARIOS DE UN PROYECTO
 
-def get_escenarios_by_project(id_project: str, db: Session):
+def get_escenarios_by_project(id_project: str, db: Session, incluir_codigo: bool = False):
     escenarios = (
         db.query(Escenario)
         .filter(Escenario.id_project == id_project)
         .order_by(Escenario.nombre.asc())
         .all()
     )
-    return api_response(True, "Lista de escenarios", [_serialize(e) for e in escenarios])
+    data = [_serialize(e) for e in escenarios]
+    adjuntar_codigos(db, data, "LOC", "id_escenario", incluir_codigo)  # solo admin
+    return api_response(True, "Lista de escenarios", data)
 
 
 # CREAR ESCENARIO
@@ -53,9 +56,14 @@ def create_escenario(data: EscenarioSchema, db: Session):
         id_project=data.id_project,
     )
     db.add(nuevo)
+    db.flush()
+    codigo = asignar_codigo(db, "LOC", nuevo.id_escenario, nuevo.id_project)
     db.commit()
     db.refresh(nuevo)
-    return api_response(True, "Escenario creado", _serialize(nuevo))
+    respuesta = _serialize(nuevo)
+    if codigo:  # la ruta de creación es solo-admin
+        respuesta["codigo"] = codigo
+    return api_response(True, "Escenario creado", respuesta)
 
 
 # ACTUALIZAR ESCENARIO
@@ -74,7 +82,9 @@ def update_escenario(id_escenario: str, data: EscenarioUpdateSchema, db: Session
 
     db.commit()
     db.refresh(escenario)
-    return api_response(True, "Escenario actualizado", _serialize(escenario))
+    respuesta = _serialize(escenario)
+    adjuntar_codigos(db, [respuesta], "LOC", "id_escenario", True)  # PATCH es solo-admin
+    return api_response(True, "Escenario actualizado", respuesta)
 
 
 # ELIMINAR ESCENARIO

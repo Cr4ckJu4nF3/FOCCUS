@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   CalendarDays,
@@ -659,6 +659,22 @@ export default function GaleriaScreen() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadGallery();
   }, [loadGallery, navigate, projectId]);
+
+  // Enlace desde el buscador de códigos: /galeria?item=ID o /galeria?tipo=personaje|lugar
+  const [searchParams, setSearchParams] = useSearchParams();
+  const itemParam = searchParams.get("item");
+  const tipoParam = searchParams.get("tipo");
+  useEffect(() => {
+    if (loading) return;
+    if (itemParam) {
+      const found = items.find((entry) => String(entry.id_galeria) === itemParam);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (found) setDetailsItem(found);
+    } else if (tipoParam) {
+      setFilter(tipoParam);
+    }
+    if (itemParam || tipoParam) setSearchParams({}, { replace: true });
+  }, [loading, items, itemParam, tipoParam, setSearchParams]);
 
   const filteredItems = useMemo(() => items.filter((item) => {
     const matchesType = filter === "todos" || item.tipo === filter;

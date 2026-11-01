@@ -7,3 +7,5 @@ __pycache__/
    mobile/build/
    mobile/.dart_tool/
    backend/api_usuarios/app/assets/uploads/
+backups/
+*.sql.gz

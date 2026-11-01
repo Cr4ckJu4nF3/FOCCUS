@@ -19,11 +19,6 @@ import {
   Bold,
   Italic,
   Underline,
-  List,
-  Heading1,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
   Clapperboard,
   House,
   Image,
@@ -34,19 +29,8 @@ import {
   Sunrise,
   Sunset,
   Trees,
-  Strikethrough,
-  ListOrdered,
   Undo2,
   Redo2,
-  Highlighter,
-  Indent,
-  Outdent,
-  AlignJustify,
-  Quote,
-  Minus,
-  RemoveFormatting,
-  Superscript,
-  Subscript,
   ChevronUp,
   ChevronDown,
   MessageSquare,
@@ -54,7 +38,24 @@ import {
 } from "lucide-react";
 import API_URL, { getActiveRole, getProjectHeaders, getToken } from "../api";
 import { GalleryModal } from "./Galeria";
+import {
+  TIPOS_BLOQUE,
+  SIGUIENTE_ENTER,
+  SIGUIENTE_TAB,
+  claseBloque,
+  crearBloqueHtml,
+  estimarPaginas,
+  extraerEscenas,
+  generarPdfGuion,
+  htmlABloques,
+  htmlATextoPlano,
+  limpiarHtmlGuion,
+  normalizarHtmlGuion,
+  tipoDeElemento,
+} from "../utils/guionBloques";
+import EstadoVista from "../componentes/EstadoVista";
 import "../desing/Guion.css";
+import "../desing/GuionPagina.css";
 
 const fetchWithProject = (url, options = {}) =>
   globalThis.fetch(url, {
@@ -123,7 +124,7 @@ export default function GuionScreen() {
   // Crear desde cero
   const [ceroForm, setCeroForm] = useState({ nombre: "", descripcion: "" });
   const [contenidoInicial, setContenidoInicial] = useState("");
-  const [alineacionTexto, setAlineacionTexto] = useState("left");
+  const [tipoBloqueActual, setTipoBloqueActual] = useState("accion");
   const editorRef = useRef(null);
   const ultimaSeleccionRef = useRef(null); // ultimo cursor/seleccion dentro del editor, para restaurarlo tras usar la barra de herramientas o insertar un personaje/escenario
 
@@ -209,27 +210,6 @@ export default function GuionScreen() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const limpiarHtmlGuion = (html) => {
-    const contenedor = document.createElement("div");
-    contenedor.innerHTML = html || "";
-    contenedor.querySelectorAll("script, style, iframe, object, embed, link, meta").forEach((nodo) => nodo.remove());
-    const etiquetasPermitidas = new Set(["P", "DIV", "BR", "HR", "H1", "H2", "H3", "UL", "OL", "LI", "B", "STRONG", "I", "EM", "U", "SPAN"]);
-    const limpiarNodo = (nodo) => {
-      Array.from(nodo.children).forEach(limpiarNodo);
-      if (!etiquetasPermitidas.has(nodo.tagName)) {
-        nodo.replaceWith(...nodo.childNodes);
-        return;
-      }
-      Array.from(nodo.attributes).forEach((atributo) => {
-        if (atributo.name !== "style" || !/^text-align:\s*(left|center|right|justify)\s*;?$/i.test(atributo.value)) {
-          nodo.removeAttribute(atributo.name);
-        }
-      });
-    };
-    Array.from(contenedor.children).forEach(limpiarNodo);
-    return contenedor.innerHTML;
   };
 
   useEffect(() => {
@@ -504,7 +484,7 @@ export default function GuionScreen() {
   const handleDesactivarModoEscenas = () => {
     // Al desactivar, se unen todas las escenas de vuelta en un solo bloque
     // (union con salto de linea real en HTML, no con "\n" que el navegador ignora)
-    setContenidoInicial(escenasBorrador.map((esc) => esc.texto).join("<br><br>"));
+    setContenidoInicial(escenasBorrador.map((esc) => esc.texto).join(""));
     setEscenasActivo(false);
   };
 
@@ -521,22 +501,6 @@ export default function GuionScreen() {
       if (idx === prevActivo) return Math.max(0, Math.min(prevActivo, escenasBorrador.length - 2));
       return prevActivo;
     });
-  };
-
-  // Convierte el HTML del editor a texto plano (para validar si esta vacio,
-  // sacar el encabezado de una escena, etc.)
-  const htmlATextoPlano = (html) => {
-    const contenedor = document.createElement("div");
-    contenedor.innerHTML = html || "";
-    const etiquetasBloque = new Set(["DIV", "H1", "H2", "H3", "LI", "P"]);
-    const recorrer = (nodo) => {
-      if (nodo.nodeType === Node.TEXT_NODE) return nodo.nodeValue || "";
-      if (nodo.nodeType !== Node.ELEMENT_NODE) return "";
-      if (nodo.tagName === "BR" || nodo.tagName === "HR") return "\n";
-      const texto = Array.from(nodo.childNodes, recorrer).join("");
-      return texto + (etiquetasBloque.has(nodo.tagName) ? "\n" : "");
-    };
-    return recorrer(contenedor).replace(/\n{3,}/g, "\n\n").trim();
   };
 
   // El editor es un <div contentEditable>, no un input controlado: React no
@@ -581,7 +545,124 @@ export default function GuionScreen() {
     const seleccion = window.getSelection();
     if (seleccion && seleccion.rangeCount > 0 && editorRef.current?.contains(seleccion.anchorNode)) {
       ultimaSeleccionRef.current = seleccion.getRangeAt(0).cloneRange();
+      const bloque = bloqueDeNodo(seleccion.anchorNode);
+      setTipoBloqueActual(tipoDeElemento(bloque) || "accion");
     }
+  };
+
+  // ---- Bloques tipados (escena, acción, personaje, paréntesis, diálogo, transición)
+  // Devuelve el bloque (hijo directo del editor) que contiene el nodo dado.
+  const bloqueDeNodo = (nodo) => {
+    const editor = editorRef.current;
+    if (!editor || !nodo || !editor.contains(nodo) || nodo === editor) return null;
+    let actual = nodo;
+    while (actual.parentNode && actual.parentNode !== editor) actual = actual.parentNode;
+    return actual.nodeType === Node.ELEMENT_NODE ? actual : null;
+  };
+
+  const colocarCursor = (nodo, alFinal = false) => {
+    const rango = document.createRange();
+    rango.selectNodeContents(nodo);
+    rango.collapse(!alFinal);
+    const seleccion = window.getSelection();
+    seleccion.removeAllRanges();
+    seleccion.addRange(rango);
+    ultimaSeleccionRef.current = rango.cloneRange();
+  };
+
+  // Garantiza que el cursor esté dentro de un <p class="gb ..."> y lo devuelve.
+  const asegurarBloqueActual = () => {
+    const editor = editorRef.current;
+    if (!editor) return null;
+    restaurarFocoEnEditor();
+    const seleccion = window.getSelection();
+    let bloque = bloqueDeNodo(seleccion.anchorNode);
+    if (!bloque || bloque.tagName !== "P") {
+      document.execCommand("formatBlock", false, "P");
+      bloque = bloqueDeNodo(window.getSelection().anchorNode);
+    }
+    if (!bloque) {
+      editor.insertAdjacentHTML("beforeend", crearBloqueHtml("accion"));
+      bloque = editor.lastElementChild;
+      colocarCursor(bloque);
+    }
+    if (!tipoDeElemento(bloque)) bloque.setAttribute("class", claseBloque("accion"));
+    return bloque;
+  };
+
+  const establecerTipoBloque = (tipo) => {
+    const bloque = asegurarBloqueActual();
+    if (!bloque) return;
+    bloque.setAttribute("class", claseBloque(tipo));
+    setTipoBloqueActual(tipo);
+    sincronizarDesdeEditor();
+    guardarSeleccionEditor();
+  };
+
+  // Inserta bloques (HTML con <p class="gb ...">) después del bloque actual,
+  // o en su lugar si está vacío, y deja el cursor en el último.
+  const insertarBloquesEnEditor = (html) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    restaurarFocoEnEditor();
+    const actual = bloqueDeNodo(window.getSelection().anchorNode);
+    const plantilla = document.createElement("div");
+    plantilla.innerHTML = html;
+    const nuevos = Array.from(plantilla.children);
+    if (!nuevos.length) return;
+    if (!actual) {
+      nuevos.forEach((n) => editor.appendChild(n));
+    } else {
+      const vacio = !(actual.textContent || "").trim();
+      nuevos.reduce((previo, n) => { previo.after(n); return n; }, actual);
+      if (vacio) actual.remove();
+    }
+    const ultimo = nuevos[nuevos.length - 1];
+    colocarCursor(ultimo, true);
+    setTipoBloqueActual(tipoDeElemento(ultimo) || "accion");
+    sincronizarDesdeEditor();
+  };
+
+  const manejarTeclaEditor = (event) => {
+    if (event.key !== "Enter" && event.key !== "Tab") return;
+    if (event.key === "Enter" && event.shiftKey) return;
+    if (event.key === "Tab" && (event.ctrlKey || event.metaKey || event.altKey)) return;
+    event.preventDefault();
+    const bloque = asegurarBloqueActual();
+    if (!bloque) return;
+    const tipo = tipoDeElemento(bloque) || "accion";
+
+    if (event.key === "Tab") {
+      establecerTipoBloque(SIGUIENTE_TAB[tipo] || "accion");
+      return;
+    }
+
+    // Enter: parte el bloque en el cursor y el nuevo toma el tipo siguiente
+    const rango = window.getSelection().getRangeAt(0);
+    rango.deleteContents();
+    const resto = rango.cloneRange();
+    resto.selectNodeContents(bloque);
+    resto.setStart(rango.endContainer, rango.endOffset);
+    const fragmento = resto.extractContents();
+    const nuevo = document.createElement("p");
+    // Enter sobre un bloque vacío de diálogo/paréntesis vuelve a Acción
+    const vacio = !(bloque.textContent || "").trim() && !(fragmento.textContent || "").trim();
+    nuevo.className = claseBloque(vacio && ["dialogo", "parentesis", "personaje"].includes(tipo) ? "accion" : SIGUIENTE_ENTER[tipo]);
+    nuevo.appendChild(fragmento);
+    if (!(nuevo.textContent || "").trim() && !nuevo.querySelector("br")) nuevo.appendChild(document.createElement("br"));
+    if (!(bloque.textContent || "").trim() && !bloque.querySelector("br")) bloque.appendChild(document.createElement("br"));
+    bloque.after(nuevo);
+    colocarCursor(nuevo);
+    setTipoBloqueActual(tipoDeElemento(nuevo));
+    sincronizarDesdeEditor();
+  };
+
+  // Pegar siempre como texto plano (evita HTML sucio de Word / web)
+  const manejarPegadoEditor = (event) => {
+    event.preventDefault();
+    const texto = event.clipboardData.getData("text/plain");
+    document.execCommand("insertText", false, texto);
+    sincronizarDesdeEditor();
   };
 
   const restaurarFocoEnEditor = () => {
@@ -613,45 +694,30 @@ export default function GuionScreen() {
     guardarSeleccionEditor();
   };
 
-  const alternarEncabezado = () => {
-    if (!editorRef.current) return;
-    restaurarFocoEnEditor();
-    const bloqueActual = document.queryCommandValue("formatBlock");
-    const yaEsEncabezado = (bloqueActual || "").toLowerCase() === "h1";
-    document.execCommand("formatBlock", false, yaEsEncabezado ? "P" : "H1");
-    sincronizarDesdeEditor();
-    guardarSeleccionEditor();
-  };
-
-  const insertarBloqueEditor = (html) => {
-    if (!editorRef.current) return;
-    restaurarFocoEnEditor();
-    document.execCommand("insertHTML", false, html);
-    sincronizarDesdeEditor();
-    guardarSeleccionEditor();
-  };
-
-  const herramientasExtraEditor = () => {
+  const herramientasFormatoEditor = () => {
     const base = { type: "button", onMouseDown: (event) => event.preventDefault() };
     return (
       <>
+        <select
+          className="guion-editor-tipo-bloque"
+          aria-label="Tipo de bloque"
+          title="Tipo de bloque (Tab cambia el tipo, Enter crea el siguiente)"
+          value={tipoBloqueActual}
+          onMouseDown={guardarSeleccionEditor}
+          onChange={(event) => establecerTipoBloque(event.target.value)}
+        >
+          {TIPOS_BLOQUE.map((t) => <option key={t.id} value={t.id}>{t.etiqueta}</option>)}
+        </select>
         <span className="guion-editor-toolbar__divider" aria-hidden="true" />
-        <button {...base} onClick={() => ejecutarComandoEditor("strikeThrough")} title="Tachado" aria-label="Tachado"><Strikethrough size={16} /></button>
-        <button {...base} onClick={() => ejecutarComandoEditor("hiliteColor", "#fde68a")} title="Resaltar" aria-label="Resaltar"><Highlighter size={16} /></button>
-        <button {...base} onClick={() => ejecutarComandoEditor("superscript")} title="Superíndice" aria-label="Superíndice"><Superscript size={16} /></button>
-        <button {...base} onClick={() => ejecutarComandoEditor("subscript")} title="Subíndice" aria-label="Subíndice"><Subscript size={16} /></button>
-        <button {...base} onClick={() => ejecutarComandoEditor("insertOrderedList")} title="Lista numerada" aria-label="Lista numerada"><ListOrdered size={16} /></button>
-        <button {...base} onClick={() => aplicarAlineacionTexto("justify")} title="Justificar" aria-label="Justificar"><AlignJustify size={16} /></button>
-        <button {...base} onClick={() => ejecutarComandoEditor("indent")} title="Aumentar sangría" aria-label="Aumentar sangría"><Indent size={16} /></button>
-        <button {...base} onClick={() => ejecutarComandoEditor("outdent")} title="Reducir sangría" aria-label="Reducir sangría"><Outdent size={16} /></button>
-        <button {...base} onClick={() => ejecutarComandoEditor("formatBlock", "BLOCKQUOTE")} title="Cita / nota" aria-label="Cita o nota"><Quote size={16} /></button>
-        <button {...base} onClick={() => ejecutarComandoEditor("insertHorizontalRule")} title="Línea separadora" aria-label="Línea separadora"><Minus size={16} /></button>
-        <button {...base} onClick={() => ejecutarComandoEditor("removeFormat")} title="Quitar formato" aria-label="Quitar formato"><RemoveFormatting size={16} /></button>
+        <button {...base} onClick={() => ejecutarComandoEditor("bold")} title="Negrita" aria-label="Negrita"><Bold size={16} /></button>
+        <button {...base} onClick={() => ejecutarComandoEditor("italic")} title="Cursiva" aria-label="Cursiva"><Italic size={16} /></button>
+        <button {...base} onClick={() => ejecutarComandoEditor("underline")} title="Subrayado" aria-label="Subrayado"><Underline size={16} /></button>
         <button {...base} onClick={() => ejecutarComandoEditor("undo")} title="Deshacer" aria-label="Deshacer"><Undo2 size={16} /></button>
         <button {...base} onClick={() => ejecutarComandoEditor("redo")} title="Rehacer" aria-label="Rehacer"><Redo2 size={16} /></button>
         <span className="guion-editor-toolbar__divider" aria-hidden="true" />
-        <button {...base} className="guion-editor-scene-button" onClick={() => insertarBloqueEditor("<p style=\"text-align:center\">PERSONAJE</p><p style=\"text-align:center\"><em>(acotación)</em></p><p style=\"text-align:center\">Diálogo…</p><p><br></p>")} title="Insertar bloque de diálogo"><MessageSquare size={15} /> Diálogo</button>
-        <button {...base} className="guion-editor-scene-button" onClick={() => insertarBloqueEditor("<p style=\"text-align:right\"><strong>CORTE A:</strong></p><p><br></p>")} title="Insertar transición"><ArrowRightToLine size={15} /> Transición</button>
+        <button {...base} className="guion-editor-scene-button" onClick={() => insertarBloquesEnEditor(crearBloqueHtml("escena", "INT. LOCACIÓN - DÍA") + crearBloqueHtml("accion"))} title="Insertar encabezado de escena"><Clapperboard size={15} /> Escena</button>
+        <button {...base} className="guion-editor-scene-button" onClick={() => insertarBloquesEnEditor(crearBloqueHtml("personaje", "PERSONAJE") + crearBloqueHtml("dialogo"))} title="Insertar personaje con diálogo"><MessageSquare size={15} /> Diálogo</button>
+        <button {...base} className="guion-editor-scene-button" onClick={() => insertarBloquesEnEditor(crearBloqueHtml("transicion", "CORTE A:") + crearBloqueHtml("escena", "INT. LOCACIÓN - DÍA"))} title="Insertar transición"><ArrowRightToLine size={15} /> Transición</button>
       </>
     );
   };
@@ -667,16 +733,6 @@ export default function GuionScreen() {
       {herramientasVisibles ? "Ocultar herramientas" : "Mostrar herramientas"}
     </button>
   );
-
-  const aplicarAlineacionTexto = (tipo) => {
-    if (!editorRef.current) return;
-    restaurarFocoEnEditor();
-    const comando = { left: "justifyLeft", center: "justifyCenter", right: "justifyRight", justify: "justifyFull" }[tipo];
-    document.execCommand(comando);
-    setAlineacionTexto(tipo);
-    sincronizarDesdeEditor();
-    guardarSeleccionEditor();
-  };
 
   const insertarFichaGaleria = (item) => {
     if (item.tipo === "lugar") {
@@ -704,31 +760,20 @@ export default function GuionScreen() {
   };
 
   const insertarFichaEnEditor = (item) => {
-    const escaparHtml = (valor) => String(valor || "").replace(/[&<>"']/g, (caracter) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-    })[caracter]);
-    const nombre = escaparHtml(item.nombre);
+    const nombre = item.nombre || "";
     let html;
 
     if (item.tipo === "personaje") {
-      html = `<p style="text-align: center"><strong>${nombre.toUpperCase()}</strong></p><p><br></p>`;
+      html = crearBloqueHtml("personaje", nombre) + crearBloqueHtml("dialogo");
     } else if (item.tipo === "objeto") {
-      const categoria = escaparHtml(item.categoria || "Objeto").toUpperCase();
-      html = `<p><em>[${categoria}: ${nombre}]</em></p>`;
+      const categoria = String(item.categoria || "Objeto").toUpperCase();
+      html = crearBloqueHtml("accion", `[${categoria}: ${nombre}]`);
     } else {
-      const encabezado = escaparHtml(item.encabezado_escena || `${tipoEscenaLugar} ${item.nombre.toUpperCase()} - ${momentoEscenaLugar}`);
-      html = `<p><strong>${encabezado}</strong></p><p><br></p>`;
+      html = crearBloqueHtml("escena", item.encabezado_escena || `${tipoEscenaLugar} ${nombre} - ${momentoEscenaLugar}`) + crearBloqueHtml("accion");
     }
 
     if (!editorRef.current) return;
-    restaurarFocoEnEditor();
-    document.execCommand("insertHTML", false, html);
-    sincronizarDesdeEditor();
-    guardarSeleccionEditor();
+    insertarBloquesEnEditor(html);
     setGalleryPickerType(null);
     setGallerySearch("");
   };
@@ -1040,11 +1085,12 @@ export default function GuionScreen() {
       return;
     }
 
-    // El texto completo que se guarda como version del guion: si esta en
-    // modo escenas, se arma uniendo cada escena (en HTML real) con su encabezado.
-    const contenidoParaVersion = escenasActivo
-      ? escenasBorrador.map((esc) => `<h3>ESCENA ${esc.numero}</h3>${esc.texto}`).join("<hr/>")
-      : contenidoInicial;
+    // El texto completo que se guarda como version del guion. En modo
+    // escenas se unen los bloques de cada escena (cada una trae su propio
+    // encabezado INT./EXT. como bloque "escena", sin rótulos "ESCENA N").
+    const contenidoParaVersion = limpiarHtmlGuion(
+      escenasActivo ? escenasBorrador.map((esc) => esc.texto).join("") : contenidoInicial,
+    );
 
     try {
       const token = getToken();
@@ -1065,16 +1111,22 @@ export default function GuionScreen() {
         throw new Error(extraerMensajeError(data, "No se pudo crear el guion"));
       }
 
-      // Si se escribio por escenas, cada una se guarda tambien como fila
-      // real en la tabla escenas, ya ligada al guion recien creado, para
-      // que se pueda usar despues en Desglose, Rodaje y Continuidad. Estas
-      // filas guardan texto plano (sin las etiquetas de formato), porque
-      // otras pantallas del sistema muestran esta descripcion tal cual.
-      if (escenasActivo) {
+      // Cada escena (bloque "escena" del guion) se guarda también como fila
+      // real en la tabla escenas, ligada al guion recién creado, para usarla
+      // en Desglose, Rodaje y Continuidad. Las filas guardan texto plano porque
+      // otras pantallas muestran esta descripción tal cual.
+      {
         const idGuionNuevo = data.data.id_guion;
-        for (const esc of escenasBorrador) {
-          const textoPlano = htmlATextoPlano(esc.texto);
-          const primeraLinea = textoPlano.split("\n").map((l) => l.trim()).find((l) => l.length > 0);
+        let escenasParaCrear = extraerEscenas(contenidoParaVersion);
+        if (escenasParaCrear.length === 0 && escenasActivo) {
+          // Modo escenas sin encabezados INT./EXT.: una escena por pestaña
+          escenasParaCrear = escenasBorrador.map((esc) => {
+            const textoPlano = htmlATextoPlano(esc.texto);
+            const primeraLinea = textoPlano.split("\n").map((l) => l.trim()).find((l) => l.length > 0);
+            return { numero: esc.numero, encabezado: primeraLinea || `ESCENA ${esc.numero}`, descripcion: textoPlano };
+          });
+        }
+        for (const esc of escenasParaCrear) {
           try {
             await fetchWithProject(`${API_URL}/escenas`, {
               method: "POST",
@@ -1082,8 +1134,8 @@ export default function GuionScreen() {
               body: JSON.stringify({
                 id_guion: idGuionNuevo,
                 numero_de_escena: String(esc.numero),
-                encabezado: (primeraLinea || `ESCENA ${esc.numero}`).slice(0, 250),
-                descripcion: textoPlano,
+                encabezado: (esc.encabezado || `ESCENA ${esc.numero}`).slice(0, 250),
+                descripcion: esc.descripcion,
               }),
             });
           } catch {
@@ -1232,7 +1284,7 @@ export default function GuionScreen() {
   const iniciarEdicionContenido = (version = versionSeleccionadaParaLector) => {
     if (!version) return;
     setVersionLectorId(version.id_guion_version);
-    setContenidoEditado(version.contenido || "");
+    setContenidoEditado(normalizarHtmlGuion(version.contenido || ""));
     fetchPersonajes();
     fetchEscenarios();
     fetchGalleryItems();
@@ -1280,15 +1332,6 @@ export default function GuionScreen() {
     }
   };
 
-  const insertarEscenaEnEdicion = () => {
-    if (!editorRef.current) return;
-    const cantidadEscenas = (htmlATextoPlano(editorRef.current.innerHTML).match(/\bESCENA\s+\d+\b/gi) || []).length;
-    restaurarFocoEnEditor();
-    document.execCommand("insertHTML", false, `<h1>ESCENA ${cantidadEscenas + 1}</h1><p><br></p>`);
-    sincronizarDesdeEditor();
-    guardarSeleccionEditor();
-  };
-
   const versionActualDeGuionActivo =
     versiones.find((v) => v.id_guion_version === guionActivo?.id_guion_version_actual) || versiones[0];
   const versionSeleccionadaParaLector =
@@ -1303,50 +1346,16 @@ export default function GuionScreen() {
 
     setGenerandoPdf(true);
     try {
-      const { jsPDF } = await import("jspdf");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
-      const anchoUtil = pdf.internal.pageSize.getWidth() - 50;
-      const altoPagina = pdf.internal.pageSize.getHeight();
-      const lineasTitulo = pdf.splitTextToSize(guionActivo?.nombre || "Guion", anchoUtil);
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(18);
-      pdf.text(lineasTitulo, 25, 25);
-      let posicionY = 25 + lineasTitulo.length * 8;
-
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
-      pdf.text(
-        `Versión ${version.numero_de_version} · ${version.estado || "Sin estado"}`,
-        25,
-        posicionY,
-      );
-      posicionY += 12;
-
-      pdf.setFont("courier", "normal");
-      pdf.setFontSize(10);
-      const lineasGuion = pdf.splitTextToSize(htmlATextoPlano(contenido), anchoUtil);
-      lineasGuion.forEach((linea) => {
-        if (posicionY > altoPagina - 22) {
-          pdf.addPage();
-          posicionY = 22;
-        }
-        pdf.text(linea || " ", 25, posicionY);
-        posicionY += 5;
-      });
-
-      const totalPaginas = pdf.getNumberOfPages();
-      for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
-        pdf.setPage(pagina);
-        pdf.setFont("helvetica", "normal");
-        pdf.setFontSize(8);
-        pdf.text(`${pagina} / ${totalPaginas}`, pdf.internal.pageSize.getWidth() - 25, altoPagina - 10, { align: "right" });
-      }
-
       const nombreArchivo = Array.from(`${guionActivo?.nombre || "guion"}-v${version.numero_de_version}`)
         .filter((caracter) => caracter.charCodeAt(0) >= 32 && !'<>:"/\\|?*'.includes(caracter))
         .join("")
         .trim() || "guion";
-      pdf.save(`${nombreArchivo}.pdf`);
+      await generarPdfGuion({
+        titulo: guionActivo?.nombre || "Guion",
+        subtitulo: `Versión ${version.numero_de_version} · ${version.estado || "Sin estado"}`,
+        html: contenido,
+        nombreArchivo,
+      });
     } catch (err) {
       setError(err.message || "No se pudo generar el PDF");
     } finally {
@@ -1445,9 +1454,15 @@ export default function GuionScreen() {
             </div>
 
             {loading ? (
-              <p className="guion-empty">Cargando guiones…</p>
+              <EstadoVista tipo="cargando" mensaje="Cargando guiones…" />
+            ) : guiones.length === 0 && error ? (
+              <EstadoVista tipo="error" mensaje={error} accionTexto="Reintentar" onAccion={fetchGuiones} />
             ) : guiones.length === 0 ? (
-              <p className="guion-empty">Aún no hay guiones en este proyecto.</p>
+              <EstadoVista
+                mensaje="Aún no hay guiones en este proyecto."
+                accionTexto={esAdmin ? "Crear el primer guion" : undefined}
+                onAccion={esAdmin ? () => setShowChoiceModal(true) : undefined}
+              />
             ) : (
               <div className="guion-grid-cards">
                 {guiones.map((g) => (
@@ -1561,15 +1576,7 @@ export default function GuionScreen() {
                 <div className="guion-editor-shell">
                   {botonOcultarHerramientas()}
                   <div className={`guion-editor-toolbar ${herramientasVisibles ? "" : "is-collapsed"}`}>
-                    <button type="button" onClick={() => ejecutarComandoEditor("bold")} title="Negrita"><Bold size={16} /></button>
-                    <button type="button" onClick={() => ejecutarComandoEditor("italic")} title="Cursiva"><Italic size={16} /></button>
-                    <button type="button" onClick={() => ejecutarComandoEditor("underline")} title="Subrayado"><Underline size={16} /></button>
-                    <button type="button" onClick={alternarEncabezado} title="Encabezado"><Heading1 size={16} /></button>
-                    <button type="button" onClick={() => ejecutarComandoEditor("insertUnorderedList")} title="Lista"><List size={16} /></button>
-                    <button type="button" onClick={() => aplicarAlineacionTexto("left")} title="Alinear izquierda"><AlignLeft size={16} /></button>
-                    <button type="button" onClick={() => aplicarAlineacionTexto("center")} title="Centrar"><AlignCenter size={16} /></button>
-                    <button type="button" onClick={() => aplicarAlineacionTexto("right")} title="Alinear derecha"><AlignRight size={16} /></button>
-                    {herramientasExtraEditor()}
+                    {herramientasFormatoEditor()}
                     <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("personaje")}><Users size={15} /> Personaje</button>
                     <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("lugar")}><MapPin size={15} /> Lugar</button>
                     <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("objeto")}><Package size={15} /> Objeto</button>
@@ -1620,8 +1627,13 @@ export default function GuionScreen() {
                     ref={editorRef}
                     contentEditable
                     suppressContentEditableWarning
-                    className={`guion-editor-surface guion-editor-surface--rich guion-editor-surface--${alineacionTexto}`}
+                    className="guion-editor-surface guion-editor-surface--rich guion-pagina"
+                    role="textbox"
+                    aria-label="Editor del guion"
+                    aria-multiline="true"
                     onInput={sincronizarDesdeEditor}
+                    onKeyDown={manejarTeclaEditor}
+                    onPaste={manejarPegadoEditor}
                     onMouseUp={guardarSeleccionEditor}
                     onKeyUp={guardarSeleccionEditor}
                     data-placeholder={
@@ -2037,18 +2049,7 @@ export default function GuionScreen() {
                   <div className="guion-editor-shell guion-reader__editor-shell">
                     {botonOcultarHerramientas()}
                     <div className={`guion-editor-toolbar ${herramientasVisibles ? "" : "is-collapsed"}`} role="toolbar" aria-label="Herramientas de edición del guion">
-                      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => ejecutarComandoEditor("bold")} title="Negrita" aria-label="Negrita"><Bold size={16} /></button>
-                      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => ejecutarComandoEditor("italic")} title="Cursiva" aria-label="Cursiva"><Italic size={16} /></button>
-                      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => ejecutarComandoEditor("underline")} title="Subrayado" aria-label="Subrayado"><Underline size={16} /></button>
-                      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={alternarEncabezado} title="Encabezado" aria-label="Encabezado"><Heading1 size={16} /></button>
-                      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => ejecutarComandoEditor("insertUnorderedList")} title="Lista" aria-label="Lista"><List size={16} /></button>
-                      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => aplicarAlineacionTexto("left")} title="Alinear izquierda" aria-label="Alinear izquierda"><AlignLeft size={16} /></button>
-                      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => aplicarAlineacionTexto("center")} title="Centrar" aria-label="Centrar"><AlignCenter size={16} /></button>
-                      <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => aplicarAlineacionTexto("right")} title="Alinear derecha" aria-label="Alinear derecha"><AlignRight size={16} /></button>
-                      {herramientasExtraEditor()}
-                      <button className="guion-editor-scene-button" type="button" onMouseDown={(event) => event.preventDefault()} onClick={insertarEscenaEnEdicion}>
-                        <Clapperboard size={15} /> Insertar escena
-                      </button>
+                      {herramientasFormatoEditor()}
                       <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("personaje")}><Users size={15} /> Personaje</button>
                       <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("lugar")}><MapPin size={15} /> Lugar</button>
                       <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("objeto")}><Package size={15} /> Objeto</button>
@@ -2062,7 +2063,7 @@ export default function GuionScreen() {
                     </div>
                     <div
                       ref={editorRef}
-                      className="guion-editor-surface guion-editor-surface--rich guion-reader__edit-surface"
+                      className="guion-editor-surface guion-editor-surface--rich guion-reader__edit-surface guion-pagina"
                       contentEditable
                       suppressContentEditableWarning
                       role="textbox"
@@ -2070,6 +2071,8 @@ export default function GuionScreen() {
                       aria-multiline="true"
                       data-placeholder="Escribe aquí el guion..."
                       onInput={sincronizarDesdeEditor}
+                      onKeyDown={manejarTeclaEditor}
+                      onPaste={manejarPegadoEditor}
                       onKeyUp={guardarSeleccionEditor}
                       onMouseUp={guardarSeleccionEditor}
                       onBlur={sincronizarDesdeEditor}
@@ -2085,7 +2088,18 @@ export default function GuionScreen() {
                   </div>
                 </div>
               ) : versionSeleccionadaParaLector.contenido ? (
-                <pre className="guion-reader__text">{htmlATextoPlano(versionSeleccionadaParaLector.contenido)}</pre>
+                <>
+                  <p className="guion-reader__meta">≈ {estimarPaginas(versionSeleccionadaParaLector.contenido)} págs. · ≈ {estimarPaginas(versionSeleccionadaParaLector.contenido)} min (1 página ≈ 1 minuto)</p>
+                  <div className="guion-pagina guion-pagina--lector" aria-label="Texto del guion">
+                    {htmlABloques(versionSeleccionadaParaLector.contenido).map((bloque, i) => (
+                      <p
+                        key={i}
+                        className={claseBloque(bloque.tipo)}
+                        dangerouslySetInnerHTML={{ __html: bloque.html }}
+                      />
+                    ))}
+                  </div>
+                </>
               ) : versionSeleccionadaParaLector.archivo?.toLowerCase().endsWith(".pdf") ? null : (
                 <p className="guion-reader__empty">Este formato no tiene vista previa disponible en el navegador. Usa el acceso al archivo original desde el detalle del guion.</p>
               )}
