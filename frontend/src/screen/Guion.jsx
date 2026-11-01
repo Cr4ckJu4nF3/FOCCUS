@@ -53,6 +53,7 @@ import {
   normalizarHtmlGuion,
   tipoDeElemento,
 } from "../utils/guionBloques";
+import EstadoVista from "../componentes/EstadoVista";
 import "../desing/Guion.css";
 import "../desing/GuionPagina.css";
 
@@ -1453,9 +1454,15 @@ export default function GuionScreen() {
             </div>
 
             {loading ? (
-              <p className="guion-empty">Cargando guiones…</p>
+              <EstadoVista tipo="cargando" mensaje="Cargando guiones…" />
+            ) : guiones.length === 0 && error ? (
+              <EstadoVista tipo="error" mensaje={error} accionTexto="Reintentar" onAccion={fetchGuiones} />
             ) : guiones.length === 0 ? (
-              <p className="guion-empty">Aún no hay guiones en este proyecto.</p>
+              <EstadoVista
+                mensaje="Aún no hay guiones en este proyecto."
+                accionTexto={esAdmin ? "Crear el primer guion" : undefined}
+                onAccion={esAdmin ? () => setShowChoiceModal(true) : undefined}
+              />
             ) : (
               <div className="guion-grid-cards">
                 {guiones.map((g) => (
