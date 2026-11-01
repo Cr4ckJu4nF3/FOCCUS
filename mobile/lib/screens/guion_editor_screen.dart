@@ -301,6 +301,75 @@ class _GuionEditorScreenState extends State<GuionEditorScreen> {
     }
   }
 
+  Future<void> _menuBloques() async {
+    final tipo = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: context.fc.surface,
+      builder: (ctx) {
+        Widget item(IconData i, String t, String sub, String v) => ListTile(
+              leading: Icon(i, color: context.fc.accentText),
+              title: Text(t, style: TextStyle(color: context.fc.text)),
+              subtitle: Text(sub,
+                  style: TextStyle(color: context.fc.textMuted, fontSize: 12)),
+              onTap: () => Navigator.pop(ctx, v),
+            );
+        return SafeArea(
+          child: ListView(shrinkWrap: true, children: [
+            item(Icons.movie_outlined, 'Escena', 'INT. LUGAR - DÍA', 'escena'),
+            item(Icons.notes, 'Acción', 'Lo que se ve y se oye, en presente',
+                'accion'),
+            item(Icons.person_outline, 'Personaje', 'NOMBRE en mayúsculas',
+                'personaje'),
+            item(Icons.chat_bubble_outline, 'Diálogo',
+                'Va justo debajo del personaje', 'dialogo'),
+            item(Icons.short_text, 'Paréntesis', '(cómo lo dice)', 'parentesis'),
+            item(Icons.swap_horiz, 'Transición', 'CORTE A:', 'transicion'),
+          ]),
+        );
+      },
+    );
+    if (!mounted || tipo == null) return;
+    switch (tipo) {
+      case 'escena':
+        await _insertarEscena();
+      case 'accion':
+        _insertarBloque('\n');
+      case 'personaje':
+        _bloqueMayusculas('PERSONAJE', salto: '\n');
+      case 'dialogo':
+        _insertar('Diálogo');
+      case 'parentesis':
+        _envolver('(', ')');
+      case 'transicion':
+        _bloqueMayusculas('CORTE A:', salto: '\n');
+    }
+  }
+
+  // Deja una línea en blanco antes, pone el texto en mayúsculas y lo deja seleccionado.
+  void _bloqueMayusculas(String porDefecto, {String salto = ''}) {
+    final (inicio, fin) = _rango;
+    final texto = _contenido.text;
+    final elegido = inicio == fin
+        ? porDefecto
+        : texto.substring(inicio, fin).toUpperCase();
+    final antes = texto.substring(0, inicio);
+    final prefijo = antes.isEmpty
+        ? ''
+        : antes.endsWith('\n\n')
+            ? ''
+            : antes.endsWith('\n')
+                ? '\n'
+                : '\n\n';
+    final nuevo = '$prefijo$elegido$salto';
+    final desde = inicio + prefijo.length;
+    _contenido.value = TextEditingValue(
+      text: antes + nuevo + texto.substring(fin),
+      selection: TextSelection(
+          baseOffset: desde, extentOffset: desde + elegido.length),
+    );
+    _focus.requestFocus();
+  }
+
   Future<void> _menuInsertar() async {
     final accion = await showModalBottomSheet<String>(
       context: context,
@@ -590,9 +659,9 @@ class _GuionEditorScreenState extends State<GuionEditorScreen> {
                     scrollPadding: const EdgeInsets.all(48),
                     style: const TextStyle(
                         color: _tinta,
-                        fontFamily: 'monospace',
-                        fontSize: 17,
-                        height: 1.6),
+                        fontFamily: 'CourierPrime',
+                        fontSize: 16,
+                        height: 1.5),
                     decoration: const InputDecoration(
                       filled: false,
                       contentPadding: EdgeInsets.fromLTRB(20, 20, 20, 28),
@@ -662,6 +731,13 @@ class _GuionEditorScreenState extends State<GuionEditorScreen> {
                 () => _alinear('right', TextAlign.right)),
             boton(Icons.movie_outlined, 'Encabezado de escena',
                 () => _insertarEscena()),
+            TextButton.icon(
+              onPressed: _menuBloques,
+              icon: Icon(Icons.view_agenda_outlined,
+                  size: 18, color: context.fc.accentText),
+              label: Text('Bloque',
+                  style: TextStyle(color: context.fc.accentText, fontSize: 12)),
+            ),
             TextButton.icon(
               onPressed: _menuInsertar,
               icon: Icon(Icons.add_circle_outline,

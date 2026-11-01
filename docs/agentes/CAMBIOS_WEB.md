@@ -16,3 +16,10 @@ Formato de cada entrada:
 ---
 
 _Sin cambios registrados todavía._
+
+## 2026-11-01 – Formato de guion (informe del investigador) – adaptado en móvil
+- Origen: `investigacion\2026-11-01-formato-guion.md` (sección "Impacto en móvil").
+- Hecho en móvil (rama `mobile`): lector con bloques de guion (escena, acción, personaje, paréntesis, diálogo, transición) en Courier Prime con sangrías proporcionales, tamaño de letra ajustable y "≈ N min"; menú "Bloque" en el editor; editor en Courier Prime.
+- Limitación: el móvil reconoce los bloques por el texto (mayúsculas, `INT./EXT.`, `CORTE A:`), porque el web aún guarda el guion sin bloques tipados. Cuando foccus-web los implemente (`gb-*` o JSON), hay que cambiar `lib\models\guion_formato.dart`.
+- Pendiente para foccus-web: estimación de minutos, PDF y portada desde el backend.
+- Estado para móvil: hecho en móvil (2026-11-01), ajustar cuando el web tenga bloques tipados

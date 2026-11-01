@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config/api_config.dart';
 import '../models/guion.dart';
+import '../models/guion_formato.dart';
 import '../widgets/foccus_ui.dart';
 
 Color estadoColor(BuildContext context, String? estado) {
@@ -152,32 +153,140 @@ class MensajeBanner extends StatelessWidget {
   }
 }
 
-class ContenidoGuion extends StatelessWidget {
+class ContenidoGuion extends StatefulWidget {
   const ContenidoGuion(this.texto, {super.key, this.maxLines});
   final String texto;
   final int? maxLines;
 
   @override
+  State<ContenidoGuion> createState() => _ContenidoGuionState();
+}
+
+class _ContenidoGuionState extends State<ContenidoGuion> {
+  double _tamano = 14;
+
+  static final _inline = RegExp(r'\*\*(.+?)\*\*|__(.+?)__|_(.+?)_');
+
+  TextSpan _spans(String texto, TextStyle base) {
+    final hijos = <InlineSpan>[];
+    var ultimo = 0;
+    for (final m in _inline.allMatches(texto)) {
+      if (m.start > ultimo) hijos.add(TextSpan(text: texto.substring(ultimo, m.start)));
+      if (m.group(1) != null) {
+        hijos.add(TextSpan(
+            text: m.group(1), style: const TextStyle(fontWeight: FontWeight.w700)));
+      } else if (m.group(2) != null) {
+        hijos.add(TextSpan(
+            text: m.group(2),
+            style: const TextStyle(decoration: TextDecoration.underline)));
+      } else {
+        hijos.add(TextSpan(
+            text: m.group(3), style: const TextStyle(fontStyle: FontStyle.italic)));
+      }
+      ultimo = m.end;
+    }
+    if (ultimo < texto.length) hijos.add(TextSpan(text: texto.substring(ultimo)));
+    return TextSpan(style: base, children: hijos);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final estilo = TextStyle(
+        color: context.fc.text,
+        fontFamily: 'CourierPrime',
+        fontSize: _tamano,
+        height: 1.35);
+    final decoracion = BoxDecoration(
+        color: context.fc.surfaceAlt,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: context.fc.border));
+
+    if (widget.maxLines != null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: decoracion,
+        child: Text(
+            widget.texto.replaceAll(RegExp(r'\[/?alinear(:[a-z]+)?\]'), ''),
+            maxLines: widget.maxLines,
+            overflow: TextOverflow.ellipsis,
+            style: estilo.copyWith(fontSize: 13)),
+      );
+    }
+
+    final bloques = analizarGuion(widget.texto);
+    final minutos = minutosEstimados(bloques);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-          color: context.fc.surfaceAlt,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: context.fc.border)),
-      child: maxLines == null
-          ? SelectableText(texto, style: _estilo(context))
-          : Text(texto,
-              maxLines: maxLines,
-              overflow: TextOverflow.ellipsis,
-              style: _estilo(context)),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
+      decoration: decoracion,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(Icons.timer_outlined, size: 16, color: context.fc.textMuted),
+          const SizedBox(width: 4),
+          Text('≈ $minutos min',
+              style: TextStyle(color: context.fc.textMuted, fontSize: 12)),
+          const Spacer(),
+          IconButton(
+              tooltip: 'Letra más pequeña',
+              visualDensity: VisualDensity.compact,
+              onPressed:
+                  _tamano > 10 ? () => setState(() => _tamano -= 1) : null,
+              icon: const Icon(Icons.text_decrease, size: 20)),
+          IconButton(
+              tooltip: 'Letra más grande',
+              visualDensity: VisualDensity.compact,
+              onPressed:
+                  _tamano < 22 ? () => setState(() => _tamano += 1) : null,
+              icon: const Icon(Icons.text_increase, size: 20)),
+        ]),
+        for (final b in bloques) _bloque(b, estilo),
+      ]),
     );
   }
 
-  TextStyle _estilo(BuildContext context) => TextStyle(
-      color: context.fc.text,
-      fontFamily: 'monospace',
-      fontSize: 13,
-      height: 1.5);
+  // Sangrías proporcionales al ancho (el estándar de 6" no cabe en un celular).
+  Widget _bloque(BloqueGuion b, TextStyle estilo) {
+    late final EdgeInsets margen;
+    late final TextAlign alineacion;
+    var base = estilo;
+    var texto = b.texto;
+    switch (b.tipo) {
+      case TipoBloque.escena:
+        margen = const EdgeInsets.only(top: 18, bottom: 6);
+        alineacion = TextAlign.left;
+        base = estilo.copyWith(fontWeight: FontWeight.w700);
+      case TipoBloque.accion:
+        margen = const EdgeInsets.only(top: 6, bottom: 6);
+        alineacion = TextAlign.left;
+      case TipoBloque.personaje:
+        margen = EdgeInsets.only(
+            top: 12, left: MediaQuery.sizeOf(context).width * 0.2);
+        alineacion = TextAlign.left;
+      case TipoBloque.parentesis:
+        margen = EdgeInsets.only(
+            left: MediaQuery.sizeOf(context).width * 0.16,
+            right: MediaQuery.sizeOf(context).width * 0.1);
+        alineacion = TextAlign.left;
+      case TipoBloque.dialogo:
+        margen = EdgeInsets.only(
+            left: MediaQuery.sizeOf(context).width * 0.09,
+            right: MediaQuery.sizeOf(context).width * 0.09);
+        alineacion = TextAlign.left;
+      case TipoBloque.transicion:
+        margen = const EdgeInsets.only(top: 12, bottom: 6);
+        alineacion = TextAlign.right;
+    }
+    if (b.tipo == TipoBloque.personaje || b.tipo == TipoBloque.transicion) {
+      texto = texto.toUpperCase();
+    }
+    return Padding(
+      padding: margen,
+      child: SizedBox(
+        width: double.infinity,
+        child: SelectableText.rich(_spans(texto, base), textAlign: alineacion),
+      ),
+    );
+  }
 }
+

@@ -23,6 +23,14 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: CourierPrime
+      fonts:
+        - asset: assets/fonts/CourierPrime-Regular.ttf
+        - asset: assets/fonts/CourierPrime-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/CourierPrime-Italic.ttf
+          style: italic
   assets:
     - assets/landing.jpeg
     - assets/foccus_logo_white.png
