@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   CalendarDays,
@@ -42,6 +42,7 @@ export default function RodajeScreen() {
   const esAdmin = idRol === 1001;
 
   const [vista, setVista] = useState("lista"); // lista | detalle
+  const [searchParams, setSearchParams] = useSearchParams();
   const [rodajes, setRodajes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -206,6 +207,16 @@ export default function RodajeScreen() {
     setProcesos([]);
     fetchRodajes();
   };
+
+  // Enlace desde el buscador de códigos: /rodaje?rodaje=ID
+  const rodajeParam = searchParams.get("rodaje");
+  useEffect(() => {
+    if (!rodajeParam || loading) return;
+    const found = rodajes.find((r) => String(r.id_rodaje) === rodajeParam);
+    setSearchParams({}, { replace: true });
+    if (found) abrirDetalle(found);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rodajeParam, loading, rodajes]);
 
   const fetchEscenasDisponibles = async () => {
     try {

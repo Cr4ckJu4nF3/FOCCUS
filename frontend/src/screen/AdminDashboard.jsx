@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
 import { apiFetch, clearSession, getActiveRole, setActiveProject as persistActiveProject } from "../api";
+import BuscadorCodigos from "../components/BuscadorCodigos";
 import "../desing/AdminDashboard.css";
 
 const formatOptions = [
@@ -543,6 +544,7 @@ export default function AdminDashboardScreen() {
             <span>/</span>
             <strong>Administrador</strong>
           </div>
+          {isAdmin && projectId && <BuscadorCodigos projectId={projectId} />}
           <div className="admin-profile">
             <button
               type="button"
