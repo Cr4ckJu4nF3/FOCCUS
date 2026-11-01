@@ -29,12 +29,14 @@ class AuthService {
   // ==========================================
   // LOGIN  ->  POST /users/login
   // ==========================================
-  static Future<LoginResult> login(String mail, String contrasena) async {
+  static Future<LoginResult> login(String mail, String contrasena,
+      {bool rememberMe = false}) async {
     final normalizedMail = mail.trim().toLowerCase();
 
     final response = await ApiClient.post('/users/login', body: {
       'mail': normalizedMail,
       'contrasena': contrasena,
+      'remember_me': rememberMe,
     });
 
     if (!response.success) {
@@ -49,6 +51,7 @@ class AuthService {
     // Guardar el token de sesion y los datos del usuario, igual que en
     // Login.jsx. A partir de aca ApiClient ya manda el Bearer token.
     await Session.setToken(data['access_token'] as String?);
+    await Session.setRememberMe(rememberMe);
     await Session.saveUser(data);
 
     // ==========================================
@@ -139,13 +142,15 @@ class AuthService {
   // ==========================================
   // 2FA - VERIFICAR CODIGO  ->  POST /users/2fa/verify
   // ==========================================
-  static Future<LoginResult> verify2faCode(String mail, String codigo) async {
+  static Future<LoginResult> verify2faCode(String mail, String codigo,
+      {bool rememberMe = false}) async {
     final normalizedMail = mail.trim().toLowerCase();
 
     final response = await ApiClient.post('/users/2fa/verify', body: {
       'mail': normalizedMail,
       'codigo': codigo.trim(),
       'device_id': Session.getDeviceId(),
+      'remember_me': rememberMe,
     });
 
     if (!response.success) {
@@ -161,6 +166,48 @@ class AuthService {
     await Session.saveUser(data);
 
     return LoginResult(LoginOutcome.authenticated, mail: normalizedMail);
+  }
+
+  // ==========================================
+  // RECUPERAR CONTRASENA (3 pasos, igual que ForgotPassword.jsx)
+  // ==========================================
+  static Future<ApiResponse> requestRecoveryCode(String mail) =>
+      ApiClient.post('/users/recover-password',
+          body: {'mail': mail.trim().toLowerCase()});
+
+  static Future<ApiResponse> verifyRecoveryCode(String mail, String codigo) =>
+      ApiClient.post('/users/verify-recovery-code',
+          body: {'mail': mail.trim().toLowerCase(), 'codigo': codigo.trim()});
+
+  static Future<ApiResponse> resetPassword(
+          String mail, String codigo, String nuevaContrasena) =>
+      ApiClient.post('/users/reset-password', body: {
+        'mail': mail.trim().toLowerCase(),
+        'codigo': codigo.trim(),
+        'nueva_contrasena': nuevaContrasena,
+      });
+
+  /// Reglas de contrasena identicas a las de la web.
+  static List<String> passwordRulesMissing(String password) {
+    const special = '!@#\$%^&*()_+-=[]{};\':"\\|,.<>/?';
+    return [
+      if (password.length < 8) 'mínimo 8 caracteres',
+      if (!RegExp(r'[a-z]').hasMatch(password)) 'una letra minúscula',
+      if (!RegExp(r'[A-Z]').hasMatch(password)) 'una letra mayúscula',
+      if (!RegExp(r'[0-9]').hasMatch(password)) 'un número',
+      if (!password.split('').any(special.contains)) 'un carácter especial',
+    ];
+  }
+
+  // ==========================================
+  // COMPLETAR CUENTA INVITADA  ->  POST /users/complete-invitation
+  // ==========================================
+  static Future<ApiResponse> completeInvitation(Map<String, dynamic> body) async {
+    final response = await ApiClient.post('/users/complete-invitation', body: body);
+    if (response.success) {
+      await Session.setNeedsProfileCompletion(false);
+    }
+    return response;
   }
 
   // ==========================================

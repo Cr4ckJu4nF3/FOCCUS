@@ -30,6 +30,12 @@ class ApiResponse {
     return d is Map<String, dynamic> ? d : <String, dynamic>{};
   }
 
+  /// `data` cuando el backend responde una lista (escenas, rodajes, etc.).
+  List<dynamic> get list {
+    final d = body['data'];
+    return d is List ? d : <dynamic>[];
+  }
+
   /// Arma el mensaje de error igual que lo hace Login.jsx: primero el
   /// `detail` de FastAPI (que puede ser lista de errores de validacion),
   /// despues el `message` / `error` del propio backend.
@@ -97,6 +103,18 @@ class ApiClient {
     );
   }
 
+  static Future<ApiResponse> put(
+    String path, {
+    Map<String, dynamic>? body,
+    Map<String, String>? headers,
+  }) {
+    return _send(
+      (uri, h) => http.put(uri, headers: h, body: json.encode(body ?? {})),
+      path,
+      headers,
+    );
+  }
+
   static Future<ApiResponse> delete(String path,
       {Map<String, String>? headers}) {
     return _send((uri, h) => http.delete(uri, headers: h), path, headers);
@@ -107,14 +125,51 @@ class ApiClient {
     required String filePath,
     required String fileField,
     Map<String, String> fields = const {},
+  }) {
+    return uploadFiles(
+      path,
+      files: [MapEntry(fileField, filePath)],
+      fields: fields,
+    );
+  }
+
+  /// Envia un formulario multipart con cero, uno o varios archivos.
+  /// `files` son pares (nombre del campo, ruta local). Un campo de `fields`
+  /// puede ser una lista (ej. personajes_vinculados): se manda repetido.
+  static Future<ApiResponse> uploadFiles(
+    String path, {
+    String method = 'POST',
+    List<MapEntry<String, String>> files = const [],
+    Map<String, Object?> fields = const {},
   }) async {
-    final request = http.MultipartRequest('POST', ApiConfig.resolve(path));
+    final request = http.MultipartRequest(method, ApiConfig.resolve(path));
     final token = Session.getToken();
     if (token != null && token.isNotEmpty) {
       request.headers['Authorization'] = 'Bearer $token';
     }
-    request.fields.addAll(fields);
-    request.files.add(await http.MultipartFile.fromPath(fileField, filePath));
+    final projectId = Session.projectId;
+    if (projectId != null && projectId.isNotEmpty) {
+      request.headers['X-Project-Id'] = projectId;
+    }
+    final repeated = <MapEntry<String, String>>[];
+    fields.forEach((key, value) {
+      if (value == null) return;
+      if (value is List) {
+        for (final item in value) {
+          repeated.add(MapEntry(key, item.toString()));
+        }
+      } else {
+        request.fields[key] = value.toString();
+      }
+    });
+    for (final entry in repeated) {
+      // http.MultipartRequest.fields es un Map: para repetir un campo se
+      // agrega como parte de texto aparte.
+      request.files.add(http.MultipartFile.fromString(entry.key, entry.value));
+    }
+    for (final file in files) {
+      request.files.add(await http.MultipartFile.fromPath(file.key, file.value));
+    }
 
     http.StreamedResponse streamedResponse;
     try {
@@ -148,8 +203,11 @@ class ApiClient {
   ) async {
     final token = Session.getToken();
 
+    final projectId = Session.projectId;
     final headers = <String, String>{
       'Content-Type': 'application/json',
+      // El backend exige X-Project-Id en los endpoints de un proyecto.
+      if (projectId != null && projectId.isNotEmpty) 'X-Project-Id': projectId,
       if (extraHeaders != null) ...extraHeaders,
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };

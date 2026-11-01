@@ -1,20 +1,76 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../config/api_config.dart';
-import '../services/api_client.dart';
+import '../models/guion.dart';
+import '../services/guion_service.dart';
 import '../services/session.dart';
-import 'login_screen.dart' show LoginColors;
+import '../widgets/foccus_ui.dart';
+import 'guion_detail_screen.dart';
+import 'guion_editor_screen.dart';
+import 'guion_forms_sheets.dart';
+import 'guion_widgets.dart';
 
-const _versionStates = [
-  'Borrador',
-  'Revision',
-  'Aprobado',
-  'En Rodaje',
-  'Archivado'
-];
+class _DatosNuevoGuionDialog extends StatefulWidget {
+  const _DatosNuevoGuionDialog();
+
+  @override
+  State<_DatosNuevoGuionDialog> createState() => _DatosNuevoGuionDialogState();
+}
+
+class _DatosNuevoGuionDialogState extends State<_DatosNuevoGuionDialog> {
+  final _nombre = TextEditingController();
+  final _descripcion = TextEditingController();
+  final _formulario = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    _nombre.dispose();
+    _descripcion.dispose();
+    super.dispose();
+  }
+
+  void _continuar() {
+    if (_formulario.currentState?.validate() != true) return;
+    Navigator.pop(context, (_nombre.text.trim(), _descripcion.text.trim()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Detalles del guion'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formulario,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextFormField(
+              controller: _nombre,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(labelText: 'Nombre'),
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'El nombre del guion es obligatorio'
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _descripcion,
+              minLines: 2,
+              maxLines: 4,
+              decoration: const InputDecoration(labelText: 'Descripción'),
+            ),
+          ]),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(onPressed: _continuar, child: const Text('Continuar')),
+      ],
+    );
+  }
+}
 
 class GuionScreen extends StatefulWidget {
   const GuionScreen({
@@ -31,941 +87,289 @@ class GuionScreen extends StatefulWidget {
 }
 
 class _GuionScreenState extends State<GuionScreen> {
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _contentController = TextEditingController();
-  final _versionContentController = TextEditingController();
-  final _commentController = TextEditingController();
-  String? _scriptFilePath;
-  String? _scriptFileName;
-  String? _versionFilePath;
-  String? _versionFileName;
-
-  List<dynamic> _scripts = const [];
-  List<dynamic> _versions = const [];
-  Map<String, dynamic>? _activeScript;
-  bool _loading = true;
-  bool _loadingVersions = false;
-  bool _saving = false;
-  bool _creatingVersion = false;
-  bool _uploadingScript = false;
-  bool _uploadingVersion = false;
+  final _busqueda = TextEditingController();
+  List<Guion> _guiones = const [];
+  String? _filtroEstado;
+  bool _cargando = true;
   String? _error;
-  String? _success;
-  String _view = 'list';
-  String _versionState = 'Borrador';
+  String? _exito;
 
-  bool get _isAdmin => Session.idRol == '1001';
+  bool get _isAdmin => Session.isProjectAdmin;
 
   @override
   void initState() {
     super.initState();
-    _loadScripts();
+    _cargar();
   }
 
   @override
   void dispose() {
-    for (final controller in [
-      _titleController,
-      _descriptionController,
-      _contentController,
-      _versionContentController,
-      _commentController,
-    ]) {
-      controller.dispose();
-    }
+    _busqueda.dispose();
     super.dispose();
   }
 
-  Future<void> _loadScripts() async {
+  Future<void> _cargar() async {
     setState(() {
-      _loading = true;
+      _cargando = true;
       _error = null;
     });
-    try {
-      final response =
-          await ApiClient.get('/guiones?id_project=${widget.projectId}');
-      if (!mounted) return;
-      if (response.ok) {
-        final data = response.body['data'];
-        setState(() => _scripts = data is List ? data : const []);
-      } else {
-        setState(() => _error =
-            response.errorMessage('No se pudieron cargar los guiones'));
-      }
-    } on ApiConnectionException {
-      if (mounted) {
-        setState(() => _error = 'No se pudo conectar con el servidor');
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _openScript(Map<String, dynamic> script) async {
+    final result = await GuionService.listar(widget.projectId);
+    if (!mounted) return;
     setState(() {
-      _activeScript = script;
-      _view = 'detail';
-      _versions = const [];
-      _error = null;
-    });
-    await _loadVersions(script['id_guion']);
-  }
-
-  Future<void> _loadVersions(dynamic scriptId) async {
-    setState(() => _loadingVersions = true);
-    try {
-      final response = await ApiClient.get('/guiones/$scriptId/versiones');
-      if (!mounted) return;
-      if (response.ok) {
-        final data = response.body['data'];
-        setState(() => _versions = data is List ? data : const []);
-      } else {
-        setState(() => _error =
-            response.errorMessage('No se pudieron cargar las versiones'));
-      }
-    } on ApiConnectionException {
-      if (mounted) {
-        setState(() => _error = 'No se pudo conectar con el servidor');
-      }
-    } finally {
-      if (mounted) setState(() => _loadingVersions = false);
-    }
-  }
-
-  Future<void> _createScript() async {
-    if (_titleController.text.trim().isEmpty ||
-        _contentController.text.trim().isEmpty) {
-      setState(
-          () => _error = 'El título y el contenido del guion son obligatorios');
-      return;
-    }
-    setState(() {
-      _saving = true;
-      _error = null;
-      _success = null;
-    });
-    try {
-      final response = await ApiClient.post('/guiones/texto', body: {
-        'nombre': _titleController.text.trim(),
-        'descripcion': _descriptionController.text.trim(),
-        'id_project': widget.projectId,
-        'contenido': _contentController.text,
-        'fecha_de_emision': _today(),
-        'estado': 'Borrador',
-      });
-      if (!mounted) return;
-      if (response.ok && response.success) {
-        _clearComposer();
-        setState(() {
-          _view = 'list';
-          _success = 'Guion creado correctamente';
-        });
-        await _loadScripts();
-      } else {
-        setState(
-            () => _error = response.errorMessage('No se pudo crear el guion'));
-      }
-    } on ApiConnectionException {
-      if (mounted) {
-        setState(() => _error = 'No se pudo conectar con el servidor');
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  Future<void> _createVersion() async {
-    final scriptId = _activeScript?['id_guion'];
-    if (scriptId == null || _versionContentController.text.trim().isEmpty) {
-      setState(() => _error = 'Escribe el contenido de la nueva versión');
-      return;
-    }
-    setState(() {
-      _creatingVersion = true;
-      _error = null;
-      _success = null;
-    });
-    try {
-      final response =
-          await ApiClient.post('/guiones/$scriptId/versiones/texto', body: {
-        'contenido': _versionContentController.text,
-        'fecha_de_emision': _today(),
-        'estado': _versionState,
-        'comentario_cambio': _commentController.text.trim(),
-      });
-      if (!mounted) return;
-      if (response.ok && response.success) {
-        _versionContentController.clear();
-        _commentController.clear();
-        setState(() => _success = 'Versión guardada correctamente');
-        await _loadVersions(scriptId);
-        await _loadScripts();
-      } else {
-        setState(() =>
-            _error = response.errorMessage('No se pudo guardar la versión'));
-      }
-    } on ApiConnectionException {
-      if (mounted) {
-        setState(() => _error = 'No se pudo conectar con el servidor');
-      }
-    } finally {
-      if (mounted) setState(() => _creatingVersion = false);
-    }
-  }
-
-  Future<void> _pickFile({required bool version}) async {
-    final files = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'docx', 'fdx'],
-    );
-    if (!mounted || files.isEmpty || files.first.path == null) return;
-
-    final file = files.first;
-    setState(() {
-      if (version) {
-        _versionFilePath = file.path;
-        _versionFileName = file.name;
-      } else {
-        _scriptFilePath = file.path;
-        _scriptFileName = file.name;
-      }
-      _error = null;
+      _guiones = result.data ?? const [];
+      _error = result.error;
+      _cargando = false;
     });
   }
 
-  Future<void> _uploadScript() async {
-    if (_titleController.text.trim().isEmpty) {
-      setState(() => _error = 'El título del guion es obligatorio');
-      return;
-    }
-    final filePath = _scriptFilePath;
-    if (filePath == null) {
-      setState(() => _error = 'Selecciona un archivo PDF, DOCX o FDX');
-      return;
-    }
-
-    setState(() {
-      _uploadingScript = true;
-      _error = null;
-      _success = null;
-    });
-    try {
-      final response = await ApiClient.uploadMultipart(
-        '/guiones/archivo',
-        filePath: filePath,
-        fileField: 'archivo',
-        fields: {
-          'nombre': _titleController.text.trim(),
-          'descripcion': _descriptionController.text.trim(),
-          'id_project': widget.projectId,
-        },
-      );
-      if (!mounted) return;
-      if (response.ok && response.success) {
-        _clearComposer();
-        setState(() {
-          _view = 'list';
-          _scriptFilePath = null;
-          _scriptFileName = null;
-          _success = 'Guion subido correctamente';
-        });
-        await _loadScripts();
-      } else {
-        setState(
-            () => _error = response.errorMessage('No se pudo subir el guion'));
+  List<Guion> get _visibles {
+    final q = _busqueda.text.trim().toLowerCase();
+    return _guiones.where((g) {
+      if (_filtroEstado != null &&
+          normalizarEstado(g.estadoActual) != normalizarEstado(_filtroEstado)) {
+        return false;
       }
-    } on ApiConnectionException {
-      if (mounted) {
-        setState(() => _error = 'No se pudo conectar con el servidor');
-      }
-    } finally {
-      if (mounted) setState(() => _uploadingScript = false);
-    }
+      return q.isEmpty ||
+          g.nombre.toLowerCase().contains(q) ||
+          g.descripcion.toLowerCase().contains(q);
+    }).toList();
   }
 
-  Future<void> _uploadVersion() async {
-    final scriptId = _activeScript?['id_guion'];
-    final filePath = _versionFilePath;
-    if (scriptId == null || filePath == null) {
-      setState(() => _error = 'Selecciona un archivo para la nueva versión');
-      return;
-    }
-
-    setState(() {
-      _uploadingVersion = true;
-      _error = null;
-      _success = null;
-    });
-    try {
-      final response = await ApiClient.uploadMultipart(
-        '/guiones/$scriptId/versiones',
-        filePath: filePath,
-        fileField: 'archivo',
-        fields: {
-          'fecha_de_emision': _today(),
-          'estado': _versionState,
-          'comentario_cambio': _commentController.text.trim(),
-        },
-      );
-      if (!mounted) return;
-      if (response.ok && response.success) {
-        setState(() {
-          _versionFilePath = null;
-          _versionFileName = null;
-          _commentController.clear();
-          _success = 'Versión subida correctamente';
-        });
-        await _loadVersions(scriptId);
-        await _loadScripts();
-      } else {
-        setState(() =>
-            _error = response.errorMessage('No se pudo subir la versión'));
-      }
-    } on ApiConnectionException {
-      if (mounted) {
-        setState(() => _error = 'No se pudo conectar con el servidor');
-      }
-    } finally {
-      if (mounted) setState(() => _uploadingVersion = false);
-    }
-  }
-
-  Future<void> _openFile(String? storedPath) async {
-    if (storedPath == null || storedPath.isEmpty) return;
-    final uri = ApiConfig.resolve('/assets/$storedPath');
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
-        mounted) {
-      setState(() => _error = 'No se pudo abrir el archivo');
-    }
-  }
-
-  Future<void> _deleteScript(Map<String, dynamic> script) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Eliminar guion'),
-        content: Text(
-            '¿Eliminar "${script['nombre'] ?? 'este guion'}"? No se puede deshacer.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar')),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFB83D4B)),
-            child: const Text('Eliminar'),
+  Future<void> _crear() async {
+    final opcion = await mostrarHoja<String>(
+        context, (_) => const GuionElegirCreacionSheet());
+    if (opcion == null || !mounted) return;
+    bool? ok;
+    if (opcion == 'subir') {
+      ok = await mostrarHoja<bool>(
+          context, (_) => GuionSubirSheet(projectId: widget.projectId));
+      if (ok == true) _avisar('Guion subido correctamente');
+    } else {
+      final datos = await _pedirDatosNuevoGuion();
+      if (datos == null || !mounted) return;
+      ok = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => GuionEditorScreen.nuevoGuion(
+            projectId: widget.projectId,
+            nombreInicial: datos.$1,
+            descripcionInicial: datos.$2,
           ),
-        ],
+        ),
+      );
+      if (ok == true) _avisar('Guion creado correctamente');
+    }
+    if (ok == true) await _cargar();
+  }
+
+  Future<(String, String)?> _pedirDatosNuevoGuion() {
+    return showDialog<(String, String)>(
+      context: context,
+      builder: (_) => const _DatosNuevoGuionDialog(),
+    );
+  }
+
+  void _avisar(String texto) {
+    if (mounted) setState(() => _exito = texto);
+  }
+
+  Future<void> _abrir(Guion guion, {int tab = 0}) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => GuionDetailScreen(
+            guion: guion, projectId: widget.projectId, tabInicial: tab),
       ),
     );
-    if (confirmed != true) return;
-    final response = await ApiClient.delete('/guiones/${script['id_guion']}');
-    if (!mounted) return;
-    if (response.ok && response.success) {
-      setState(() => _success = 'Guion eliminado correctamente');
-      await _loadScripts();
-    } else {
-      setState(
-          () => _error = response.errorMessage('No se pudo eliminar el guion'));
+    if (mounted) await _cargar();
+  }
+
+  Future<void> _editar(Guion guion) async {
+    final actualizado = await mostrarHoja<Guion>(
+        context, (_) => GuionEditarSheet(guion: guion));
+    if (actualizado != null) {
+      _avisar('Guion actualizado correctamente');
+      await _cargar();
     }
   }
 
-  String _today() => DateTime.now().toIso8601String().substring(0, 10);
-
-  void _clearComposer() {
-    _titleController.clear();
-    _descriptionController.clear();
-    _contentController.clear();
-    _scriptFilePath = null;
-    _scriptFileName = null;
-  }
-
-  void _backToList() {
-    setState(() {
-      _view = 'list';
-      _activeScript = null;
-      _error = null;
-    });
-    _loadScripts();
+  Future<void> _eliminar(Guion guion) async {
+    if (!await confirmar(context,
+        titulo: 'Eliminar guion',
+        mensaje: '¿Eliminar "${guion.nombre}"? No se puede deshacer.',
+        accion: 'Eliminar',
+        peligro: true)) {
+      return;
+    }
+    final result = await GuionService.eliminar(guion.id);
+    if (!mounted) return;
+    if (result.ok) {
+      _avisar('Guion eliminado correctamente');
+      await _cargar();
+    } else {
+      setState(() => _error = result.error);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF080A10),
-      body: Stack(
-        children: [
-          Positioned.fill(
-              child: Image.asset('assets/landing.jpeg', fit: BoxFit.cover)),
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xE6070A0F),
-                    Color(0xD90F1116),
-                    Color(0xF2080A10)
-                  ],
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 32),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1100),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildHeader(),
-                      const SizedBox(height: 22),
-                      if (_error != null) _message(_error!, false),
-                      if (_success != null) _message(_success!, true),
-                      if (_view == 'list') _buildList(),
-                      if (_view == 'create') _buildComposer(),
-                      if (_view == 'upload') _buildFileComposer(),
-                      if (_view == 'detail') _buildDetail(),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xD90D1116),
-        border: Border(
-            bottom:
-                BorderSide(color: LoginColors.accent.withValues(alpha: 0.28))),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back, color: Colors.white)),
-          const SizedBox(width: 4),
-          const Icon(Icons.description_outlined, color: LoginColors.accent),
-          const SizedBox(width: 8),
-          Expanded(
-              child: Text(widget.projectName,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.spaceGrotesk(
-                      fontWeight: FontWeight.w600, color: Colors.white))),
-          if (_isAdmin)
-            IconButton(
-              tooltip: 'Crear guion',
-              onPressed: () => setState(() {
-                _view = 'create';
-                _error = null;
-                _success = null;
-              }),
-              icon: const Icon(Icons.add, color: Colors.white),
-            ),
-          PopupMenuButton<String>(
-            color: const Color(0xFF1A1A1A),
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            onSelected: (value) {
-              if (value == 'create') {
-                setState(() => _view = 'create');
-              }
-              if (value == 'upload') {
-                setState(() => _view = 'upload');
-              }
-              if (value == 'list') _backToList();
-            },
-            itemBuilder: (context) => [
-              if (_isAdmin)
-                const PopupMenuItem(
-                    value: 'create', child: Text('Crear desde cero')),
-              if (_isAdmin)
-                const PopupMenuItem(
-                    value: 'upload', child: Text('Subir archivo')),
-              const PopupMenuItem(
-                  value: 'list', child: Text('Lista de guiones')),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildList() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text('Guiones',
-                  style: GoogleFonts.spaceGrotesk(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white)),
-            ),
-            Text('${_scripts.length} registros',
-                style: GoogleFonts.inter(fontSize: 12, color: Colors.white60)),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text('Administra las versiones y el contenido de tu proyecto.',
-            style: GoogleFonts.inter(color: Colors.white60)),
-        const SizedBox(height: 18),
-        if (_loading)
-          const Padding(
-              padding: EdgeInsets.all(36),
-              child: Center(
-                  child: CircularProgressIndicator(color: LoginColors.accent)))
-        else if (_scripts.isEmpty)
-          _emptyState()
-        else
-          ..._scripts.map((item) => _scriptCard(item as Map<String, dynamic>)),
+    return FoccusScaffold(
+      title: 'Guiones',
+      subtitle: widget.projectName,
+      actions: [
+        IconButton(
+            tooltip: 'Actualizar',
+            onPressed: _cargar,
+            icon: const Icon(Icons.refresh)),
       ],
+      floatingActionButton: _isAdmin
+          ? FloatingActionButton.extended(
+              onPressed: _crear,
+              backgroundColor: context.fc.accent,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text('Crear guion'),
+            )
+          : null,
+      body: FoccusSwitcher(
+        child: _cargando
+            ? const LoadingView(key: ValueKey('cargando'))
+            : _error != null && _guiones.isEmpty
+                ? ErrorView(
+                    key: const ValueKey('error'),
+                    message: _error!,
+                    onRetry: _cargar)
+                : KeyedSubtree(key: const ValueKey('contenido'), child: _contenido()),
+      ),
     );
   }
 
-  Widget _scriptCard(Map<String, dynamic> script) {
-    final state = (script['estado_actual'] ?? 'Sin versión').toString();
-    final version = script['numero_de_version_actual']?.toString();
-    return InkWell(
-      onTap: () => _openScript(script),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xE6111419),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                  color: const Color(0x263D83C6),
-                  borderRadius: BorderRadius.circular(10)),
-              child:
-                  const Icon(Icons.article_outlined, color: Color(0xFF9CC1FF)),
-            ),
-            const SizedBox(width: 13),
+  Widget _contenido() {
+    final visibles = _visibles;
+    return RefreshIndicator(
+      onRefresh: _cargar,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 96),
+        children: [
+          if (_error != null)
+            MensajeBanner(_error!,
+                exito: false, onClose: () => setState(() => _error = null)),
+          if (_exito != null)
+            MensajeBanner(_exito!,
+                exito: true, onClose: () => setState(() => _exito = null)),
+          Row(children: [
+            Icon(Icons.folder_open, color: context.fc.accentText, size: 20),
+            const SizedBox(width: 8),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(script['nombre']?.toString() ?? 'Guion',
-                      style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
-                  const SizedBox(height: 5),
-                  Text(
-                      script['descripcion']?.toString().isNotEmpty == true
-                          ? script['descripcion'].toString()
-                          : 'Sin descripción',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
-                          fontSize: 12, color: Colors.white60)),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    _pill(state),
-                    if (version != null) ...[
-                      const SizedBox(width: 8),
-                      Text('Versión $version',
-                          style: GoogleFonts.inter(
-                              fontSize: 11, color: Colors.white54))
-                    ],
-                  ]),
-                ],
-              ),
-            ),
-            if (_isAdmin)
-              IconButton(
-                  onPressed: () => _deleteScript(script),
-                  icon:
-                      const Icon(Icons.delete_outline, color: Colors.white54)),
-            const Icon(Icons.chevron_right, color: Colors.white54),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildComposer() {
-    return _panel(
-      title: 'Crear guion desde cero',
-      icon: Icons.edit_note_outlined,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _field('Título del guion', _titleController),
-          _field('Descripción', _descriptionController, maxLines: 2),
-          const SizedBox(height: 8),
-          Text('Contenido inicial',
-              style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white)),
-          const SizedBox(height: 8),
-          Container(
-            decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(10)),
-            child: TextField(
-              controller: _contentController,
-              minLines: 14,
-              maxLines: 24,
-              style: const TextStyle(
-                  color: Color(0xFF111827),
-                  fontFamily: 'monospace',
-                  height: 1.5),
-              decoration: const InputDecoration(
-                  contentPadding: EdgeInsets.all(18),
-                  border: InputBorder.none,
-                  hintText: 'Escribe aquí el contenido del guion...'),
+                child: Text('${_guiones.length} en proyecto',
+                    style: GoogleFonts.inter(color: context.fc.textMuted))),
+          ]),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _busqueda,
+            onChanged: (_) => setState(() {}),
+            style: TextStyle(color: context.fc.text),
+            decoration: foccusInput('Buscar guion').copyWith(
+              prefixIcon: Icon(Icons.search, color: context.fc.textMuted),
+              suffixIcon: _busqueda.text.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: Icon(Icons.close, color: context.fc.textMuted),
+                      onPressed: () => setState(_busqueda.clear)),
             ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              OutlinedButton(
-                  onPressed: _saving ? null : _backToList,
-                  child: const Text('Cancelar')),
-              const SizedBox(width: 10),
-              FilledButton.icon(
-                  onPressed: _saving ? null : _createScript,
-                  icon: const Icon(Icons.save_outlined),
-                  label: Text(_saving ? 'Guardando...' : 'Crear guion')),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFileComposer() {
-    return _panel(
-      title: 'Subir guion',
-      icon: Icons.upload_file_outlined,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _field('Título del guion', _titleController),
-          _field('Descripción', _descriptionController, maxLines: 2),
-          _filePickerTile(
-            fileName: _scriptFileName,
-            onPick: () => _pickFile(version: false),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 36,
+            child: ListView(scrollDirection: Axis.horizontal, children: [
+              _filtro('Todos', null),
+              ...guionEstados.map((e) => _filtro(e, e)),
+            ]),
           ),
           const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              OutlinedButton(
-                onPressed: _uploadingScript ? null : _backToList,
-                child: const Text('Cancelar'),
-              ),
-              const SizedBox(width: 10),
-              FilledButton.icon(
-                onPressed: _uploadingScript ? null : _uploadScript,
-                icon: const Icon(Icons.cloud_upload_outlined),
-                label: Text(_uploadingScript ? 'Subiendo...' : 'Subir archivo'),
-              ),
-            ],
-          ),
+          if (_guiones.isEmpty)
+            const Padding(
+                padding: EdgeInsets.only(top: 60),
+                child: EmptyView(
+                    message: 'Aún no hay guiones en este proyecto.',
+                    icon: Icons.description_outlined))
+          else if (visibles.isEmpty)
+            const Padding(
+                padding: EdgeInsets.only(top: 60),
+                child: EmptyView(
+                    message: 'Ningún guion coincide con la búsqueda.',
+                    icon: Icons.search_off))
+          else
+            ...visibles.indexed.map((e) => FadeSlideIn(
+                key: ValueKey(e.$2.id), index: e.$1, child: _tarjeta(e.$2))),
         ],
       ),
     );
   }
 
-  Widget _buildDetail() {
-    final script = _activeScript;
-    if (script == null) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            IconButton(
-                onPressed: _backToList,
-                icon: const Icon(Icons.arrow_back, color: Colors.white)),
-            Expanded(
-                child: Text(script['nombre']?.toString() ?? 'Guion',
-                    style: GoogleFonts.spaceGrotesk(
-                        fontSize: 25,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white))),
-          ],
+  Widget _filtro(String label, String? valor) => Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: ChoiceChip(
+          label: Text(label),
+          selected: _filtroEstado == valor,
+          selectedColor: context.fc.accent.withValues(alpha: 0.3),
+          backgroundColor: context.fc.surface,
+          labelStyle: TextStyle(color: context.fc.text, fontSize: 12),
+          onSelected: (_) => setState(() => _filtroEstado = valor),
         ),
-        if (script['descripcion'] != null)
-          Text(script['descripcion'].toString(),
-              style: GoogleFonts.inter(color: Colors.white60)),
-        const SizedBox(height: 18),
-        _panel(
-          title: 'Versiones',
-          icon: Icons.history,
-          child: _loadingVersions
-              ? const Center(
-                  child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child:
-                          CircularProgressIndicator(color: LoginColors.accent)))
-              : _versions.isEmpty
-                  ? Text('Este guion todavía no tiene versiones.',
-                      style: GoogleFonts.inter(color: Colors.white60))
-                  : Column(
-                      children: _versions
-                          .map((version) =>
-                              _versionCard(version as Map<String, dynamic>))
-                          .toList()),
-        ),
-        if (_isAdmin) ...[
-          const SizedBox(height: 18),
-          _panel(
-              title: 'Nueva versión escrita',
-              icon: Icons.add_circle_outline,
-              child: _versionComposer()),
-        ],
-      ],
-    );
-  }
+      );
 
-  Widget _versionComposer() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        DropdownButtonFormField<String>(
-          initialValue: _versionState,
-          dropdownColor: const Color(0xFF1A1A1A),
-          decoration: _decoration('Estado'),
-          items: _versionStates
-              .map(
-                  (state) => DropdownMenuItem(value: state, child: Text(state)))
-              .toList(),
-          onChanged: (value) =>
-              setState(() => _versionState = value ?? 'Borrador'),
-        ),
-        const SizedBox(height: 12),
-        _field('Comentario del cambio', _commentController, maxLines: 2),
-        _filePickerTile(
-          fileName: _versionFileName,
-          onPick: () => _pickFile(version: true),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          decoration: BoxDecoration(
-              color: Colors.white, borderRadius: BorderRadius.circular(10)),
-          child: TextField(
-            controller: _versionContentController,
-            minLines: 10,
-            maxLines: 18,
-            style: const TextStyle(
-                color: Color(0xFF111827), fontFamily: 'monospace', height: 1.5),
-            decoration: const InputDecoration(
-                contentPadding: EdgeInsets.all(18),
-                border: InputBorder.none,
-                hintText: 'Escribe el contenido de la nueva versión...'),
-          ),
-        ),
-        const SizedBox(height: 14),
-        Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton.icon(
-                onPressed: _creatingVersion ? null : _createVersion,
-                icon: const Icon(Icons.save_outlined),
-                label: Text(
-                    _creatingVersion ? 'Guardando...' : 'Guardar versión'))),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: OutlinedButton.icon(
-            onPressed: _uploadingVersion ? null : _uploadVersion,
-            icon: const Icon(Icons.cloud_upload_outlined),
-            label: Text(_uploadingVersion ? 'Subiendo...' : 'Subir archivo'),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _versionCard(Map<String, dynamic> version) {
-    final content = version['contenido']?.toString();
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-          color: const Color(0xCC080C11),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Expanded(
-                child: Text('Versión ${version['numero_de_version'] ?? '-'}',
-                    style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w600, color: Colors.white))),
-            _pill(version['estado']?.toString() ?? 'Borrador')
-          ]),
-          const SizedBox(height: 6),
-          Text(
-              '${version['fecha_de_emision'] ?? ''}  ·  ${version['comentario_cambio'] ?? 'Sin comentario'}',
-              style: GoogleFonts.inter(fontSize: 11, color: Colors.white54)),
-          if (content != null && content.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                color: const Color(0xFF0A0A0A),
-                child: Text(content,
-                    maxLines: 8,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Colors.white70,
-                        fontFamily: 'monospace',
-                        fontSize: 12))),
-          ] else if (version['archivo'] != null) ...[
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: () => _openFile(version['archivo']?.toString()),
-              icon: const Icon(Icons.picture_as_pdf_outlined, size: 17),
-              label: const Text('Abrir archivo'),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _panel(
-      {required String title, required IconData icon, required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-          color: const Color(0xE6111419),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12))),
+  Widget _tarjeta(Guion g) {
+    return FoccusCard(
+      onTap: () => _abrir(g),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Icon(icon, color: LoginColors.accent),
-          const SizedBox(width: 9),
-          Text(title,
-              style: GoogleFonts.spaceGrotesk(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white))
+          EstadoChip(g.estadoActual),
+          const Spacer(),
+          if (_isAdmin)
+            PopupMenuButton<String>(
+              color: context.fc.surface,
+              icon: Icon(Icons.more_vert, color: context.fc.textMuted, size: 20),
+              onSelected: (v) => v == 'editar' ? _editar(g) : _eliminar(g),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'editar', child: Text('Editar')),
+                PopupMenuItem(value: 'eliminar', child: Text('Eliminar')),
+              ],
+            ),
         ]),
-        const SizedBox(height: 16),
-        child,
+        const SizedBox(height: 8),
+        Text(g.nombre,
+            style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: context.fc.text)),
+        if (g.descripcion.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(g.descripcion,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(fontSize: 12, color: context.fc.textMuted)),
+        ],
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+            child: Text(
+                g.numeroVersionActual != null
+                    ? 'Versión v${g.numeroVersionActual}'
+                    : 'Sin versiones',
+                style: GoogleFonts.inter(fontSize: 12, color: context.fc.textMuted)),
+          ),
+          TextButton.icon(
+            onPressed: () => _abrir(g, tab: 1),
+            style: TextButton.styleFrom(
+                foregroundColor: context.fc.accentText,
+                visualDensity: VisualDensity.compact),
+            icon: const Icon(Icons.history, size: 16),
+            label: const Text('Versiones', style: TextStyle(fontSize: 12)),
+          ),
+        ]),
       ]),
     );
   }
-
-  Widget _field(String label, TextEditingController controller,
-          {int maxLines = 1}) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: TextField(
-            controller: controller,
-            maxLines: maxLines,
-            style: const TextStyle(color: Colors.white),
-            decoration: _decoration(label)),
-      );
-
-  Widget _filePickerTile(
-      {required String? fileName, required VoidCallback onPick}) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0x1FE67E5C),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: LoginColors.accent.withValues(alpha: 0.45)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.attach_file, color: LoginColors.accent),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              fileName ?? 'PDF, DOCX o FDX',
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.inter(fontSize: 12, color: Colors.white70),
-            ),
-          ),
-          OutlinedButton.icon(
-            onPressed: onPick,
-            icon: const Icon(Icons.folder_open_outlined, size: 16),
-            label: Text(fileName == null ? 'Seleccionar' : 'Cambiar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  InputDecoration _decoration(String label) => InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white60),
-        filled: true,
-        fillColor: const Color(0x261A1A1A),
-        border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide:
-                BorderSide(color: Colors.white.withValues(alpha: 0.16))),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide:
-                BorderSide(color: Colors.white.withValues(alpha: 0.16))),
-        focusedBorder: const OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(9)),
-            borderSide: BorderSide(color: LoginColors.accent)),
-      );
-
-  Widget _pill(String text) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-          color: const Color(0x2E0B4F8A),
-          borderRadius: BorderRadius.circular(20)),
-      child: Text(text,
-          style: GoogleFonts.inter(
-              fontSize: 10,
-              color: const Color(0xFFB8D7FF),
-              fontWeight: FontWeight.w600)));
-
-  Widget _emptyState() => _panel(
-      title: 'Sin guiones',
-      icon: Icons.folder_open_outlined,
-      child: Column(children: [
-        Text('Aún no hay guiones en este proyecto.',
-            style: GoogleFonts.inter(color: Colors.white60)),
-        if (_isAdmin) ...[
-          const SizedBox(height: 14),
-          FilledButton.icon(
-              onPressed: () => setState(() => _view = 'create'),
-              icon: const Icon(Icons.add),
-              label: const Text('Crear desde cero'))
-        ]
-      ]));
-
-  Widget _message(String text, bool success) => Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-          color: (success ? Colors.green : Colors.red).withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(8)),
-      child: Text(text,
-          style: TextStyle(
-              color: success ? Colors.greenAccent : Colors.redAccent)));
 }
+

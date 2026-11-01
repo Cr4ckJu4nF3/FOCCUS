@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../widgets/foccus_ui.dart';
 import 'login_screen.dart';
 
-class FoccusColors {
+class LandingColors {
   static const background = Color(0xFF0A0A12);
   static const surface = Color(0xFF151520);
   static const border = Color(0x2AFFFFFF);
@@ -51,7 +52,7 @@ class _LandingScreenState extends State<LandingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: FoccusColors.background,
+      backgroundColor: context.fc.bg,
       body: Stack(
         children: [
           SingleChildScrollView(
@@ -84,12 +85,12 @@ class _LandingScreenState extends State<LandingScreen> {
             DecoratedBox(
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.42),
-                border: Border.all(color: FoccusColors.border),
+                border: Border.all(color: LandingColors.border),
                 borderRadius: BorderRadius.circular(30),
               ),
               child: PopupMenuButton<String>(
                 icon: const Icon(Icons.menu_rounded, color: Colors.white),
-                color: FoccusColors.surface,
+                color: LandingColors.surface,
                 onSelected: (value) {
                   final targets = {
                     'Inicio': _homeKey,
@@ -140,7 +141,9 @@ class _LandingScreenState extends State<LandingScreen> {
           children: [
             SizedBox(
               height: heroHeight * 0.52,
-              child: Image.asset('assets/foccus_logo_white.png', fit: BoxFit.contain),
+              child: FadeSlideIn(
+                child: Image.asset('assets/foccus_logo_white.png', fit: BoxFit.contain),
+              ),
             ),
           ],
         ),
@@ -149,34 +152,41 @@ class _LandingScreenState extends State<LandingScreen> {
   }
 
   Widget _heroIntro() {
+    final fc = context.fc;
     return Container(
       width: double.infinity,
-      color: FoccusColors.background,
+      color: fc.bg,
       padding: const EdgeInsets.fromLTRB(24, 56, 24, 70),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'PLATAFORMA DE CONTINUIDAD CINEMATOGRÁFICA',
-            style: GoogleFonts.inter(
-              fontSize: 10,
-              letterSpacing: 2,
-              color: FoccusColors.muted,
-              fontWeight: FontWeight.w600,
+          FadeSlideIn(
+            index: 0,
+            child: Text(
+              'PLATAFORMA DE CONTINUIDAD CINEMATOGRÁFICA',
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                letterSpacing: 2,
+                color: fc.textMuted,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           const SizedBox(height: 18),
-          Text(
-            'La plataforma profesional para montar, gestionar y mantener la continuidad de cada proyecto cinematográfico.',
-            style: GoogleFonts.inter(
-              fontSize: 19,
-              height: 1.5,
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
+          FadeSlideIn(
+            index: 1,
+            child: Text(
+              'La plataforma profesional para montar, gestionar y mantener la continuidad de cada proyecto cinematográfico.',
+              style: GoogleFonts.inter(
+                fontSize: 19,
+                height: 1.5,
+                color: fc.text,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           const SizedBox(height: 26),
-          _gradientButton('Comenzar gratis', _goToLogin),
+          FadeSlideIn(index: 2, child: _gradientButton('Comenzar gratis', _goToLogin)),
         ],
       ),
     );
@@ -229,37 +239,46 @@ class _LandingScreenState extends State<LandingScreen> {
   }
 
   Widget _section({Key? key, required String title, required String subtitle, required List<Widget> children, bool dark = false}) {
+    final fc = context.fc;
     return Container(
       key: key,
       width: double.infinity,
-      color: dark ? const Color(0xFF0D0D16) : FoccusColors.background,
+      color: dark ? fc.surfaceAlt : fc.bg,
       padding: const EdgeInsets.fromLTRB(24, 70, 24, 70),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: GoogleFonts.spaceGrotesk(fontSize: 30, fontWeight: FontWeight.w500, color: Colors.white)),
+          FadeSlideIn(
+            child: Text(title, style: GoogleFonts.spaceGrotesk(fontSize: 30, fontWeight: FontWeight.w500, color: fc.text)),
+          ),
           const SizedBox(height: 10),
-          Text(subtitle, style: GoogleFonts.inter(fontSize: 15, height: 1.5, color: FoccusColors.muted)),
+          FadeSlideIn(
+            index: 1,
+            child: Text(subtitle, style: GoogleFonts.inter(fontSize: 15, height: 1.5, color: fc.textMuted)),
+          ),
           const SizedBox(height: 32),
-          ...children,
+          for (var i = 0; i < children.length; i++)
+            FadeSlideIn(index: i + 2, child: children[i]),
         ],
       ),
     );
   }
 
   Widget _valueCard(String number, String title, String description) {
+    final fc = context.fc;
     return _outlinedBox(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _number(number),
         const SizedBox(height: 14),
-        Text(title, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
+        Text(title, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: fc.text)),
         const SizedBox(height: 8),
-        Text(description, style: GoogleFonts.inter(fontSize: 12, height: 1.45, color: FoccusColors.muted)),
+        Text(description, style: GoogleFonts.inter(fontSize: 12, height: 1.45, color: fc.textMuted)),
       ]),
     );
   }
 
   Widget _serviceCard(String number, String title, String description) {
+    final fc = context.fc;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: _outlinedBox(
@@ -267,9 +286,9 @@ class _LandingScreenState extends State<LandingScreen> {
           _number(number),
           const SizedBox(width: 18),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+            Text(title, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: fc.text)),
             const SizedBox(height: 8),
-            Text(description, style: GoogleFonts.inter(fontSize: 13, height: 1.5, color: FoccusColors.muted)),
+            Text(description, style: GoogleFonts.inter(fontSize: 13, height: 1.5, color: fc.textMuted)),
           ])),
         ]),
       ),
@@ -277,12 +296,13 @@ class _LandingScreenState extends State<LandingScreen> {
   }
 
   Widget _outlinedBox({required Widget child}) {
+    final fc = context.fc;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.035),
-        border: Border.all(color: FoccusColors.border),
+        color: fc.surface,
+        border: Border.all(color: fc.border),
         borderRadius: BorderRadius.circular(16),
       ),
       child: child,
@@ -291,24 +311,24 @@ class _LandingScreenState extends State<LandingScreen> {
 
   Widget _number(String value) {
     return ShaderMask(
-      shaderCallback: (bounds) => const LinearGradient(colors: [FoccusColors.blue, FoccusColors.violet]).createShader(bounds),
+      shaderCallback: (bounds) => const LinearGradient(colors: [LandingColors.blue, LandingColors.violet]).createShader(bounds),
       child: Text(value, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: Colors.white)),
     );
   }
 
-  Widget _bodyText(String text) => Text(text, style: GoogleFonts.inter(fontSize: 15, height: 1.75, color: FoccusColors.muted));
+  Widget _bodyText(String text) => Text(text, style: GoogleFonts.inter(fontSize: 15, height: 1.75, color: context.fc.textMuted));
 
   Widget _gradientButton(String label, VoidCallback onPressed) {
     return SizedBox(
       width: double.infinity,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [FoccusColors.blue, FoccusColors.violet]),
+          gradient: const LinearGradient(colors: [LandingColors.blue, LandingColors.violet]),
           borderRadius: BorderRadius.circular(30),
         ),
         child: ElevatedButton(
           onPressed: onPressed,
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 17), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
           child: Text(label, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600)),
         ),
       ),
@@ -316,12 +336,14 @@ class _LandingScreenState extends State<LandingScreen> {
   }
 
   Widget _footer() {
-    return Padding(
+    return Container(
+      width: double.infinity,
+      color: LandingColors.background,
       padding: const EdgeInsets.fromLTRB(24, 34, 24, 42),
       child: Column(children: [
         Image.asset('assets/foccus_wordmark_white.png', width: 118),
         const SizedBox(height: 18),
-        Text('Hecho en Colombia · © 2026 FOCCUS', style: GoogleFonts.inter(fontSize: 11, color: FoccusColors.muted)),
+        Text('Hecho en Colombia · © 2026 FOCCUS', style: GoogleFonts.inter(fontSize: 11, color: LandingColors.muted)),
       ]),
     );
   }

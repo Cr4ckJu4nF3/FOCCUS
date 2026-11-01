@@ -4,25 +4,60 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/session.dart';
+import '../services/theme_controller.dart';
+import '../widgets/foccus_ui.dart';
 import 'login_screen.dart' show LoginColors;
 import 'project_home_screen.dart';
 
 // Mismas listas fijas que usa ProjectSelection.jsx (formatOptions / genreOptions).
 const _formatOptions = [
-  'serie', 'miniserie', 'pelicula', 'largometraje', 'mediometraje', 'cortometraje',
-  'documental', 'spot publicitario', 'video musical', 'video corporativo',
-  'video educativo', 'micro-formato', 'mockumentary',
+  'serie',
+  'miniserie',
+  'pelicula',
+  'largometraje',
+  'mediometraje',
+  'cortometraje',
+  'documental',
+  'spot publicitario',
+  'video musical',
+  'video corporativo',
+  'video educativo',
+  'micro-formato',
+  'mockumentary',
 ];
 
 const _genreOptions = [
-  'accion', 'comedia', 'aventura', 'drama', 'terror', 'ciencia ficcion',
-  'fantasia', 'suspenso', 'musical', 'western', 'belico', 'romance',
-  'crimen', 'misterio', 'animacion', 'biopic', 'documental', 'video',
-  'artes marciales', 'thriller', 'historico', 'epoca', 'familiar',
-  'deportivo', 'horror', 'paranormal', 'otro',
+  'accion',
+  'comedia',
+  'aventura',
+  'drama',
+  'terror',
+  'ciencia ficcion',
+  'fantasia',
+  'suspenso',
+  'musical',
+  'western',
+  'belico',
+  'romance',
+  'crimen',
+  'misterio',
+  'animacion',
+  'biopic',
+  'documental',
+  'video',
+  'artes marciales',
+  'thriller',
+  'historico',
+  'epoca',
+  'familiar',
+  'deportivo',
+  'horror',
+  'paranormal',
+  'otro',
 ];
 
-String _capitalize(String s) => s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+String _capitalize(String s) =>
+    s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
 
 /// Equivalente a ProjectSelectionScreen (/seleccion-proyecto en la web):
 /// escoger un proyecto existente o crear uno nuevo (solo admin).
@@ -72,9 +107,15 @@ class _ProjectSelectionScreenState extends State<ProjectSelectionScreen> {
     if (opening) _fetchProjects();
   }
 
-  void _selectProject(Map project) {
+  Future<void> _selectProject(Map project) async {
     final id = (project['id_project'] ?? '').toString();
     final name = (project['project_name'] ?? '').toString();
+    await Session.setActiveProject(
+      projectId: id,
+      projectName: name,
+      role: int.tryParse((project['id_rol'] ?? '').toString()),
+    );
+    if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ProjectHomeScreen(projectId: id, projectName: name),
@@ -86,6 +127,7 @@ class _ProjectSelectionScreenState extends State<ProjectSelectionScreen> {
     final created = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const _CreateProjectSheet(),
     );
@@ -93,6 +135,10 @@ class _ProjectSelectionScreenState extends State<ProjectSelectionScreen> {
     if (created != null && mounted) {
       final id = (created['id_project'] ?? '').toString();
       final name = (created['project_name'] ?? '').toString();
+      // Quien crea el proyecto es su administrador (1001).
+      await Session.setActiveProject(
+          projectId: id, projectName: name, role: 1001);
+      if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => ProjectHomeScreen(projectId: id, projectName: name),
@@ -109,93 +155,127 @@ class _ProjectSelectionScreenState extends State<ProjectSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final fc = context.fc;
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A12),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 28),
-              _buildHeading(),
-              if (_error != null) ...[
-                const SizedBox(height: 16),
-                _errorBanner(_error!),
-              ],
-              const SizedBox(height: 24),
-              _buildActionCard(
-                icon: Icons.folder_open_outlined,
-                title: 'Escoger Proyecto',
-                subtitle: 'Acceder a un proyecto existente',
-                active: _showProjectList,
-                onTap: _toggleProjectList,
-              ),
-              if (_esAdmin) ...[
-                const SizedBox(height: 12),
-                _buildActionCard(
-                  icon: Icons.add_circle_outline,
-                  title: 'Crear Proyecto',
-                  subtitle: 'Registrar un nuevo proyecto',
-                  active: false,
-                  onTap: _openCreateSheet,
-                ),
-              ],
-              if (_showProjectList) ...[
-                const SizedBox(height: 24),
-                _buildProjectList(),
-              ],
-            ],
-          ),
-        ),
-      ),
+      backgroundColor: fc.bg,
+      body: Stack(children: [
+        Positioned.fill(
+            child: Image.asset('assets/landing.jpeg', fit: BoxFit.cover)),
+        Positioned.fill(
+            child: DecoratedBox(
+                decoration: BoxDecoration(
+          gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                fc.bg.withValues(alpha: 0.93),
+                fc.bg.withValues(alpha: 0.9),
+                fc.bg.withValues(alpha: 0.96),
+              ]),
+        ))),
+        SafeArea(
+            child: RefreshIndicator(
+                onRefresh: () async {
+                  if (_showProjectList) await _fetchProjects();
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                  child: Center(
+                      child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 760),
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildHeader(),
+                                const SizedBox(height: 24),
+                                _buildHeading(),
+                                if (_error != null) ...[
+                                  const SizedBox(height: 16),
+                                  _errorBanner(_error!)
+                                ],
+                                const SizedBox(height: 24),
+                                FadeSlideIn(
+                                  index: 0,
+                                  child: _buildActionCard(
+                                      icon: Icons.folder_open_outlined,
+                                      title: 'Escoger Proyecto',
+                                      subtitle:
+                                          'Acceder a un proyecto existente',
+                                      active: _showProjectList,
+                                      onTap: _toggleProjectList),
+                                ),
+                                if (_esAdmin) ...[
+                                  const SizedBox(height: 12),
+                                  FadeSlideIn(
+                                    index: 1,
+                                    child: _buildActionCard(
+                                        icon: Icons.add_circle_outline,
+                                        title: 'Crear Proyecto',
+                                        subtitle: 'Registrar un nuevo proyecto',
+                                        active: false,
+                                        onTap: _openCreateSheet),
+                                  ),
+                                ],
+                                if (_showProjectList) ...[
+                                  const SizedBox(height: 24),
+                                  FadeSlideIn(
+                                      index: 2, child: _buildProjectList())
+                                ],
+                              ]))),
+                ))),
+      ]),
     );
   }
 
   Widget _buildHeader() {
+    final fc = context.fc;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          'FOCCUS',
-          style: GoogleFonts.spaceGrotesk(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
-            color: LoginColors.textPrimary,
-          ),
-        ),
-        TextButton.icon(
-          onPressed: _logout,
-          icon: const Icon(Icons.logout, size: 16, color: LoginColors.textMuted),
-          label: Text(
-            'Cerrar sesión',
-            style: GoogleFonts.inter(fontSize: 13, color: LoginColors.textMuted),
-          ),
+        Image.asset('assets/foccus_wordmark_white.png',
+            height: 38,
+            fit: BoxFit.contain,
+            color: fc.text,
+            colorBlendMode: BlendMode.srcIn),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ThemeToggleButton(),
+            TextButton.icon(
+              onPressed: _logout,
+              style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+              icon: Icon(Icons.logout, size: 18, color: fc.textMuted),
+              label: Text(
+                'Cerrar sesión',
+                style: GoogleFonts.inter(fontSize: 14, color: fc.textMuted),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
   Widget _buildHeading() {
+    final fc = context.fc;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(Icons.theaters_outlined, color: LoginColors.accent, size: 30),
+        Icon(Icons.theaters_outlined, color: fc.accentText, size: 30),
         const SizedBox(height: 10),
         Text(
           'Gestión de Proyectos',
           style: GoogleFonts.spaceGrotesk(
             fontSize: 24,
             fontWeight: FontWeight.w600,
-            color: LoginColors.textPrimary,
+            color: fc.text,
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          'Consulte tus proyectos.',
-          style: GoogleFonts.inter(fontSize: 14, color: LoginColors.textMuted),
+          'Consulta y administra tus proyectos.',
+          style: GoogleFonts.inter(fontSize: 14, color: fc.textMuted),
         ),
       ],
     );
@@ -208,73 +288,80 @@ class _ProjectSelectionScreenState extends State<ProjectSelectionScreen> {
     required bool active,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: active
-              ? const Color(0x1FE67E5C)
-              : const Color(0xE0111419),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: active ? LoginColors.accent : const Color(0x1FFAFAFA),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: const Color(0x14FAFAFA),
-                borderRadius: BorderRadius.circular(10),
+    final fc = context.fc;
+    return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(FoccusDims.radiusCard),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            constraints: const BoxConstraints(minHeight: 72),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: active ? const Color(0x1FE67E5C) : fc.surface,
+              borderRadius: BorderRadius.circular(FoccusDims.radiusCard),
+              border: Border.all(
+                color: active ? LoginColors.accent : fc.border,
               ),
-              child: Icon(icon, color: LoginColors.textPrimary, size: 22),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: LoginColors.textPrimary,
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: fc.surfaceAlt,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: fc.text, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: fc.text,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: GoogleFonts.inter(
+                            fontSize: 14, color: fc.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+                if (active)
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: LoginColors.accent,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: GoogleFonts.inter(fontSize: 12.5, color: LoginColors.textMuted),
-                  ),
-                ],
-              ),
+              ],
             ),
-            if (active)
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: LoginColors.accent,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
+          ),
+        ));
   }
 
   Widget _buildProjectList() {
+    final fc = context.fc;
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xE0111419),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0x1FFAFAFA)),
+        color: fc.surface,
+        borderRadius: BorderRadius.circular(FoccusDims.radiusCard),
+        border: Border.all(color: fc.border),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -282,38 +369,56 @@ class _ProjectSelectionScreenState extends State<ProjectSelectionScreen> {
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
             child: Row(
               children: [
-                const Icon(Icons.movie_outlined, size: 18, color: LoginColors.textMuted),
+                Icon(Icons.movie_outlined, size: 18, color: fc.textMuted),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Proyectos disponibles',
-                    style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.inter(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: fc.text),
                   ),
                 ),
                 Text(
                   '${_projects.length} proyectos',
-                  style: GoogleFonts.inter(fontSize: 12, color: LoginColors.textMuted),
+                  style: GoogleFonts.inter(fontSize: 13, color: fc.textMuted),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0x1FFAFAFA)),
-          if (_loadingProjects)
-            const Padding(
-              padding: EdgeInsets.all(28),
-              child: Center(child: CircularProgressIndicator(color: LoginColors.accent)),
-            )
-          else if (_projects.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                'No hay proyectos disponibles. Crea uno nuevo.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(fontSize: 13, color: LoginColors.textMuted),
-              ),
-            )
-          else
-            ..._projects.map((p) => _projectTile(p as Map)),
+          Divider(height: 1, color: fc.border),
+          FoccusSwitcher(
+            child: _loadingProjects
+                ? const Padding(
+                    key: ValueKey('loading'),
+                    padding: EdgeInsets.all(28),
+                    child: Center(
+                        child: CircularProgressIndicator(
+                            color: LoginColors.accent)),
+                  )
+                : _projects.isEmpty
+                    ? Padding(
+                        key: const ValueKey('empty'),
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          'No hay proyectos disponibles. Crea uno nuevo.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inter(
+                              fontSize: 14, color: fc.textMuted),
+                        ),
+                      )
+                    : Column(
+                        key: const ValueKey('list'),
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (var i = 0; i < _projects.length; i++)
+                            FadeSlideIn(
+                                index: i,
+                                child: _projectTile(_projects[i] as Map)),
+                        ],
+                      ),
+          ),
         ],
       ),
     );
@@ -331,20 +436,22 @@ class _ProjectSelectionScreenState extends State<ProjectSelectionScreen> {
       if (director.isNotEmpty) 'Dir. $director',
     ].join(' · ');
 
+    final fc = context.fc;
     return InkWell(
       onTap: () => _selectProject(project),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: const Color(0x1FE67E5C),
                 borderRadius: BorderRadius.circular(9),
               ),
-              child: const Icon(Icons.theaters_outlined, size: 18, color: LoginColors.accent),
+              child:
+                  Icon(Icons.theaters_outlined, size: 18, color: fc.accentText),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -353,19 +460,27 @@ class _ProjectSelectionScreenState extends State<ProjectSelectionScreen> {
                 children: [
                   Text(
                     nombre,
-                    style: GoogleFonts.inter(fontSize: 14.5, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: fc.text),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   if (meta.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(
                       meta,
-                      style: GoogleFonts.inter(fontSize: 12, color: LoginColors.textMuted),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          GoogleFonts.inter(fontSize: 13, color: fc.textMuted),
                     ),
                   ],
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, size: 20, color: LoginColors.textMuted),
+            Icon(Icons.chevron_right, size: 20, color: fc.textMuted),
           ],
         ),
       ),
@@ -373,15 +488,17 @@ class _ProjectSelectionScreenState extends State<ProjectSelectionScreen> {
   }
 
   Widget _errorBanner(String message) {
+    final fc = context.fc;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: LoginColors.errorBg,
-        border: Border.all(color: LoginColors.errorBorder),
-        borderRadius: BorderRadius.circular(4),
+        color: fc.errorBg,
+        border: Border.all(color: fc.errorBorder),
+        borderRadius: BorderRadius.circular(FoccusDims.radiusField),
       ),
-      child: Text(message, style: GoogleFonts.inter(fontSize: 13.5, color: LoginColors.errorText)),
+      child: Text(message,
+          style: GoogleFonts.inter(fontSize: 14, color: fc.error)),
     );
   }
 }
@@ -446,7 +563,8 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
         };
         Navigator.of(context).pop(result);
       } else {
-        setState(() => _error = response.errorMessage('Error al crear el proyecto'));
+        setState(
+            () => _error = response.errorMessage('Error al crear el proyecto'));
       }
     } on ApiConnectionException {
       if (!mounted) return;
@@ -458,18 +576,21 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final fc = context.fc;
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF14171B),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-          border: Border(top: BorderSide(color: Color(0x29FAFAFA))),
+        decoration: BoxDecoration(
+          color: fc.surface.withValues(alpha: 1),
+          borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(FoccusDims.radiusSheet)),
+          border: Border(top: BorderSide(color: fc.border)),
         ),
         child: SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
             child: Form(
               key: _formKey,
               child: Column(
@@ -485,9 +606,9 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
                           Text(
                             'NUEVO REGISTRO',
                             style: GoogleFonts.inter(
-                              fontSize: 11,
+                              fontSize: 13,
                               letterSpacing: 0.8,
-                              color: LoginColors.accent,
+                              color: fc.accentText,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -496,14 +617,15 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
                             style: GoogleFonts.spaceGrotesk(
                               fontSize: 19,
                               fontWeight: FontWeight.w600,
-                              color: LoginColors.textPrimary,
+                              color: fc.text,
                             ),
                           ),
                         ],
                       ),
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close, color: LoginColors.textMuted),
+                        tooltip: 'Cerrar',
+                        icon: Icon(Icons.close, color: fc.textMuted),
                       ),
                     ],
                   ),
@@ -522,13 +644,15 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
                               width: double.infinity,
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: LoginColors.errorBg,
-                                border: Border.all(color: LoginColors.errorBorder),
-                                borderRadius: BorderRadius.circular(4),
+                                color: fc.errorBg,
+                                border: Border.all(color: fc.errorBorder),
+                                borderRadius: BorderRadius.circular(
+                                    FoccusDims.radiusField),
                               ),
                               child: Text(
                                 _error!,
-                                style: GoogleFonts.inter(fontSize: 13, color: LoginColors.errorText),
+                                style: GoogleFonts.inter(
+                                    fontSize: 14, color: fc.error),
                               ),
                             ),
                           ],
@@ -537,8 +661,11 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
                           const SizedBox(height: 6),
                           _textField(
                             controller: _nombreCtrl,
-                            hint: 'Nombre de la serie, película u otro proyecto',
-                            validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                            hint:
+                                'Nombre de la serie, película u otro proyecto',
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Requerido'
+                                : null,
                           ),
                           const SizedBox(height: 16),
                           _label('Formato'),
@@ -563,7 +690,8 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
                           const SizedBox(height: 6),
                           _textField(
                             controller: _sinopsisCtrl,
-                            hint: 'Detalle de lo que trata el producto audiovisual',
+                            hint:
+                                'Detalle de lo que trata el producto audiovisual',
                             maxLines: 3,
                           ),
                           const SizedBox(height: 16),
@@ -571,7 +699,8 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
                           const SizedBox(height: 6),
                           _textField(
                             controller: _directorCtrl,
-                            hint: 'Director o directores del producto audiovisual',
+                            hint:
+                                'Director o directores del producto audiovisual',
                           ),
                         ],
                       ),
@@ -584,10 +713,12 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
                         child: OutlinedButton(
                           onPressed: () => Navigator.of(context).pop(),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: LoginColors.textPrimary,
-                            side: const BorderSide(color: LoginColors.inputBorder),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                            foregroundColor: fc.text,
+                            side: BorderSide(color: fc.inputBorder),
+                            minimumSize: const Size.fromHeight(52),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                    FoccusDims.radiusField)),
                           ),
                           child: const Text('Cancelar'),
                         ),
@@ -598,13 +729,17 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
                           onPressed: _loading ? null : _submit,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: LoginColors.accent,
-                            disabledBackgroundColor: LoginColors.accent.withValues(alpha: 0.5),
+                            disabledBackgroundColor:
+                                LoginColors.accent.withValues(alpha: 0.5),
                             foregroundColor: Colors.white,
                             elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                            minimumSize: const Size.fromHeight(52),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                    FoccusDims.radiusField)),
                           ),
-                          child: Text(_loading ? 'Creando...' : 'Crear Proyecto'),
+                          child:
+                              Text(_loading ? 'Creando...' : 'Crear Proyecto'),
                         ),
                       ),
                     ],
@@ -620,8 +755,28 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
 
   Widget _label(String text) => Text(
         text,
-        style: GoogleFonts.inter(fontSize: 13, color: LoginColors.textPrimary),
+        style: GoogleFonts.inter(fontSize: 14, color: context.fc.text),
       );
+
+  InputDecoration _fieldDecoration({String? hint, bool withError = false}) {
+    final fc = context.fc;
+    OutlineInputBorder border(Color color, [double width = 1]) =>
+        OutlineInputBorder(
+          borderRadius: BorderRadius.circular(FoccusDims.radiusField),
+          borderSide: BorderSide(color: color, width: width),
+        );
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: GoogleFonts.inter(fontSize: 14, color: fc.textMuted),
+      filled: true,
+      fillColor: fc.inputBg,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      border: border(fc.inputBorder),
+      enabledBorder: border(fc.inputBorder),
+      focusedBorder: border(LoginColors.accent, 1.5),
+      errorBorder: withError ? border(fc.errorBorder, 1.2) : null,
+    );
+  }
 
   Widget _textField({
     required TextEditingController controller,
@@ -633,30 +788,8 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
       controller: controller,
       maxLines: maxLines,
       validator: validator,
-      style: GoogleFonts.inter(fontSize: 14, color: LoginColors.textPrimary),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: GoogleFonts.inter(fontSize: 13, color: LoginColors.textMuted),
-        filled: true,
-        fillColor: LoginColors.inputBg,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(2),
-          borderSide: const BorderSide(color: LoginColors.inputBorder),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(2),
-          borderSide: const BorderSide(color: LoginColors.inputBorder),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(2),
-          borderSide: const BorderSide(color: LoginColors.accent, width: 1.5),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(2),
-          borderSide: const BorderSide(color: LoginColors.errorBorder, width: 1.2),
-        ),
-      ),
+      style: GoogleFonts.inter(fontSize: 14, color: context.fc.text),
+      decoration: _fieldDecoration(hint: hint, withError: true),
     );
   }
 
@@ -666,29 +799,15 @@ class _CreateProjectSheetState extends State<_CreateProjectSheet> {
     required List<String> options,
     required void Function(String?) onChanged,
   }) {
+    final fc = context.fc;
     return DropdownButtonFormField<String>(
       initialValue: value,
       isExpanded: true,
-      dropdownColor: const Color(0xFF14171B),
-      style: GoogleFonts.inter(fontSize: 14, color: LoginColors.textPrimary),
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: LoginColors.inputBg,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(2),
-          borderSide: const BorderSide(color: LoginColors.inputBorder),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(2),
-          borderSide: const BorderSide(color: LoginColors.inputBorder),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(2),
-          borderSide: const BorderSide(color: LoginColors.accent, width: 1.5),
-        ),
-      ),
-      hint: Text(hint, style: GoogleFonts.inter(fontSize: 13, color: LoginColors.textMuted)),
+      dropdownColor: fc.surfaceAlt,
+      style: GoogleFonts.inter(fontSize: 14, color: fc.text),
+      decoration: _fieldDecoration(),
+      hint: Text(hint,
+          style: GoogleFonts.inter(fontSize: 14, color: fc.textMuted)),
       items: options
           .map((o) => DropdownMenuItem(value: o, child: Text(_capitalize(o))))
           .toList(),

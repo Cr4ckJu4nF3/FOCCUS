@@ -30,4 +30,14 @@ class ApiConfig {
   }
 
   static Uri resolve(String path) => Uri.parse('$baseUrl$path');
+
+  /// Convierte una ruta guardada por el backend (ej. /assets/uploads/...)
+  /// en una URL completa para Image.network o url_launcher.
+  static String assetUrl(String? path) {
+    if (path == null || path.isEmpty) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    final limpia = path.startsWith('/') ? path.substring(1) : path;
+    final conAssets = limpia.startsWith('assets/') ? limpia : 'assets/$limpia';
+    return '$baseUrl/$conAssets';
+  }
 }

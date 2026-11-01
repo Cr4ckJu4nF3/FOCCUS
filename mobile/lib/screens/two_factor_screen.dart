@@ -4,7 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
+import '../services/session.dart';
 import 'login_screen.dart' show LoginColors;
+import '../widgets/foccus_ui.dart';
 
 /// Equivalente movil de frontend/src/screen/TwoFactor.jsx.
 /// Mismos endpoints (/users/2fa/verify y /users/2fa/send) y mismos
@@ -41,6 +43,7 @@ class _TwoFactorScreenState extends State<TwoFactorScreen> {
       final result = await AuthService.verify2faCode(
         widget.mail,
         _codigoController.text,
+        rememberMe: Session.rememberMe,
       );
       if (!mounted) return;
 
@@ -84,67 +87,24 @@ class _TwoFactorScreenState extends State<TwoFactorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: LoginColors.overlayBottom,
-      body: Stack(
+    return AuthBackground(
+      showBack: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Positioned.fill(
-            child: Image.asset('assets/login_background.jpeg', fit: BoxFit.cover),
-          ),
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [LoginColors.overlayTop, LoginColors.overlayBottom],
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 448),
-                  child: Column(
-                    children: [
-                      Image.asset('assets/login_logo.png', width: 116, height: 116),
-                      const SizedBox(height: 24),
-                      _card(),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+          Image.asset('assets/login_logo.png', width: 96, height: 96),
+          const SizedBox(height: 16),
+          _card(),
         ],
       ),
     );
   }
 
   Widget _card() {
-    return Container(
-      decoration: BoxDecoration(
-        color: LoginColors.cardBg,
-        borderRadius: BorderRadius.circular(2),
-        border: Border.all(color: LoginColors.cardBorder),
-        boxShadow: [
-          const BoxShadow(
-            color: Color(0x73060B12),
-            offset: Offset(14, 14),
-            blurRadius: 0,
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            offset: const Offset(0, 20),
-            blurRadius: 50,
-          ),
-        ],
-      ),
+    return AuthCard(
+      padding: EdgeInsets.zero,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(2),
+        borderRadius: BorderRadius.circular(FoccusDims.radiusSheet),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -156,7 +116,7 @@ class _TwoFactorScreenState extends State<TwoFactorScreen> {
 
   Widget _header() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
+      padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -217,22 +177,37 @@ class _TwoFactorScreenState extends State<TwoFactorScreen> {
   }
 
   Widget _content() {
+    final fc = context.fc;
     return Padding(
-      padding: const EdgeInsets.all(26),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_error != null) ...[
-            _messageBox(_error!, isError: true),
-            const SizedBox(height: 16),
-          ],
-          if (_reenviado) ...[
-            _messageBox('Código reenviado exitosamente', isError: false),
-            const SizedBox(height: 16),
-          ],
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            alignment: Alignment.topCenter,
+            child: FoccusSwitcher(
+              child: Column(
+                key: ValueKey('${_error}_$_reenviado'),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_error != null) ...[
+                    MessageBox(_error!),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_reenviado) ...[
+                    const MessageBox('Código reenviado exitosamente',
+                        isError: false),
+                    const SizedBox(height: 16),
+                  ],
+                ],
+              ),
+            ),
+          ),
           Text(
             'Código de Verificación',
-            style: GoogleFonts.inter(fontSize: 14, color: LoginColors.textPrimary),
+            style: GoogleFonts.inter(fontSize: 14, color: fc.text),
           ),
           const SizedBox(height: 8),
           TextField(
@@ -243,135 +218,50 @@ class _TwoFactorScreenState extends State<TwoFactorScreen> {
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             onSubmitted: (_) => _handleVerify(),
             style: GoogleFonts.inter(
-              fontSize: 24,
-              letterSpacing: 7,
-              color: LoginColors.textPrimary,
+              fontSize: 26,
+              letterSpacing: 8,
+              color: fc.text,
             ),
             decoration: InputDecoration(
               counterText: '',
               hintText: '000000',
               hintStyle: GoogleFonts.inter(
-                fontSize: 24,
-                letterSpacing: 7,
-                color: LoginColors.textMuted,
-              ),
-              filled: true,
-              fillColor: LoginColors.inputBg,
-              contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(2),
-                borderSide: const BorderSide(color: LoginColors.inputBorder),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(2),
-                borderSide: const BorderSide(color: LoginColors.inputBorder),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(2),
-                borderSide: const BorderSide(color: LoginColors.accent, width: 1.5),
+                fontSize: 26,
+                letterSpacing: 8,
+                color: fc.textMuted,
               ),
             ),
           ),
           const SizedBox(height: 20),
-          SizedBox(
-            height: 46,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [LoginColors.accent, LoginColors.linkHover],
-                ),
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: ElevatedButton(
-                onPressed: _loading ? null : _handleVerify,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  disabledBackgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                child: _loading
-                    ? Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Verificando...',
-                            style: GoogleFonts.inter(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      )
-                    : Text(
-                        'Verificar',
-                        style: GoogleFonts.inter(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-              ),
-            ),
+          FoccusButton(
+            label: 'Verificar',
+            loading: _loading,
+            onPressed: _handleVerify,
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          const SizedBox(height: 8),
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               TextButton.icon(
                 onPressed: () => Navigator.of(context)
                     .pushNamedAndRemoveUntil('/login', (_) => false),
-                icon: const Icon(Icons.arrow_back, size: 16, color: LoginColors.textMuted),
+                icon: Icon(Icons.arrow_back, size: 18, color: fc.textMuted),
                 label: Text(
                   'Volver al login',
-                  style: GoogleFonts.inter(fontSize: 13, color: LoginColors.textMuted),
+                  style: GoogleFonts.inter(fontSize: 14, color: fc.textMuted),
                 ),
               ),
               TextButton(
                 onPressed: _handleResend,
                 child: Text(
                   'Reenviar código',
-                  style: GoogleFonts.inter(fontSize: 13, color: LoginColors.accent),
+                  style: GoogleFonts.inter(fontSize: 14, color: fc.accentText),
                 ),
               ),
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _messageBox(String message, {required bool isError}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isError ? LoginColors.errorBg : LoginColors.successBg,
-        border: Border.all(
-          color: isError ? LoginColors.errorBorder : LoginColors.successBorder,
-        ),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        message,
-        style: GoogleFonts.inter(
-          fontSize: 14,
-          color: isError ? LoginColors.errorText : LoginColors.successText,
-        ),
       ),
     );
   }

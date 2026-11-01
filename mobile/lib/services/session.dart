@@ -13,6 +13,7 @@ class Session {
 
   static const _kToken = 'access_token';
   static const _kDeviceId = 'device_id';
+  static const _kRemember = 'remember_me';
 
   static SharedPreferences? _prefs;
 
@@ -70,6 +71,28 @@ class Session {
 
   static Future<void> clear() => _p.clear();
 
+  /// Equivale a "Mantener sesión iniciada" de la web: si no se marca, la
+  /// sesión solo dura mientras la app esté abierta.
+  static bool get rememberMe => _p.getBool(_kRemember) ?? false;
+
+  static Future<void> setRememberMe(bool value) =>
+      _p.setBool(_kRemember, value);
+
+  /// Se llama al abrir la app: devuelve true si hay una sesión vigente que
+  /// se pueda reanudar. Las sesiones sin "mantener" se descartan (se conserva
+  /// el device_id para no pedir 2FA de nuevo).
+  static Future<bool> restoreSession() async {
+    final token = getToken();
+    if (token == null || token.isEmpty) return false;
+    if (!rememberMe || !isTokenValid(token)) {
+      final deviceId = _p.getString(_kDeviceId);
+      await _p.clear();
+      if (deviceId != null) await _p.setString(_kDeviceId, deviceId);
+      return false;
+    }
+    return true;
+  }
+
   /// Lee la fecha de expiracion del token sin verificar la firma (eso lo
   /// hace siempre el backend). Sirve solo para decidir en el cliente si
   /// hay que mandar al usuario de vuelta al login antes de intentar una
@@ -109,6 +132,64 @@ class Session {
     await put('mail');
     await put('id_rol');
     await put('id_client');
+    await clearActiveProject();
+    if (data.containsKey('estado')) {
+      await setNeedsProfileCompletion(
+        (data['estado']?.toString() ?? '').toLowerCase() == 'pendiente',
+      );
+    }
+  }
+
+  /// Cuenta creada por invitacion que aun debe completar sus datos
+  /// (equivale a needs_profile_completion de la web).
+  static bool get needsProfileCompletion =>
+      _p.getBool('needs_profile_completion') ?? false;
+
+  static Future<void> setNeedsProfileCompletion(bool value) async {
+    if (value) {
+      await _p.setBool('needs_profile_completion', true);
+    } else {
+      await _p.remove('needs_profile_completion');
+    }
+  }
+
+  // ==========================================
+  // PROYECTO ACTIVO
+  // ==========================================
+  static String? get projectId => _p.getString('projectId');
+  static String? get projectName => _p.getString('projectName');
+
+  /// Rol del usuario dentro del proyecto activo; si no hay, el rol global.
+  static int get activeRole {
+    final role = int.tryParse(_p.getString('project_role') ?? '');
+    final sameProject =
+        _p.getString('project_role_project_id') == _p.getString('projectId');
+    if (role != null && sameProject && projectId != null) return role;
+    return int.tryParse(idRol ?? '') ?? 0;
+  }
+
+  static bool get isProjectAdmin => activeRole == 1001;
+
+  static Future<void> setActiveProject({
+    required String projectId,
+    required String projectName,
+    int? role,
+  }) async {
+    await _p.setString('projectId', projectId);
+    await _p.setString('projectName', projectName);
+    await _p.setString('project_role', (role ?? int.tryParse(idRol ?? '') ?? 0).toString());
+    await _p.setString('project_role_project_id', projectId);
+  }
+
+  static Future<void> clearActiveProject() async {
+    for (final key in [
+      'projectId',
+      'projectName',
+      'project_role',
+      'project_role_project_id',
+    ]) {
+      await _p.remove(key);
+    }
   }
 
   static String? get nombre => _p.getString('nombre');

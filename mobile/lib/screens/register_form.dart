@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart' show LoginColors;
+import '../widgets/foccus_ui.dart';
 
 /// Equivalente movil del wizard de 3 pasos ("Empresa", "Usuario",
 /// "Seguridad") de frontend/src/screen/Login.jsx (handleRegister +
@@ -172,13 +173,35 @@ class _RegisterFormState extends State<RegisterForm> {
       children: [
         _progress(),
         const SizedBox(height: 20),
-        if (_error != null) ...[
-          _messageBox(_error!),
-          const SizedBox(height: 16),
-        ],
-        if (_paso == 1) _paso1(),
-        if (_paso == 2) _paso2(),
-        if (_paso == 3) _paso3(),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: FoccusSwitcher(
+            child: _error == null
+                ? const SizedBox(key: ValueKey('sin-error'), width: double.infinity)
+                : Padding(
+                    key: ValueKey(_error),
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _messageBox(_error!),
+                  ),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: FoccusSwitcher(
+            child: KeyedSubtree(
+              key: ValueKey('paso$_paso'),
+              child: switch (_paso) {
+                1 => _paso1(),
+                2 => _paso2(),
+                _ => _paso3(),
+              },
+            ),
+          ),
+        ),
         const SizedBox(height: 20),
         _actions(),
       ],
@@ -198,14 +221,14 @@ class _RegisterFormState extends State<RegisterForm> {
           child: Column(
             children: [
               Container(
-                width: 26,
-                height: 26,
+                width: 32,
+                height: 32,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: activo ? LoginColors.accent : LoginColors.inputBg,
+                  color: activo ? LoginColors.accent : context.fc.inputBg,
                   border: Border.all(
-                    color: activo ? LoginColors.accent : LoginColors.inputBorder,
+                    color: activo ? LoginColors.accent : context.fc.inputBorder,
                   ),
                 ),
                 child: Text(
@@ -213,7 +236,7 @@ class _RegisterFormState extends State<RegisterForm> {
                   style: GoogleFonts.inter(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: activo ? Colors.white : LoginColors.textMuted,
+                    color: activo ? Colors.white : context.fc.textMuted,
                   ),
                 ),
               ),
@@ -221,8 +244,8 @@ class _RegisterFormState extends State<RegisterForm> {
               Text(
                 nombres[i],
                 style: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: activo ? LoginColors.textPrimary : LoginColors.textMuted,
+                  fontSize: 13,
+                  color: activo ? context.fc.text : context.fc.textMuted,
                 ),
               ),
             ],
@@ -248,7 +271,7 @@ class _RegisterFormState extends State<RegisterForm> {
           const SizedBox(height: 2),
           Text(
             'Cuéntanos quién estará detrás de la producción.',
-            style: GoogleFonts.inter(fontSize: 12.5, color: LoginColors.textMuted),
+            style: GoogleFonts.inter(fontSize: 12.5, color: context.fc.textMuted),
           ),
           const SizedBox(height: 16),
           _field(_razonSocial, 'Razón Social', 'Nombre de la empresa'),
@@ -279,12 +302,12 @@ class _RegisterFormState extends State<RegisterForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Documento', style: GoogleFonts.inter(fontSize: 13, color: LoginColors.textPrimary)),
+        Text('Documento', style: GoogleFonts.inter(fontSize: 13, color: context.fc.text)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           initialValue: _document.isEmpty ? null : _document,
-          dropdownColor: LoginColors.inputBg,
-          style: GoogleFonts.inter(fontSize: 15, color: LoginColors.textPrimary),
+          dropdownColor: context.fc.surface,
+          style: GoogleFonts.inter(fontSize: 15, color: context.fc.text),
           decoration: _inputDecoration('Selecciona tipo'),
           items: opciones
               .map((o) => DropdownMenuItem(value: o, child: Text(o)))
@@ -312,7 +335,7 @@ class _RegisterFormState extends State<RegisterForm> {
           const SizedBox(height: 2),
           Text(
             'Estos serán los datos de acceso del administrador.',
-            style: GoogleFonts.inter(fontSize: 12.5, color: LoginColors.textMuted),
+            style: GoogleFonts.inter(fontSize: 12.5, color: context.fc.textMuted),
           ),
           const SizedBox(height: 16),
           _field(_nombre, 'Nombres', 'Ingresa tus nombres'),
@@ -357,7 +380,7 @@ class _RegisterFormState extends State<RegisterForm> {
           const SizedBox(height: 2),
           Text(
             'Protege tu cuenta y revisa las condiciones de uso.',
-            style: GoogleFonts.inter(fontSize: 12.5, color: LoginColors.textMuted),
+            style: GoogleFonts.inter(fontSize: 12.5, color: context.fc.textMuted),
           ),
           const SizedBox(height: 16),
           _passwordField(
@@ -380,16 +403,16 @@ class _RegisterFormState extends State<RegisterForm> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: LoginColors.inputBg,
-              border: Border.all(color: LoginColors.inputBorder),
-              borderRadius: BorderRadius.circular(4),
+              color: context.fc.inputBg,
+              border: Border.all(color: context.fc.inputBorder),
+              borderRadius: BorderRadius.circular(FoccusDims.radiusField),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'La contraseña debe tener:',
-                  style: GoogleFonts.inter(fontSize: 12.5, color: LoginColors.textMuted),
+                  style: GoogleFonts.inter(fontSize: 13, color: context.fc.textMuted),
                 ),
                 const SizedBox(height: 6),
                 for (final (label, valid) in reglas)
@@ -398,8 +421,8 @@ class _RegisterFormState extends State<RegisterForm> {
                     child: Text(
                       '${valid ? '✓' : '○'} $label',
                       style: GoogleFonts.inter(
-                        fontSize: 12.5,
-                        color: valid ? LoginColors.successText : LoginColors.textMuted,
+                        fontSize: 13,
+                        color: valid ? context.fc.success : context.fc.textMuted,
                       ),
                     ),
                   ),
@@ -421,7 +444,7 @@ class _RegisterFormState extends State<RegisterForm> {
                   child: Text(
                     'Acepto los Términos y Condiciones y autorizo el tratamiento de mis '
                     'datos personales conforme a la Política de Privacidad.',
-                    style: GoogleFonts.inter(fontSize: 12.5, color: LoginColors.textMuted),
+                    style: GoogleFonts.inter(fontSize: 13, color: context.fc.textMuted),
                   ),
                 ),
               ),
@@ -440,39 +463,19 @@ class _RegisterFormState extends State<RegisterForm> {
       children: [
         if (_paso > 1)
           Expanded(
-            child: OutlinedButton(
-              onPressed: () => _cambiarPaso(_paso - 1),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: LoginColors.textPrimary,
-                side: const BorderSide(color: LoginColors.inputBorder),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-              ),
-              child: Text('Atrás', style: GoogleFonts.inter(fontSize: 15)),
+            child: FoccusButton(
+              label: 'Atrás',
+              outlined: true,
+              onPressed: _loading ? null : () => _cambiarPaso(_paso - 1),
             ),
           ),
         if (_paso > 1) const SizedBox(width: 12),
         Expanded(
-          child: SizedBox(
-            height: 46,
-            child: ElevatedButton(
-              onPressed: _loading
-                  ? null
-                  : (_paso < 3 ? () => _cambiarPaso(_paso + 1) : _handleRegister),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: LoginColors.accent,
-                disabledBackgroundColor: LoginColors.accent.withValues(alpha: 0.5),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-              ),
-              child: Text(
-                _paso < 3
-                    ? 'Continuar'
-                    : (_loading ? 'Registrando...' : 'Crear cuenta'),
-                style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w500),
-              ),
-            ),
+          flex: _paso > 1 ? 2 : 1,
+          child: FoccusButton(
+            label: _paso < 3 ? 'Continuar' : 'Crear cuenta',
+            loading: _loading,
+            onPressed: _paso < 3 ? () => _cambiarPaso(_paso + 1) : _handleRegister,
           ),
         ),
       ],
@@ -482,28 +485,9 @@ class _RegisterFormState extends State<RegisterForm> {
   // ==========================================
   // HELPERS DE UI
   // ==========================================
-  InputDecoration _inputDecoration(String hint, {Widget? suffix}) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: GoogleFonts.inter(fontSize: 15, color: LoginColors.textMuted),
-      filled: true,
-      fillColor: LoginColors.inputBg,
-      suffixIcon: suffix,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(2),
-        borderSide: const BorderSide(color: LoginColors.inputBorder),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(2),
-        borderSide: const BorderSide(color: LoginColors.inputBorder),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(2),
-        borderSide: const BorderSide(color: LoginColors.accent, width: 1.5),
-      ),
-      errorStyle: GoogleFonts.inter(fontSize: 11.5, color: LoginColors.errorText),
-    );
+  InputDecoration _inputDecoration(String hint, {Widget? suffix, IconData? icon}) {
+    // Bordes/relleno/alto vienen del inputDecorationTheme (main.dart).
+    return authInput(hint, icon: icon, suffix: suffix, context: context);
   }
 
   Widget _field(
@@ -516,12 +500,12 @@ class _RegisterFormState extends State<RegisterForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 13, color: LoginColors.textPrimary)),
+        Text(label, style: GoogleFonts.inter(fontSize: 13, color: context.fc.text)),
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
-          style: GoogleFonts.inter(fontSize: 15, color: LoginColors.textPrimary),
+          style: GoogleFonts.inter(fontSize: 15, color: context.fc.text),
           decoration: _inputDecoration(hint),
           validator: required
               ? (v) => (v == null || v.trim().isEmpty) ? 'Este campo es obligatorio' : null
@@ -542,19 +526,19 @@ class _RegisterFormState extends State<RegisterForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 13, color: LoginColors.textPrimary)),
+        Text(label, style: GoogleFonts.inter(fontSize: 13, color: context.fc.text)),
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
           obscureText: !visible,
           onChanged: onChanged,
-          style: GoogleFonts.inter(fontSize: 15, color: LoginColors.textPrimary),
+          style: GoogleFonts.inter(fontSize: 15, color: context.fc.text),
           decoration: _inputDecoration(
             hint,
             suffix: IconButton(
               icon: Icon(
                 visible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                color: LoginColors.textMuted,
+                color: context.fc.textMuted,
                 size: 20,
               ),
               onPressed: onToggle,
@@ -566,19 +550,5 @@ class _RegisterFormState extends State<RegisterForm> {
     );
   }
 
-  Widget _messageBox(String message) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: LoginColors.errorBg,
-        border: Border.all(color: LoginColors.errorBorder),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        message,
-        style: GoogleFonts.inter(fontSize: 13.5, color: LoginColors.errorText),
-      ),
-    );
-  }
+  Widget _messageBox(String message) => MessageBox(message);
 }

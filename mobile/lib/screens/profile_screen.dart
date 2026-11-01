@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/session.dart';
+import '../services/theme_controller.dart';
+import '../widgets/foccus_ui.dart';
 import 'login_screen.dart' show LoginColors;
 
 const _identificationTypes = ['CC', 'NIT', 'TI', 'PA', 'CE'];
@@ -247,56 +249,102 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final fc = context.fc;
     return Scaffold(
-      backgroundColor: const Color(0xFF080A10),
+      backgroundColor: fc.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xE60D1116),
-        foregroundColor: Colors.white,
+        backgroundColor: fc.appBar,
+        foregroundColor: fc.text,
         title: Text('Perfil de usuario',
             style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w600)),
       ),
-      body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: LoginColors.accent))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (_error != null) _message(_error!, false),
-                      if (_success != null) _message(_success!, true),
-                      _section('Datos personales', _buildPersonalForm()),
-                      const SizedBox(height: 18),
-                      _section('Cambiar contraseña', _buildPasswordForm()),
-                      const SizedBox(height: 18),
-                      _buildDangerZone(),
-                    ],
+      body: FoccusSwitcher(
+        child: _loading
+            ? const Center(
+                key: ValueKey('loading'),
+                child: CircularProgressIndicator(color: LoginColors.accent))
+            : SafeArea(
+                key: const ValueKey('content'),
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (_error != null) _message(_error!, false),
+                          if (_success != null) _message(_success!, true),
+                          FadeSlideIn(
+                              index: 0,
+                              child: _section(
+                                  'Datos personales', _buildPersonalForm())),
+                          const SizedBox(height: 16),
+                          FadeSlideIn(
+                              index: 1,
+                              child:
+                                  _section('Apariencia', _buildAppearance())),
+                          const SizedBox(height: 16),
+                          FadeSlideIn(
+                              index: 2,
+                              child: _section(
+                                  'Cambiar contraseña', _buildPasswordForm())),
+                          const SizedBox(height: 16),
+                          FadeSlideIn(index: 3, child: _buildDangerZone()),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
+                )),
+      ),
+    );
+  }
+
+  Widget _buildAppearance() {
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeController.mode,
+      builder: (context, mode, _) => SizedBox(
+        width: double.infinity,
+        child: SegmentedButton<ThemeMode>(
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(
+                value: ThemeMode.system,
+                icon: Icon(Icons.brightness_auto_outlined),
+                label: Text('Sistema')),
+            ButtonSegment(
+                value: ThemeMode.light,
+                icon: Icon(Icons.light_mode_outlined),
+                label: Text('Claro')),
+            ButtonSegment(
+                value: ThemeMode.dark,
+                icon: Icon(Icons.dark_mode_outlined),
+                label: Text('Oscuro')),
+          ],
+          selected: {mode},
+          onSelectionChanged: (s) => ThemeController.setMode(s.first),
+        ),
+      ),
     );
   }
 
   Widget _section(String title, Widget child) {
+    final fc = context.fc;
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xE6111419),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        color: fc.surface,
+        borderRadius: BorderRadius.circular(FoccusDims.radiusCard),
+        border: Border.all(color: fc.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
               style: GoogleFonts.spaceGrotesk(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white)),
+                  fontSize: 20, fontWeight: FontWeight.w600, color: fc.text)),
           const SizedBox(height: 16),
           child,
         ],
@@ -318,7 +366,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             initialValue:
                 _identificationType.isEmpty ? null : _identificationType,
             decoration: _decoration('Tipo de identificación'),
-            dropdownColor: const Color(0xFF1A1A1A),
+            dropdownColor: context.fc.surfaceAlt,
             items: _identificationTypes
                 .map((type) => DropdownMenuItem(value: type, child: Text(type)))
                 .toList(),
@@ -334,8 +382,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               enabled: false),
           _field('Departamento', _departmentController),
           const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerRight,
+          SizedBox(
+            width: double.infinity,
+            height: 52,
             child: FilledButton.icon(
               onPressed: _saving ? null : _saveProfile,
               icon: _saving
@@ -377,12 +426,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text('Falta: ${rules.join(' · ')}',
-                  style: GoogleFonts.inter(
-                      fontSize: 12, color: const Color(0xFFFF9A9A))),
+                  style:
+                      GoogleFonts.inter(fontSize: 13, color: context.fc.error)),
             ),
           ),
-        Align(
-          alignment: Alignment.centerRight,
+        SizedBox(
+          width: double.infinity,
+          height: 52,
           child: FilledButton.icon(
             onPressed: _savingPassword ? null : _changePassword,
             icon: _savingPassword
@@ -401,24 +451,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildDangerZone() {
+    final fc = context.fc;
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0x301F0C12),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0x80B83D4B)),
+        color: fc.errorBg,
+        borderRadius: BorderRadius.circular(FoccusDims.radiusCard),
+        border: Border.all(color: fc.errorBorder),
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded, color: Color(0xFFFF8A8A)),
+          Icon(Icons.warning_amber_rounded, color: fc.error),
           const SizedBox(width: 12),
           Expanded(
               child: Text('Eliminar cuenta es permanente.',
-                  style: GoogleFonts.inter(color: Colors.white70))),
+                  style: GoogleFonts.inter(color: fc.textMuted))),
           TextButton(
+              style: TextButton.styleFrom(minimumSize: const Size(64, 48)),
               onPressed: _deleteAccount,
-              child: const Text('Eliminar',
-                  style: TextStyle(color: Color(0xFFFF8A8A)))),
+              child: Text('Eliminar', style: TextStyle(color: fc.error))),
         ],
       ),
     );
@@ -435,7 +486,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         controller: controller,
         enabled: enabled,
         keyboardType: keyboardType,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: context.fc.text),
         validator: required
             ? (value) =>
                 value == null || value.trim().isEmpty ? 'Campo requerido' : null
@@ -453,44 +504,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
         controller: controller,
         obscureText: !visible,
         onChanged: (_) => setState(() {}),
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: context.fc.text),
         decoration: _decoration(label).copyWith(
           suffixIcon: IconButton(
               onPressed: toggle,
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
               icon: Icon(visible ? Icons.visibility_off : Icons.visibility,
-                  color: Colors.white60)),
+                  color: context.fc.textMuted)),
         ),
       ),
     );
   }
 
-  InputDecoration _decoration(String label) => InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white60),
-        filled: true,
-        fillColor: const Color(0x261A1A1A),
-        border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide:
-                BorderSide(color: Colors.white.withValues(alpha: 0.16))),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide:
-                BorderSide(color: Colors.white.withValues(alpha: 0.16))),
-        focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide: const BorderSide(color: LoginColors.accent)),
-      );
+  InputDecoration _decoration(String label) {
+    final fc = context.fc;
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: fc.textMuted),
+      filled: true,
+      fillColor: fc.inputBg,
+      border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(FoccusDims.radiusField),
+          borderSide: BorderSide(color: fc.inputBorder)),
+      enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(FoccusDims.radiusField),
+          borderSide: BorderSide(color: fc.inputBorder)),
+      focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(FoccusDims.radiusField),
+          borderSide: const BorderSide(color: LoginColors.accent)),
+    );
+  }
 
-  Widget _message(String text, bool success) => Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: (success ? Colors.green : Colors.red).withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(text,
-            style: TextStyle(
-                color: success ? Colors.greenAccent : Colors.redAccent)),
-      );
+  Widget _message(String text, bool success) {
+    final fc = context.fc;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: success ? fc.successBg : fc.errorBg,
+        border: Border.all(color: success ? fc.successBorder : fc.errorBorder),
+        borderRadius: BorderRadius.circular(FoccusDims.radiusField),
+      ),
+      child: Text(text,
+          style:
+              TextStyle(fontSize: 14, color: success ? fc.success : fc.error)),
+    );
+  }
 }
