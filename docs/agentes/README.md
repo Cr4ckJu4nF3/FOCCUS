@@ -1,12 +1,14 @@
 # Equipo de agentes de FOCCUS
 
-Tres agentes de GitHub Copilot trabajan juntos. Sus definiciones están en `.github\agents\`.
+Cinco agentes de GitHub Copilot trabajan juntos. Sus definiciones están en `.github\agents\`.
 
 | Agente | Archivo | Qué hace |
 |---|---|---|
 | **foccus-web** (principal) | `foccus-web.agent.md` | Desarrolla web: backend, frontend y base de datos. Maneja las ramas. |
 | **foccus-investigador** | `foccus-investigador.agent.md` | Investiga en internet (formato de guion, Final Draft, uso real de plataformas) y recomienda a foccus-web. |
 | **foccus-mobile** | `foccus-mobile.agent.md` | Adapta a Flutter lo que foccus-web termina, cuando el usuario lo pida. |
+| **foccus-bd** | `foccus-bd.agent.md` | Dueño de la base de datos: backups, migraciones y consultas. |
+| **foccus-docs** | `foccus-docs.agent.md` | Mantiene el repo de documentación [FOCCUS-RF](https://github.com/Aerxs666/FOCCUS-RF) (RF, HU, diagramas, exposición) y los datos privados de demo. |
 
 ## Flujo de trabajo
 
@@ -37,3 +39,4 @@ Ejemplos:
 - *investigador:* "Investiga el formato estándar de guion de Final Draft y dime qué le falta a nuestro editor."
 - *web:* "Implementa lo que recomendó el investigador sobre el formato de escena."
 - *mobile:* "Adapta a móvil los cambios pendientes de CAMBIOS_WEB.md."
+- docs → bd (ids y datos de demo), docs → web, investigador y mobile (dudas del producto); web y los demás avisan a docs cuando cambia algo que afecta RF/HU.
