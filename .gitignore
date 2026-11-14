@@ -1,11 +1,21 @@
 venv/
+.venv/
 node_modules/
 __pycache__/
-.venv/
 *.pyc
 .env
-   mobile/build/
-   mobile/.dart_tool/
-   backend/api_usuarios/app/assets/uploads/
 backups/
 *.sql.gz
+backend/api_usuarios/app/assets/uploads/
+frontend/dist/
+*.log
+uv_err.txt
+uv_out.txt
+mobile/build/
+mobile/.dart_tool/
+mobile/.idea/
+mobile/*.iml
+mobile/.flutter-plugins-dependencies
+mobile/android/build/
+mobile/android/.gradle/
+mobile/android/local.properties

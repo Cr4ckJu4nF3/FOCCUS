@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { ArrowLeft, CalendarDays, Camera, ClipboardList, FileText, Film, LayoutDashboard, Search, Users } from "lucide-react";
-import logo from "../assets/FoccusNB_White.png";
+import { ArrowLeft } from "lucide-react";
 import { apiFetch, getActiveRole } from "../api";
 import CodigoChip from "../componentes/CodigoChip";
 import EstadoVista from "../componentes/EstadoVista";
@@ -62,27 +61,6 @@ export default function BuscarCodigo() {
 
   return (
     <div className="admin-dashboard">
-      <aside className="admin-sidebar">
-        <button type="button" onClick={() => ir("/admin-dashboard")} className="admin-brand" aria-label="Volver al panel">
-          <img src={logo} alt="FOCCUS" />
-        </button>
-        <p className="admin-sidebar__label">Panel de control</p>
-        <nav className="admin-navigation" aria-label="Navegación administrativa">
-          <button className="admin-navigation__item" type="button" onClick={() => ir("/admin-dashboard")}>
-            <LayoutDashboard size={18} /> Resumen general
-          </button>
-          <button className="admin-navigation__item" type="button" onClick={() => ir("/guion")}><FileText size={18} /> Guiones</button>
-          <button className="admin-navigation__item" type="button" onClick={() => ir("/escenas")}><Film size={18} /> Escenas</button>
-          <button className="admin-navigation__item" type="button" onClick={() => ir("/rodaje")}><CalendarDays size={18} /> Plan de rodaje</button>
-          <button className="admin-navigation__item" type="button" onClick={() => ir("/desglose")}><ClipboardList size={18} /> Desglose</button>
-          <button className="admin-navigation__item" type="button" onClick={() => ir("/galeria")}><Camera size={18} /> Galería</button>
-          <button className="admin-navigation__item" type="button" onClick={() => ir("/roles")}><Users size={18} /> Equipo y roles</button>
-          <button className="admin-navigation__item admin-navigation__item--active" type="button" aria-current="page">
-            <Search size={18} /> Buscar código
-          </button>
-        </nav>
-      </aside>
-
       <div className="admin-dashboard__workspace">
         <header className="admin-topbar">
           <div className="admin-topbar__context">

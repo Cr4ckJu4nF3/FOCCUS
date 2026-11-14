@@ -72,8 +72,13 @@ html[data-theme="light"] .gallery-page {
 }
 
 .gallery-project {
+  min-width: 0;
+  max-width: 48%;
+  overflow: hidden;
   color: var(--gallery-text);
   font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .gallery-project svg {

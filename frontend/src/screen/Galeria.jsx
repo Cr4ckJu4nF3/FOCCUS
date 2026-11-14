@@ -779,7 +779,13 @@ export default function GaleriaScreen() {
     <div className={`gallery-page ${isAdmin ? "module-role-admin" : "module-role-user"}`}>
       <header className="gallery-header">
         <div className="gallery-header__inner">
-          <button type="button" className="gallery-back" onClick={() => navigate(-1)}><ArrowLeft size={18} /> Volver</button>
+          <button
+            type="button"
+            className="gallery-back"
+            onClick={() => navigate(isAdmin ? "/admin-dashboard" : "/proyecto-dashboard", { state: { projectName, projectId } })}
+          >
+            <ArrowLeft size={18} /> Volver al panel
+          </button>
           <span className="gallery-project"><Camera size={17} /> {projectName}</span>
         </div>
       </header>

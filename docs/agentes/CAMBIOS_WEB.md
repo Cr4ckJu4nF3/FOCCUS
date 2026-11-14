@@ -2,6 +2,20 @@
 
 foccus-web agrega aquí cada cambio relevante (arriba lo más nuevo). foccus-mobile los adapta cuando el usuario lo pida y cambia el estado a `hecho en móvil`.
 
+## 2026-11-08 – Navegación y editor de guion más cómodos
+- Rama/commit: rama actual; sin commit.
+- Qué cambió (web/backend/BD): web: navegación persistente por proyecto con regreso al panel según el rol y menú adaptable; los enlaces directos de guion y versión abren el contenido correspondiente. Crear guion, escribir una versión y editar usan una presentación más coherente y una barra compacta con modo y contexto. Se avisa antes de abandonar cambios de texto, metadatos o escenas y al cerrar o recargar la página; errores de guardado mantienen el borrador. Backend y BD sin cambios.
+- Endpoints nuevos o modificados (método, ruta, cuerpo, respuesta): ninguno.
+- Pantallas web afectadas: Guion, Roles, Galería y Buscar código; navegación común de módulos de proyecto.
+- Estado para móvil: pendiente (solo comportamiento web; sin cambios de API ni adaptación Flutter solicitada).
+
+## 2026-11-08 – Número y parámetros del encabezado en el guion
+- Rama/commit: rama actual; sin commit.
+- Qué cambió (web/backend/BD): web: el formulario de escena muestra el nombre del proyecto activo (o indica que no se cargó) y escribe número, interior/exterior, ciudad y momento seleccionados en el bloque de escena. Al desactivar una opción se elimina del texto; al reabrir no se duplican número ni valores. Extracción y sincronización existentes se conservan; sin cambios de backend ni BD.
+- Endpoints nuevos o modificados (método, ruta, cuerpo, respuesta): ninguno.
+- Pantallas web afectadas: Guion (crear escena, editar encabezado, crear guion desde cero, nueva versión y edición de versión).
+- Estado para móvil: pendiente
+
 Formato de cada entrada:
 
 ```
@@ -12,6 +26,16 @@ Formato de cada entrada:
 - Pantallas web afectadas:
 - Estado para móvil: pendiente | hecho en móvil (fecha)
 ```
+
+## 2026-11-08 – Navegación persistente y escenas contextuales en el guion
+- Rama/commit: rama actual; sin commit.
+- Qué cambió (web/backend/BD):
+  - Web: navegación principal persistente en módulos de proyecto, con rutas según el rol activo y menú móvil accesible; sin cambios de permisos.
+  - Web: formulario de escena desde los editores de creación de guion, nueva versión y edición. Los encabezados se aplican al borrador conservando acción y diálogo. Tras guardar el documento se reconcilian las escenas por identificador/encabezado/número, preservando metadatos ajenos al documento y sin borrar filas. Los errores parciales son visibles y se pueden reintentar.
+  - Backend/BD: sin cambios; usa las rutas y schemas ya existentes. No se consultaron ni alteraron datos reales.
+- Endpoints nuevos o modificados (método, ruta, cuerpo, respuesta): ninguno; la web sigue usando `GET /guiones/{id_guion}/escenas`, `POST /escenas` y `PATCH /escenas/{id_escena}` con sus contratos existentes.
+- Pantallas web afectadas: Guion, Escenas, Rodaje, Desglose, Galería, Roles y Buscar código (navegación); creación, nueva versión y edición del guion (formulario contextual de escena).
+- Estado para móvil: pendiente (cambio web solamente; no se modificó Flutter ni se solicita adaptación).
 
 ## 2026-11-01 – Códigos visibles en la web y módulo «Buscar código» (solo admin)
 - Rama/commit: `feat/codigos-visibles` (solo commits locales).

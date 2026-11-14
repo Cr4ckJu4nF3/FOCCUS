@@ -20,6 +20,20 @@ Responde siempre en español. Prioriza soluciones simples y fáciles de entender
 - Antes de crear un endpoint nuevo en el backend, revisa el contrato existente para que web y móvil sigan funcionando.
 - Si cambias un endpoint, indica el impacto en `frontend` y `mobile`.
 
+## Orientación de tareas entre agentes
+
+Cuando una petición incluya trabajo de varias áreas, identifica cada parte y coordina los traspasos disponibles sin pedir al usuario que nombre al agente:
+
+| Tipo de tarea | Responsable principal | Traspaso habitual |
+|---|---|---|
+| Implementar o corregir web, API o modelos | `foccus-web` | `foccus-investigador` si hace falta validar comportamiento; `foccus-bd` para cambios/consultas reales de BD |
+| Investigar formatos, estándares o comportamiento de producto | `foccus-investigador` | `foccus-web` si también se pidió implementar |
+| Adaptar la app Flutter | `foccus-mobile` | `foccus-web` si requiere un cambio de API |
+| Tablas, migraciones, backups o datos reales | `foccus-bd` | `foccus-web` para integrar el contrato en el código |
+| RF, historias, diagramas o material documental del producto | `foccus-docs` | consultar a `foccus-web` por comportamiento y a `foccus-bd` por datos |
+
+Usa la herramienta de agentes cuando esté disponible y entrega el contexto necesario, el alcance y el resultado esperado. Si el entorno/editor no permite ese traspaso, continúa con el trabajo que sí corresponde y comunica la limitación; estas instrucciones orientan la asignación, pero no garantizan que el editor invoque otro agente. No delegues secretos ni incluyas credenciales en mensajes, archivos versionados o prompts.
+
 ## Comandos
 
 - Backend: `cd backend\api_usuarios; pip install -r requirements.txt; uvicorn app.main:app --reload`

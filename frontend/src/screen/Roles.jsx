@@ -259,8 +259,10 @@ export default function RolesScreen() {
         <div className="rs-header-inner">
           <div className="rs-header-left">
             <button
-              onClick={() => navigate(-1)}
+              type="button"
+              onClick={() => navigate("/admin-dashboard", { state: { projectName, projectId: idProject } })}
               className="rs-back-button"
+              aria-label="Volver al panel de administración"
             >
               <ArrowLeft className="rs-back-icon" />
             </button>

@@ -17,6 +17,7 @@ import Desglose from "./screen/Desglose";
 import Galeria from "./screen/Galeria";
 import BuscarCodigo from "./screen/BuscarCodigo";
 import ProtectedRoute from "./screen/ProtectedRoute";
+import ModuleLayout from "./componentes/ModuleLayout";
 
 export const router = createBrowserRouter([
   {
@@ -66,35 +67,16 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute><Dashboard /></ProtectedRoute>,
   },
   {
-    path: "/roles",
-    element: <ProtectedRoute><Roles /></ProtectedRoute>,
-  },
-  {
-    path: "/guion",
-    element: <ProtectedRoute><Guion /></ProtectedRoute>,
-  },
-  {
-    path: "/escenas",
-    element: <ProtectedRoute><Escena /></ProtectedRoute>,
-  },
-  {
-    path: "/personajes",
-    element: <ProtectedRoute><Navigate to="/galeria" replace /></ProtectedRoute>,
-  },
-  {
-    path: "/rodaje",
-    element: <ProtectedRoute><Rodaje /></ProtectedRoute>,
-  },
-  {
-    path: "/desglose",
-    element: <ProtectedRoute><Desglose /></ProtectedRoute>,
-  },
-  {
-    path: "/buscar-codigo",
-    element: <ProtectedRoute><BuscarCodigo /></ProtectedRoute>,
-  },
-  {
-    path: "/galeria",
-    element: <ProtectedRoute><Galeria /></ProtectedRoute>,
+    element: <ProtectedRoute><ModuleLayout /></ProtectedRoute>,
+    children: [
+      { path: "/roles", element: <Roles /> },
+      { path: "/guion", element: <Guion /> },
+      { path: "/escenas", element: <Escena /> },
+      { path: "/personajes", element: <Navigate to="/galeria" replace /> },
+      { path: "/rodaje", element: <Rodaje /> },
+      { path: "/desglose", element: <Desglose /> },
+      { path: "/buscar-codigo", element: <BuscarCodigo /> },
+      { path: "/galeria", element: <Galeria /> },
+    ],
   },
 ]);

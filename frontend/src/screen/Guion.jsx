@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useBlocker, useSearchParams } from "react-router-dom";
 import CodigoChip from "../componentes/CodigoChip";
 import {
   ArrowLeft,
@@ -54,7 +54,14 @@ import {
   normalizarHtmlGuion,
   tipoDeElemento,
 } from "../utils/guionBloques";
+import {
+  analizarEncabezadoEscena,
+  camposEscenaVacios,
+  encabezadoDesdeCamposEscena,
+  planificarSincronizacionEscenas,
+} from "../utils/guionEscenas";
 import EstadoVista from "../componentes/EstadoVista";
+import { hayCambiosGuion } from "../utils/guionBorrador";
 import "../desing/Guion.css";
 import "../desing/GuionPagina.css";
 
@@ -99,9 +106,8 @@ function extraerMensajeError(data, fallback) {
 }
 
 export default function GuionScreen() {
-  const navigate = useNavigate();
   const projectId = localStorage.getItem("projectId") || "";
-  const projectName = localStorage.getItem("projectName") || "Proyecto";
+  const projectName = localStorage.getItem("projectName")?.trim() || "";
   const idRol = getActiveRole();
   const esAdmin = idRol === 1001;
 
@@ -109,7 +115,7 @@ export default function GuionScreen() {
   const [vista, setVista] = useState("lista");
 
   const [guiones, setGuiones] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(projectId));
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -136,6 +142,15 @@ export default function GuionScreen() {
   const [escenasActivo, setEscenasActivo] = useState(false);
   const [escenasBorrador, setEscenasBorrador] = useState([]);
   const [escenaActivaIndex, setEscenaActivaIndex] = useState(0);
+  const [dialogoEscena, setDialogoEscena] = useState(false);
+  const [formEscena, setFormEscena] = useState(camposEscenaVacios());
+  const [camposEscenaEditados, setCamposEscenaEditados] = useState(new Set());
+  const [contextoEscena, setContextoEscena] = useState(null);
+  const [errorFormEscena, setErrorFormEscena] = useState("");
+  const [cambiosEscenaPendientes, setCambiosEscenaPendientes] = useState([]);
+  const [sincronizacionesPendientes, setSincronizacionesPendientes] = useState([]);
+  const [sincronizandoEscenas, setSincronizandoEscenas] = useState(false);
+  const campoEncabezadoEscenaRef = useRef(null);
 
   // Personajes / Escenarios del proyecto (atajos dentro del editor)
   const [personajes, setPersonajes] = useState([]);
@@ -188,6 +203,39 @@ export default function GuionScreen() {
     estado: "Borrador",
     comentario_cambio: "",
   });
+  const [versionInicial, setVersionInicial] = useState("");
+  const [contenidoOriginal, setContenidoOriginal] = useState("");
+  const [escenaInicial, setEscenaInicial] = useState("");
+  const hayBorrador = hayCambiosGuion({
+    vista, editandoContenido, contenidoInicial, escenasActivo, escenasBorrador,
+    ceroForm, versionForm, versionInicial,
+    contenidoEditado, contenidoOriginal,
+    cambiosEscenaPendientes, dialogoEscena, formEscena, escenaInicial,
+  });
+  const hayDatosSubida = showUploadModal && Boolean(uploadForm.nombre || uploadForm.descripcion || uploadArchivo);
+  const hayDatosVersion = showVersionModal && (
+    JSON.stringify(versionForm) !== versionInicial || Boolean(archivoVersion)
+  );
+  const hayPendientes = hayBorrador || hayDatosSubida || hayDatosVersion || sincronizacionesPendientes.length > 0;
+  const confirmarSalida = () => {
+    if (guardandoEdicion || sincronizandoEscenas || uploading) {
+      window.alert("Espera a que termine el guardado o la sincronización antes de salir.");
+      return false;
+    }
+    return !hayPendientes || window.confirm(
+      "Hay cambios sin guardar o escenas pendientes de sincronizar. ¿Deseas salir y perderlos?",
+    );
+  };
+  useBlocker(() => !confirmarSalida());
+  useEffect(() => {
+    if (!hayPendientes && !guardandoEdicion && !sincronizandoEscenas && !uploading) return undefined;
+    const advertir = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", advertir);
+    return () => window.removeEventListener("beforeunload", advertir);
+  }, [hayPendientes, guardandoEdicion, sincronizandoEscenas, uploading]);
 
   const fetchGuiones = async () => {
     if (!projectId) {
@@ -214,6 +262,7 @@ export default function GuionScreen() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchGuiones();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
@@ -233,9 +282,12 @@ export default function GuionScreen() {
       if (!response.ok) {
         throw new Error(extraerMensajeError(data, "No se pudieron cargar las versiones"));
       }
-      setVersiones(Array.isArray(data.data) ? data.data : []);
+      const versionesCargadas = Array.isArray(data.data) ? data.data : [];
+      setVersiones(versionesCargadas);
+      return versionesCargadas;
     } catch (err) {
       setError(err.message || "No se pudieron cargar las versiones");
+      return [];
     } finally {
       setLoadingVersiones(false);
     }
@@ -323,13 +375,18 @@ export default function GuionScreen() {
     }
   };
 
-  const abrirDetalle = async (guion, tab = "contenido") => {
+  const abrirDetalle = async (guion, tab = "contenido", versionId = null) => {
     setGuionActivo(guion);
     setTabDetalle(tab);
     setVersionLectorId(null);
     setEditandoContenido(false);
     setVista("detalle");
-    await fetchVersiones(guion.id_guion);
+    const disponibles = await fetchVersiones(guion.id_guion);
+    const versionEnlace = disponibles.find((version) => String(version.id_guion_version) === versionId);
+    if (versionEnlace) {
+      setVersionLectorId(versionEnlace.id_guion_version);
+      setVista("lector");
+    }
   };
 
   // Enlace desde el buscador de códigos: /guion?guion=ID (y &version=ID abre la pestaña de versiones)
@@ -341,7 +398,7 @@ export default function GuionScreen() {
     const found = guiones.find((g) => String(g.id_guion) === guionParam);
     setSearchParams({}, { replace: true });
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (found) abrirDetalle(found, versionParam ? "versiones" : "contenido");
+    if (found) abrirDetalle(found, versionParam ? "versiones" : "contenido", versionParam);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guionParam, versionParam, loading, guiones]);
 
@@ -424,18 +481,22 @@ export default function GuionScreen() {
   const iniciarCreacionDesdeCero = () => {
     setShowChoiceModal(false);
     setVista("crear-cero");
+    setCambiosEscenaPendientes([]);
     fetchPersonajes();
     fetchEscenarios();
     fetchGalleryItems();
   };
 
   const cancelarCreacionDesdeCero = () => {
+    if (!confirmarSalida()) return;
     setVista("lista");
     setCeroForm({ nombre: "", descripcion: "" });
     setContenidoInicial("");
     setEscenasActivo(false);
     setEscenasBorrador([]);
     setEscenaActivaIndex(0);
+    setCambiosEscenaPendientes([]);
+    cerrarFormularioEscena();
   };
 
   const iniciarEscrituraVersion = () => {
@@ -448,6 +509,7 @@ export default function GuionScreen() {
     setEscenasActivo(false);
     setEscenasBorrador([]);
     setEscenaActivaIndex(0);
+    setCambiosEscenaPendientes([]);
     setVista("crear-version");
     fetchPersonajes();
     fetchEscenarios();
@@ -455,11 +517,14 @@ export default function GuionScreen() {
   };
 
   const cancelarEscrituraVersion = () => {
+    if (!confirmarSalida()) return;
     setError("");
     setContenidoInicial("");
     setEscenasActivo(false);
     setEscenasBorrador([]);
     setEscenaActivaIndex(0);
+    setCambiosEscenaPendientes([]);
+    cerrarFormularioEscena();
     setOrigenVersion("archivo");
     setVista("detalle");
     setTabDetalle("versiones");
@@ -509,6 +574,7 @@ export default function GuionScreen() {
 
   const handleEliminarEscenaBorrador = (idx) => {
     if (escenasBorrador.length <= 1) return; // siempre debe quedar al menos una escena
+    if (escenasBorrador[idx]?.texto && !window.confirm("Esta escena contiene texto. ¿Deseas eliminarla del borrador?")) return;
     setEscenasBorrador((prev) => prev.filter((_, i) => i !== idx).map((esc, i) => ({ ...esc, numero: i + 1 })));
     setEscenaActivaIndex((prevActivo) => {
       if (idx < prevActivo) return prevActivo - 1;
@@ -637,6 +703,306 @@ export default function GuionScreen() {
     sincronizarDesdeEditor();
   };
 
+  const cargarEscenasPersistidas = async (idGuion) => {
+    if (!idGuion) return [];
+    const response = await fetchWithProject(`${API_URL}/guiones/${idGuion}/escenas`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      throw new Error(extraerMensajeError(data, "No se pudieron cargar las escenas existentes"));
+    }
+    return Array.isArray(data.data) ? data.data : [];
+  };
+
+  const abrirFormularioEscena = async (forzarCreacion = false) => {
+    const editor = editorRef.current;
+    if (!editor) {
+      setError("Abre el editor del guion antes de agregar una escena");
+      return;
+    }
+    guardarSeleccionEditor();
+    const seleccion = window.getSelection();
+    const bloqueActual = bloqueDeNodo(seleccion?.anchorNode);
+    const escenasEditor = Array.from(editor.children).filter((bloque) => tipoDeElemento(bloque) === "escena");
+    const elementosEditor = Array.from(editor.children);
+    const indiceBloqueActual = elementosEditor.indexOf(bloqueActual);
+    const escenaAnterior = !forzarCreacion && bloqueActual && tipoDeElemento(bloqueActual) !== "escena"
+      ? elementosEditor.slice(0, indiceBloqueActual + 1).filter((bloque) => tipoDeElemento(bloque) === "escena").at(-1)
+      : null;
+    const bloqueEscena = !forzarCreacion
+      ? (tipoDeElemento(bloqueActual) === "escena"
+        ? bloqueActual
+        : (escenasActivo && escenasEditor.length === 1 ? escenasEditor[0] : escenaAnterior))
+      : null;
+    const esEdicion = Boolean(bloqueEscena);
+    const indiceLocal = esEdicion ? escenasEditor.indexOf(bloqueEscena) : null;
+    const escenasAntes = esEdicion
+      ? escenasEditor.slice(0, indiceLocal).length
+      : elementosEditor
+        .slice(0, bloqueActual ? elementosEditor.indexOf(bloqueActual) + 1 : elementosEditor.length)
+        .filter((bloque) => tipoDeElemento(bloque) === "escena").length;
+    const escenasPrevias = escenasActivo
+      ? escenasBorrador.slice(0, escenaActivaIndex).reduce((total, escena) => total + extraerEscenas(escena.texto).length, 0)
+      : 0;
+    const indiceGlobal = escenasPrevias + escenasAntes;
+    const encabezadoActual = esEdicion ? bloqueEscena.textContent.trim() : "";
+    let escenasExistentes = [];
+    try {
+      if (guionActivo?.id_guion) {
+        escenasExistentes = await cargarEscenasPersistidas(guionActivo.id_guion);
+      }
+    } catch (err) {
+      setError(err.message || "No se pudieron cargar las escenas del guion");
+      return;
+    }
+
+    let escenaGuardada = null;
+    if (esEdicion) {
+      const coincidencias = escenasExistentes.filter(
+        (escena) => String(escena.encabezado || "").trim().toLocaleUpperCase() === encabezadoActual.toLocaleUpperCase(),
+      );
+      if (coincidencias.length === 1) escenaGuardada = coincidencias[0];
+    }
+    const cambioPendiente = cambiosEscenaPendientes.find((cambio) => cambio.indice === indiceGlobal);
+    const datosEscena = cambioPendiente?.form || escenaGuardada;
+    const siguienteNumero = escenasExistentes.reduce(
+      (maximo, escena) => Math.max(maximo, Number(escena.numero_de_escena) || 0),
+      0,
+    ) + 1;
+    const numeroBorrador = cambiosEscenaPendientes.reduce(
+      (maximo, cambio) => Math.max(maximo, Number(cambio.form?.numero_de_escena) || 0),
+      0,
+    ) + 1;
+    const numero = datosEscena?.numero_de_escena || (
+      esEdicion
+        ? indiceGlobal + 1
+        : Math.max(siguienteNumero, indiceGlobal + 1, numeroBorrador)
+    );
+    const datosEncabezado = analizarEncabezadoEscena(encabezadoActual);
+    const valores = {
+      ...camposEscenaVacios(numero),
+      ...datosEscena,
+      encabezado: encabezadoActual || datosEscena?.encabezado || "",
+      modo_vista: datosEscena?.modo_vista || datosEncabezado?.modo_vista || "",
+      momento_dia: datosEscena?.momento_dia || datosEncabezado?.momento_dia || "",
+      ciudad: datosEscena?.ciudad || "",
+      pagina: datosEscena?.pagina ?? "",
+      fecha_de_grabacion: datosEscena?.fecha_de_grabacion || "",
+      dia_dramatico: datosEscena?.dia_dramatico ?? "",
+      estado: datosEscena?.estado || "Pendiente",
+    };
+    valores.encabezado = encabezadoDesdeCamposEscena(valores);
+    setEscenaInicial(JSON.stringify(valores));
+    setContextoEscena({
+      esEdicion,
+      indiceLocal,
+      indiceGlobal,
+      id_escena: escenaGuardada?.id_escena || cambioPendiente?.id_escena || null,
+      encabezadoAnterior: encabezadoActual,
+      insertarAlInicio: escenasActivo && !esEdicion && escenasEditor.length === 0,
+    });
+    setCamposEscenaEditados(new Set());
+    setFormEscena(valores);
+    setErrorFormEscena("");
+    setDialogoEscena(true);
+  };
+
+  const cerrarFormularioEscena = () => {
+    setDialogoEscena(false);
+    setErrorFormEscena("");
+    requestAnimationFrame(() => editorRef.current?.focus());
+  };
+
+  const cancelarFormularioEscena = () => {
+    if (JSON.stringify(formEscena) !== escenaInicial &&
+        !window.confirm("Hay cambios en la escena sin aplicar. ¿Descartarlos?")) return;
+    cerrarFormularioEscena();
+  };
+
+  const actualizarCampoEscena = (campo, valor) => {
+    const camposEditados = new Set(camposEscenaEditados);
+    camposEditados.add(campo);
+    setCamposEscenaEditados(camposEditados);
+    setFormEscena((actual) => {
+      const siguiente = { ...actual, [campo]: valor };
+      if (campo === "encabezado") {
+        const detectado = analizarEncabezadoEscena(valor);
+        if (detectado) {
+          siguiente.modo_vista = detectado.modo_vista;
+          siguiente.momento_dia = detectado.momento_dia;
+          if (detectado.numero_de_escena) {
+            siguiente.numero_de_escena = detectado.numero_de_escena;
+          }
+        }
+      } else if (campo === "modo_vista" || campo === "momento_dia") {
+        siguiente.encabezado = encabezadoDesdeCamposEscena(siguiente, camposEditados);
+      } else if (campo === "ciudad" || campo === "numero_de_escena") {
+        siguiente.encabezado = encabezadoDesdeCamposEscena(siguiente, camposEditados);
+      }
+      return siguiente;
+    });
+  };
+
+  const confirmarFormularioEscena = () => {
+    const encabezado = encabezadoDesdeCamposEscena(formEscena, camposEscenaEditados).trim();
+    const numero = formEscena.numero_de_escena.trim();
+    if (!numero || !encabezado) {
+      setErrorFormEscena("El número y el encabezado de la escena son obligatorios.");
+      return;
+    }
+    if (encabezado.length > 250) {
+      setErrorFormEscena("El encabezado no puede superar 250 caracteres.");
+      return;
+    }
+    if (formEscena.pagina && (!Number.isInteger(Number(formEscena.pagina)) || Number(formEscena.pagina) < 1)) {
+      setErrorFormEscena("La página debe ser un número entero mayor que cero.");
+      return;
+    }
+    if (formEscena.dia_dramatico && (!Number.isInteger(Number(formEscena.dia_dramatico)) || Number(formEscena.dia_dramatico) < 1)) {
+      setErrorFormEscena("El día dramático debe ser un número entero mayor que cero.");
+      return;
+    }
+
+    const editor = editorRef.current;
+    if (!editor || !contextoEscena) {
+      setErrorFormEscena("No se encontró el editor donde aplicar la escena.");
+      return;
+    }
+    let indiceLocal = contextoEscena.indiceLocal;
+    if (contextoEscena.esEdicion) {
+      const bloquesEscena = Array.from(editor.children).filter((bloque) => tipoDeElemento(bloque) === "escena");
+      const bloque = bloquesEscena[indiceLocal];
+      if (!bloque) {
+        setErrorFormEscena("La escena que ibas a editar ya no está en el documento.");
+        return;
+      }
+      bloque.textContent = encabezado.toLocaleUpperCase();
+    } else {
+      let encabezadoInsertado;
+      if (contextoEscena.insertarAlInicio) {
+        const plantilla = document.createElement("div");
+        plantilla.innerHTML = crearBloqueHtml("escena", encabezado);
+        encabezadoInsertado = plantilla.firstElementChild;
+        editor.insertBefore(encabezadoInsertado, editor.firstChild);
+        if (editor.children.length === 1) {
+          editor.appendChild(document.createElement("p"));
+          editor.lastElementChild.className = claseBloque("accion");
+          editor.lastElementChild.appendChild(document.createElement("br"));
+        }
+        const siguienteBloque = encabezadoInsertado.nextElementSibling || encabezadoInsertado;
+        colocarCursor(siguienteBloque);
+      } else {
+        const encabezadoHtml = crearBloqueHtml("escena", encabezado) + crearBloqueHtml("accion");
+        insertarBloquesEnEditor(encabezadoHtml);
+        const seleccionado = window.getSelection();
+        const bloqueAccion = bloqueDeNodo(seleccionado?.anchorNode);
+        encabezadoInsertado = bloqueAccion?.previousElementSibling;
+      }
+      if (!encabezadoInsertado || tipoDeElemento(encabezadoInsertado) !== "escena") {
+        setErrorFormEscena("No se pudo insertar el encabezado en el guion.");
+        return;
+      }
+      const bloquesEscena = Array.from(editor.children).filter((bloque) => tipoDeElemento(bloque) === "escena");
+      indiceLocal = bloquesEscena.indexOf(encabezadoInsertado);
+    }
+    sincronizarDesdeEditor();
+
+    const escenasPrevias = escenasActivo
+      ? escenasBorrador.slice(0, escenaActivaIndex).reduce((total, escena) => total + extraerEscenas(escena.texto).length, 0)
+      : 0;
+    const indiceGlobal = escenasPrevias + indiceLocal;
+    setCambiosEscenaPendientes((actuales) => {
+      const conservados = contextoEscena.esEdicion
+        ? actuales.filter((cambio) => cambio.indice !== indiceGlobal)
+        : actuales.map((cambio) => (
+          cambio.indice >= indiceGlobal ? { ...cambio, indice: cambio.indice + 1 } : cambio
+        ));
+      return [
+        ...conservados,
+        {
+          indice: indiceGlobal,
+          id_escena: contextoEscena.id_escena,
+          form: { ...formEscena, encabezado: encabezado.toLocaleUpperCase() },
+        },
+      ];
+    });
+    setError("");
+    cerrarFormularioEscena();
+  };
+
+  const sincronizarEscenasPersistidas = async (idGuion, html, cambios = cambiosEscenaPendientes) => {
+    const escenasDocumento = extraerEscenas(limpiarHtmlGuion(html));
+    if (!escenasDocumento.length) return { cantidad: 0, advertencias: [] };
+    const persistidas = await cargarEscenasPersistidas(idGuion);
+    const plan = planificarSincronizacionEscenas(escenasDocumento, persistidas, cambios);
+    if (plan.errores.length) throw new Error(plan.errores.join(" "));
+
+    for (const accion of plan.acciones) {
+      const esEdicion = accion.tipo === "actualizar";
+      const url = esEdicion
+        ? `${API_URL}/escenas/${accion.id_escena}`
+        : `${API_URL}/escenas`;
+      const payload = esEdicion
+        ? accion.payload
+        : { ...accion.payload, id_guion: Number(idGuion) };
+      const response = await fetchWithProject(url, {
+        method: esEdicion ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(extraerMensajeError(
+          data,
+          `No se pudo ${esEdicion ? "actualizar" : "crear"} la escena ${payload.numero_de_escena}.`,
+        ));
+      }
+    }
+
+    const advertencias = [];
+    if (plan.noRelacionadas.length) {
+      advertencias.push(
+        `Se conservaron ${plan.noRelacionadas.length} escena(s) persistida(s) que no aparecen en esta versión; no se borró ningún dato.`,
+      );
+    }
+    return { cantidad: plan.acciones.length, advertencias };
+  };
+
+  const encolarSincronizacionEscenas = (tarea) => {
+    setSincronizacionesPendientes((pendientes) => [
+      ...pendientes.filter((pendiente) => String(pendiente.idGuion) !== String(tarea.idGuion)),
+      tarea,
+    ]);
+  };
+
+  const limpiarSincronizacionEscenaPendiente = (idGuion) => {
+    setSincronizacionesPendientes((pendientes) =>
+      pendientes.filter((pendiente) => String(pendiente.idGuion) !== String(idGuion)),
+    );
+  };
+
+  const reintentarSincronizacionEscenas = async () => {
+    if (!sincronizacionesPendientes.length || sincronizandoEscenas) return;
+    const sincronizacionPendiente = sincronizacionesPendientes[0];
+    setSincronizandoEscenas(true);
+    setError("");
+    try {
+      const resultado = await sincronizarEscenasPersistidas(
+        sincronizacionPendiente.idGuion,
+        sincronizacionPendiente.html,
+        sincronizacionPendiente.cambios,
+      );
+      limpiarSincronizacionEscenaPendiente(sincronizacionPendiente.idGuion);
+      setCambiosEscenaPendientes([]);
+      setSuccess(`Escenas sincronizadas correctamente.${resultado.advertencias.length ? ` ${resultado.advertencias.join(" ")}` : ""}`);
+    } catch (err) {
+      setError(`El guion está guardado, pero la sincronización de escenas sigue pendiente: ${err.message}`);
+    } finally {
+      setSincronizandoEscenas(false);
+    }
+  };
+
   const manejarTeclaEditor = (event) => {
     if (event.key !== "Enter" && event.key !== "Tab") return;
     if (event.key === "Enter" && event.shiftKey) return;
@@ -729,7 +1095,24 @@ export default function GuionScreen() {
         <button {...base} onClick={() => ejecutarComandoEditor("undo")} title="Deshacer" aria-label="Deshacer"><Undo2 size={16} /></button>
         <button {...base} onClick={() => ejecutarComandoEditor("redo")} title="Rehacer" aria-label="Rehacer"><Redo2 size={16} /></button>
         <span className="guion-editor-toolbar__divider" aria-hidden="true" />
-        <button {...base} className="guion-editor-scene-button" onClick={() => insertarBloquesEnEditor(crearBloqueHtml("escena", "INT. LOCACIÓN - DÍA") + crearBloqueHtml("accion"))} title="Insertar encabezado de escena"><Clapperboard size={15} /> Escena</button>
+        <button
+          {...base}
+          className="guion-editor-scene-button"
+          onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }}
+          onClick={() => abrirFormularioEscena()}
+          title="Crear una escena o editar el encabezado seleccionado"
+        >
+          <Clapperboard size={15} /> Escena
+        </button>
+        <button
+          {...base}
+          className="guion-editor-scene-button"
+          onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }}
+          onClick={() => abrirFormularioEscena(true)}
+          title="Agregar una escena nueva en esta posición"
+        >
+          <Plus size={14} /> Nueva escena
+        </button>
         <button {...base} className="guion-editor-scene-button" onClick={() => insertarBloquesEnEditor(crearBloqueHtml("personaje", "PERSONAJE") + crearBloqueHtml("dialogo"))} title="Insertar personaje con diálogo"><MessageSquare size={15} /> Diálogo</button>
         <button {...base} className="guion-editor-scene-button" onClick={() => insertarBloquesEnEditor(crearBloqueHtml("transicion", "CORTE A:") + crearBloqueHtml("escena", "INT. LOCACIÓN - DÍA"))} title="Insertar transición"><ArrowRightToLine size={15} /> Transición</button>
       </>
@@ -1098,6 +1481,10 @@ export default function GuionScreen() {
       setError("Escribe contenido en al menos una escena antes de crear el guion");
       return;
     }
+    if (escenasActivo && escenasBorrador.some((escena) => extraerEscenas(escena.texto).length === 0)) {
+      setError("Cada escena del modo por escenas necesita un encabezado. Usa el botón «Escena» para completarlo antes de guardar.");
+      return;
+    }
 
     // El texto completo que se guarda como version del guion. En modo
     // escenas se unen los bloques de cada escena (cada una trae su propio
@@ -1106,6 +1493,7 @@ export default function GuionScreen() {
       escenasActivo ? escenasBorrador.map((esc) => esc.texto).join("") : contenidoInicial,
     );
 
+    setGuardandoEdicion(true);
     try {
       const token = getToken();
       const response = await fetchWithProject(`${API_URL}/guiones/texto`, {
@@ -1121,7 +1509,7 @@ export default function GuionScreen() {
         }),
       });
       const data = await response.json();
-      if (!response.ok) {
+      if (!response.ok || !data.success) {
         throw new Error(extraerMensajeError(data, "No se pudo crear el guion"));
       }
 
@@ -1129,8 +1517,8 @@ export default function GuionScreen() {
       // real en la tabla escenas, ligada al guion recién creado, para usarla
       // en Desglose, Rodaje y Continuidad. Las filas guardan texto plano porque
       // otras pantallas muestran esta descripción tal cual.
+      let idGuionNuevo = data.data?.id_guion;
       {
-        const idGuionNuevo = data.data.id_guion;
         let escenasParaCrear = extraerEscenas(contenidoParaVersion);
         if (escenasParaCrear.length === 0 && escenasActivo) {
           // Modo escenas sin encabezados INT./EXT.: una escena por pestaña
@@ -1164,10 +1552,33 @@ export default function GuionScreen() {
       setEscenasActivo(false);
       setEscenasBorrador([]);
       setEscenaActivaIndex(0);
+      setCambiosEscenaPendientes([]);
       setVista("lista");
       await fetchGuiones();
+      if (idGuionNuevo) {
+        try {
+          const resultado = await sincronizarEscenasPersistidas(
+            idGuionNuevo,
+            contenidoParaVersion,
+            cambiosEscenaPendientes,
+          );
+          limpiarSincronizacionEscenaPendiente(idGuionNuevo);
+          setSuccess(`Guion creado correctamente.${resultado.advertencias.length ? ` ${resultado.advertencias.join(" ")}` : ""}`);
+        } catch (syncError) {
+          encolarSincronizacionEscenas({
+            idGuion: idGuionNuevo,
+            html: contenidoParaVersion,
+            cambios: cambiosEscenaPendientes,
+          });
+          setError(`El guion se creó, pero no se completó la sincronización de escenas: ${syncError.message}`);
+        }
+      } else {
+        setError("El guion se creó, pero la respuesta no incluyó el identificador necesario para sincronizar sus escenas.");
+      }
     } catch (err) {
       setError(err.message || "No se pudo crear el guion");
+    } finally {
+      setGuardandoEdicion(false);
     }
   };
 
@@ -1250,8 +1661,12 @@ export default function GuionScreen() {
     event.preventDefault();
     if (!guionActivo) return;
 
+    if (escenasActivo && escenasBorrador.some((escena) => extraerEscenas(escena.texto).length === 0)) {
+      setError("Cada escena del modo por escenas necesita un encabezado. Usa el botón «Escena» para completarlo antes de guardar.");
+      return;
+    }
     const contenido = escenasActivo
-      ? escenasBorrador.map((esc) => `<h3>ESCENA ${esc.numero}</h3>${esc.texto}`).join("<hr/>")
+      ? escenasBorrador.map((esc) => esc.texto).join("")
       : contenidoInicial;
     if (!htmlATextoPlano(contenido).trim()) {
       setError("Escribe el contenido de esta versión antes de guardarla");
@@ -1277,6 +1692,7 @@ export default function GuionScreen() {
         throw new Error(extraerMensajeError(data, "No se pudo guardar la versión"));
       }
 
+      const contenidoGuardado = limpiarHtmlGuion(contenido);
       setGuionActivo((actual) => ({ ...actual, id_guion_version_actual: data.data.id_guion_version }));
       setVersionLectorId(data.data.id_guion_version);
       setContenidoInicial("");
@@ -1288,6 +1704,25 @@ export default function GuionScreen() {
       setTabDetalle("versiones");
       setSuccess("Nueva versión escrita y guardada correctamente");
       await Promise.all([fetchVersiones(guionActivo.id_guion), fetchGuiones()]);
+      try {
+        const resultado = await sincronizarEscenasPersistidas(
+          guionActivo.id_guion,
+          contenidoGuardado,
+          cambiosEscenaPendientes,
+        );
+        limpiarSincronizacionEscenaPendiente(guionActivo.id_guion);
+        setCambiosEscenaPendientes([]);
+        if (resultado.advertencias.length) {
+          setSuccess(`Nueva versión guardada. ${resultado.advertencias.join(" ")}`);
+        }
+      } catch (syncError) {
+        encolarSincronizacionEscenas({
+          idGuion: guionActivo.id_guion,
+          html: contenidoGuardado,
+          cambios: cambiosEscenaPendientes,
+        });
+        setError(`La versión se guardó, pero no se completó la sincronización de escenas: ${syncError.message}`);
+      }
     } catch (err) {
       setError(err.message || "No se pudo guardar la versión");
     } finally {
@@ -1298,7 +1733,10 @@ export default function GuionScreen() {
   const iniciarEdicionContenido = (version = versionSeleccionadaParaLector) => {
     if (!version) return;
     setVersionLectorId(version.id_guion_version);
-    setContenidoEditado(normalizarHtmlGuion(version.contenido || ""));
+    const contenidoOriginal = normalizarHtmlGuion(version.contenido || "");
+    setContenidoOriginal(contenidoOriginal);
+    setContenidoEditado(contenidoOriginal);
+    setCambiosEscenaPendientes([]);
     fetchPersonajes();
     fetchEscenarios();
     fetchGalleryItems();
@@ -1339,6 +1777,26 @@ export default function GuionScreen() {
       setEditandoContenido(false);
       setSuccess("Edición guardada como una nueva versión");
       await Promise.all([fetchVersiones(guionActivo.id_guion), fetchGuiones()]);
+      const contenidoGuardado = limpiarHtmlGuion(contenidoEditado);
+      try {
+        const resultado = await sincronizarEscenasPersistidas(
+          guionActivo.id_guion,
+          contenidoGuardado,
+          cambiosEscenaPendientes,
+        );
+        limpiarSincronizacionEscenaPendiente(guionActivo.id_guion);
+        setCambiosEscenaPendientes([]);
+        if (resultado.advertencias.length) {
+          setSuccess(`Edición guardada como nueva versión. ${resultado.advertencias.join(" ")}`);
+        }
+      } catch (syncError) {
+        encolarSincronizacionEscenas({
+          idGuion: guionActivo.id_guion,
+          html: contenidoGuardado,
+          cambios: cambiosEscenaPendientes,
+        });
+        setError(`La nueva versión quedó guardada, pero no se completó la sincronización de escenas: ${syncError.message}`);
+      }
     } catch (err) {
       setError(err.message || "No se pudo guardar la edición");
     } finally {
@@ -1431,23 +1889,22 @@ export default function GuionScreen() {
 
   return (
     <div className={`guion-page ${esAdmin ? "module-role-admin" : "module-role-user"}`}>
-      <header className="guion-header">
-        <div className="guion-header__inner">
-          <button className="guion-back" type="button" onClick={() => navigate("/proyecto-dashboard")}>
-            <ArrowLeft size={18} />
-            Volver
-          </button>
-          <div className="guion-header__badge">
-            <FileText size={18} />
-            {projectName}
-          </div>
-        </div>
-      </header>
-
-      <main className="guion-main guion-main--single">
+      <main className={`guion-main guion-main--single ${vista === "lector" || vista === "crear-cero" || vista === "crear-version" ? "guion-main--writing" : ""}`}>
         {(error || success) && (
           <div className={`guion-message ${error ? "guion-message--error" : "guion-message--success"}`}>
             {error || success}
+            {sincronizacionesPendientes.length > 0 && (
+              <button
+                type="button"
+                className="guion-message__retry"
+                onClick={reintentarSincronizacionEscenas}
+                disabled={sincronizandoEscenas}
+              >
+                {sincronizandoEscenas
+                  ? `Sincronizando escenas (${sincronizacionesPendientes.length})…`
+                  : `Reintentar sincronización (${sincronizacionesPendientes.length})`}
+              </button>
+            )}
           </div>
         )}
 
@@ -1522,21 +1979,17 @@ export default function GuionScreen() {
 
         {/* ---------------- CREAR DESDE CERO ---------------- */}
         {(vista === "crear-cero" || vista === "crear-version") && (
-          <div className="guion-panel guion-panel--wide guion-composer">
-            <div className="guion-panel__header">
-              <div className="guion-panel__title-row">
-                <Sparkles size={18} />
-                <div>
-                  <h2>{vista === "crear-version" ? "Escribir nueva versión" : "Crear guion desde cero"}</h2>
-                  {vista === "crear-version" && <span>{guionActivo?.nombre} · nueva versión del guion</span>}
-                </div>
-              </div>
-              <button className="guion-back" type="button" onClick={vista === "crear-version" ? cancelarEscrituraVersion : cancelarCreacionDesdeCero}>
-                <ArrowLeft size={16} /> {vista === "crear-version" ? "Volver a versiones" : "Cancelar"}
+          <div className={`guion-reader guion-composer ${vista === "crear-cero" ? "guion-composer--new" : ""}`}>
+            <div className="guion-writing-bar">
+              <button className="guion-reader__back" type="button" onClick={vista === "crear-version" ? cancelarEscrituraVersion : cancelarCreacionDesdeCero} disabled={guardandoEdicion}>
+                <ArrowLeft size={16} /> {vista === "crear-version" ? "Versiones" : "Guiones"}
               </button>
+              <strong>{vista === "crear-version" ? "Nueva versión" : "Crear guion"}</strong>
+              <span title={vista === "crear-version" ? guionActivo?.nombre : projectName}>{vista === "crear-version" ? guionActivo?.nombre : projectName || "Proyecto"}</span>
             </div>
 
             <form className="guion-form-card" style={{ borderBottom: "none" }} onSubmit={vista === "crear-version" ? guardarVersionDesdeEditor : handleCreateGuionDesdeCero}>
+              <fieldset className="guion-writing-fields" disabled={guardandoEdicion}>
               {vista === "crear-version" ? (
                 <section className="guion-version-writer-meta" aria-label="Datos de la versión">
                   <div className="guion-grid">
@@ -1573,6 +2026,7 @@ export default function GuionScreen() {
                 <div className="guion-titlebar">
                   <input
                     className="guion-titlebar__title"
+                    aria-label="Título del guion"
                     value={ceroForm.nombre}
                     onChange={(e) => setCeroForm({ ...ceroForm, nombre: e.target.value })}
                     placeholder="Título del guion"
@@ -1580,6 +2034,7 @@ export default function GuionScreen() {
                   />
                   <input
                     className="guion-titlebar__desc"
+                    aria-label="Descripción del guion"
                     value={ceroForm.descripcion}
                     onChange={(e) => setCeroForm({ ...ceroForm, descripcion: e.target.value })}
                     placeholder="Añade una descripción: tono, estructura o notas del guion"
@@ -1588,9 +2043,9 @@ export default function GuionScreen() {
               )}
 
               <div className="guion-editor-layout">
-                <div className="guion-editor-shell">
+                <div className="guion-editor-shell guion-reader__editor-shell">
                   {botonOcultarHerramientas()}
-                  <div className={`guion-editor-toolbar ${herramientasVisibles ? "" : "is-collapsed"}`}>
+                  <div className={`guion-editor-toolbar ${herramientasVisibles ? "" : "is-collapsed"}`} role="toolbar" aria-label="Herramientas de creación del guion">
                     {herramientasFormatoEditor()}
                     <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("personaje")}><Users size={15} /> Personaje</button>
                     <button className="guion-editor-catalog-button" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("lugar")}><MapPin size={15} /> Lugar</button>
@@ -1640,7 +2095,7 @@ export default function GuionScreen() {
 
                   <div
                     ref={editorRef}
-                    contentEditable
+                    contentEditable={!guardandoEdicion}
                     suppressContentEditableWarning
                     className="guion-editor-surface guion-editor-surface--rich guion-pagina"
                     role="textbox"
@@ -1814,8 +2269,9 @@ export default function GuionScreen() {
               </div>
 
               <button className="guion-button guion-button--primary" type="submit" style={{ marginTop: "1.25rem" }} disabled={guardandoEdicion}>
-                <CheckCircle2 size={16} /> {guardandoEdicion ? "Guardando versión…" : vista === "crear-version" ? "Guardar nueva versión" : "Crear guion"}
+                <CheckCircle2 size={16} /> {guardandoEdicion ? "Guardando…" : vista === "crear-version" ? "Guardar nueva versión" : "Crear guion"}
               </button>
+              </fieldset>
             </form>
           </div>
         )}
@@ -1908,6 +2364,7 @@ export default function GuionScreen() {
                     <button className="guion-button guion-button--accent" type="button" onClick={() => {
                       setOrigenVersion("archivo");
                       setArchivoVersion(null);
+                      setVersionInicial(JSON.stringify(versionForm));
                       setShowVersionModal(true);
                     }}>
                       <Plus size={16} /> Nueva versión
@@ -2006,24 +2463,23 @@ export default function GuionScreen() {
 
         {vista === "lector" && guionActivo && versionSeleccionadaParaLector && (
           <section className="guion-reader" aria-label="Lector de guiones">
-            <header className="guion-reader__header">
-              <button className="guion-reader__back" type="button" onClick={() => { setVista("detalle"); setEditandoContenido(false); }}>
+            <header className="guion-writing-bar">
+              <button className="guion-reader__back" type="button" onClick={() => { if (!confirmarSalida()) return; setVista("detalle"); setEditandoContenido(false); }} disabled={guardandoEdicion}>
                 <ArrowLeft size={17} /> Volver al guion
               </button>
-              <div className="guion-reader__heading">
-                <span>LECTOR DE GUION</span>
-                <h1>{guionActivo.nombre}</h1>
-                <p>Versión {versionSeleccionadaParaLector.numero_de_version} · {versionSeleccionadaParaLector.estado || "Sin estado"}</p>
-              </div>
+              <strong>{editandoContenido ? "Editando versión" : "Lectura"}</strong>
+              <span title={guionActivo.nombre}>{guionActivo.nombre} · v{versionSeleccionadaParaLector.numero_de_version}</span>
               <div className="guion-reader__tools">
                 <label>
                   <span>Versión</span>
                   <select
                     value={versionSeleccionadaParaLector.id_guion_version}
                     onChange={(event) => {
+                      if (!confirmarSalida()) return;
                       setVersionLectorId(Number(event.target.value));
                       setEditandoContenido(false);
                     }}
+                    disabled={guardandoEdicion}
                     aria-label="Seleccionar versión para leer"
                   >
                     {versiones.map((version) => (
@@ -2058,7 +2514,7 @@ export default function GuionScreen() {
                 <p className="guion-reader__notice">{versionSeleccionadaParaLector.mensaje_extraccion}</p>
               )}
               {editandoContenido ? (
-                <div className="guion-reader__editor">
+                <fieldset className="guion-reader__editor guion-writing-fields" disabled={guardandoEdicion}>
                   <p>Guarda los cambios para crear una nueva versión. La versión elegida y el archivo original seguirán en el historial.</p>
                   {!htmlATextoPlano(contenidoEditado).trim() && versionSeleccionadaParaLector.archivo && (
                     <p className="guion-reader__notice">No se pudo extraer texto editable. Puedes escribir o pegar aquí el contenido.</p>
@@ -2081,7 +2537,7 @@ export default function GuionScreen() {
                     <div
                       ref={editorRef}
                       className="guion-editor-surface guion-editor-surface--rich guion-reader__edit-surface guion-pagina"
-                      contentEditable
+                      contentEditable={!guardandoEdicion}
                       suppressContentEditableWarning
                       role="textbox"
                       aria-label="Editar contenido del guion"
@@ -2099,11 +2555,11 @@ export default function GuionScreen() {
                     <button className="guion-reader__action guion-reader__action--primary" type="button" onClick={guardarEdicionContenido} disabled={guardandoEdicion}>
                       <Check size={16} /> {guardandoEdicion ? "Guardando versión…" : "Guardar nueva versión"}
                     </button>
-                    <button className="guion-reader__action" type="button" onClick={() => setEditandoContenido(false)} disabled={guardandoEdicion}>
+                    <button className="guion-reader__action" type="button" onClick={() => { if (confirmarSalida()) setEditandoContenido(false); }} disabled={guardandoEdicion}>
                       Cancelar
                     </button>
                   </div>
-                </div>
+                </fieldset>
               ) : versionSeleccionadaParaLector.contenido ? (
                 <>
                   <p className="guion-reader__meta">≈ {estimarPaginas(versionSeleccionadaParaLector.contenido)} págs. · ≈ {estimarPaginas(versionSeleccionadaParaLector.contenido)} min (1 página ≈ 1 minuto)</p>
@@ -2426,11 +2882,11 @@ export default function GuionScreen() {
 
       {/* ---------------- MODAL: Subir guion ---------------- */}
       {showUploadModal && (
-        <div className="guion-modal-overlay" onClick={() => setShowUploadModal(false)}>
+        <div className="guion-modal-overlay" onClick={() => { if (confirmarSalida()) setShowUploadModal(false); }}>
           <div className="guion-modal" onClick={(e) => e.stopPropagation()}>
             <div className="guion-modal__header">
               <h3><UploadCloud size={18} /> Subir guion</h3>
-              <button className="guion-modal__close" type="button" onClick={() => setShowUploadModal(false)}>
+              <button className="guion-modal__close" type="button" onClick={() => { if (confirmarSalida()) setShowUploadModal(false); }}>
                 <X size={18} />
               </button>
             </div>
@@ -2474,11 +2930,11 @@ export default function GuionScreen() {
 
       {/* ---------------- MODAL: Nueva versión ---------------- */}
       {showVersionModal && (
-        <div className="guion-modal-overlay" onClick={() => setShowVersionModal(false)}>
+        <div className="guion-modal-overlay" onClick={() => { if (confirmarSalida()) setShowVersionModal(false); }}>
           <div className="guion-modal" onClick={(e) => e.stopPropagation()}>
             <div className="guion-modal__header">
               <h3><Plus size={18} /> Nueva versión</h3>
-              <button className="guion-modal__close" type="button" onClick={() => setShowVersionModal(false)}>
+              <button className="guion-modal__close" type="button" onClick={() => { if (confirmarSalida()) setShowVersionModal(false); }}>
                 <X size={18} />
               </button>
             </div>
@@ -2551,6 +3007,162 @@ export default function GuionScreen() {
               </button>
             </form>
           </div>
+        </div>
+      )}
+
+      {dialogoEscena && (
+        <div
+          className="guion-modal-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) cancelarFormularioEscena();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") cancelarFormularioEscena();
+          }}
+        >
+          <section
+            className="guion-modal guion-scene-form"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="guion-scene-form-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="guion-modal__header">
+              <div>
+                <span className="guion-gallery-picker__eyebrow">ESCENA DEL GUION</span>
+                <h3 id="guion-scene-form-title">
+                  {contextoEscena?.esEdicion ? "Editar escena" : "Crear escena"}
+                </h3>
+              </div>
+              <button
+                className="guion-modal__close"
+                type="button"
+                onClick={cancelarFormularioEscena}
+                aria-label="Cancelar edición de escena"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="guion-modal__subtitle">
+              Los cambios se aplican primero al borrador del guion. Al guardarlo, se sincronizarán con la ficha de escena; el contenido de acción y diálogo se conserva.
+            </p>
+            {errorFormEscena && <p className="guion-gallery-picker__error" role="alert">{errorFormEscena}</p>}
+            <div className="guion-scene-form__grid">
+              <label className="guion-scene-form__wide">
+                Proyecto activo
+                <input
+                  type="text"
+                  value={projectName || "Nombre del proyecto no cargado"}
+                  readOnly
+                  aria-label="Nombre del proyecto activo"
+                />
+              </label>
+              <label>
+                Número de escena
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={formEscena.numero_de_escena}
+                  onChange={(event) => actualizarCampoEscena("numero_de_escena", event.target.value)}
+                  required
+                />
+              </label>
+              <label className="guion-scene-form__wide">
+                Encabezado completo
+                <input
+                  ref={campoEncabezadoEscenaRef}
+                  autoFocus
+                  type="text"
+                  maxLength={250}
+                  value={formEscena.encabezado}
+                  onChange={(event) => actualizarCampoEscena("encabezado", event.target.value)}
+                  placeholder="Ej. INT. COCINA - NOCHE"
+                  required
+                />
+              </label>
+              <label>
+                Interior / exterior
+                <select
+                  value={formEscena.modo_vista}
+                  onChange={(event) => actualizarCampoEscena("modo_vista", event.target.value)}
+                >
+                  <option value="">Sin especificar</option>
+                  {["Int", "Ext", "Int/Ext", "Ext/Int"].map((valor) => (
+                    <option key={valor} value={valor}>{valor}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Momento del día
+                <select
+                  value={formEscena.momento_dia}
+                  onChange={(event) => actualizarCampoEscena("momento_dia", event.target.value)}
+                >
+                  <option value="">Sin especificar</option>
+                  {["Día", "Noche", "Amanecer", "Atardecer", "Mañana", "Tarde"].map((valor) => (
+                    <option key={valor} value={valor}>{valor}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Ciudad
+                <input
+                  type="text"
+                  value={formEscena.ciudad}
+                  onChange={(event) => actualizarCampoEscena("ciudad", event.target.value)}
+                />
+              </label>
+              <label>
+                Página
+                <input
+                  type="number"
+                  min="1"
+                  value={formEscena.pagina}
+                  onChange={(event) => actualizarCampoEscena("pagina", event.target.value)}
+                />
+              </label>
+              <label>
+                Fecha de grabación
+                <input
+                  type="date"
+                  value={formEscena.fecha_de_grabacion}
+                  onChange={(event) => actualizarCampoEscena("fecha_de_grabacion", event.target.value)}
+                />
+              </label>
+              <label>
+                Día dramático
+                <input
+                  type="number"
+                  min="1"
+                  value={formEscena.dia_dramatico}
+                  onChange={(event) => actualizarCampoEscena("dia_dramatico", event.target.value)}
+                />
+              </label>
+              <label>
+                Estado de escena
+                <select
+                  value={formEscena.estado}
+                  onChange={(event) => actualizarCampoEscena("estado", event.target.value)}
+                >
+                  {["Pendiente", "En Proceso", "Finalizada"].map((valor) => (
+                    <option key={valor} value={valor}>{valor}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <footer className="guion-location-options__footer">
+              <button className="guion-reader__action" type="button" onClick={cancelarFormularioEscena}>
+                Cancelar
+              </button>
+              <button
+                className="guion-reader__action guion-reader__action--primary"
+                type="button"
+                onClick={confirmarFormularioEscena}
+              >
+                <Check size={16} /> Aplicar al guion
+              </button>
+            </footer>
+          </section>
         </div>
       )}
     </div>

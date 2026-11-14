@@ -110,7 +110,7 @@ export function htmlATextoPlano(html) {
   return recorrer(contenedor).replace(/\n{3,}/g, "\n\n").trim();
 }
 
-const RE_ESCENA = /^(INT\.?\/EXT\.?|EXT\.?\/INT\.?|I\/E\.?|INT\.?|EXT\.?)(\s|$)/i;
+const RE_ESCENA = /^(?:\d+[A-Z]?(?:\s*[.-]\s*|\s+))?(INT\.?\/EXT\.?|EXT\.?\/INT\.?|I\/E\.?|INT\.?|EXT\.?)(\s|$)/i;
 const RE_TRANSICION = /^(CORTE|FUNDIDO|DISOLVENCIA|CUT|FADE|DISSOLVE)\b/;
 
 // Para contenido antiguo (HTML libre) adivina el tipo de bloque.
