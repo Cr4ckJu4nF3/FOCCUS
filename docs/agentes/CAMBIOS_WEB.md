@@ -3,7 +3,7 @@
 foccus-web agrega aquí cada cambio relevante (arriba lo más nuevo). foccus-mobile los adapta cuando el usuario lo pida y cambia el estado a `hecho en móvil`.
 
 ## 2026-11-20 – Autorización de recursos por proyecto y edición de procesos
-- Rama/commit: rama actual; sin commit.
+- Rama/commit: `main`, `bb4295222290cfb7705893995003b46fe01c8f26`.
 - Qué cambió (web/backend/BD): las lecturas y escrituras de escenas, guiones/versiones, continuidad, rodajes/procesos, desglose, personajes y escenarios verifican que los recursos de la ruta pertenezcan al proyecto activo. Las referencias relacionadas en escenas (guion, rodaje y desglose) también se validan; los IDs de proyecto recibidos al crear guiones, rodajes, personajes o escenarios deben coincidir con el proyecto autorizado. Recursos inexistentes o de otro proyecto responden 404; un `id_project` de cuerpo/formulario distinto responde 403. `GET /guiones` queda limitado al proyecto activo incluso si no se envía `id_project`. Sin cambios de BD. En Rodaje, el administrador ahora puede editar nombre, ubicación, fecha, encargado, estado, orden y descripción de un proceso; el campo de archivo permanece fuera del formulario porque no había flujo de edición de adjuntos.
 - Endpoints nuevos o modificados (método, ruta, cuerpo, respuesta):
   - `POST /personajes` y `POST /escenarios`: `id_project` del cuerpo debe coincidir con el proyecto activo; si no, responde 403. `PATCH/DELETE /personajes/{id_personaje}` y `PATCH/DELETE /escenarios/{id_escenario}`: el recurso debe pertenecer al proyecto activo; si no, responde 404.
