@@ -399,8 +399,12 @@ def importar_desglose_pdf(id_guion: int, ruta_temporal: str, id_project: str, db
 
     try:
         texto = extraer_texto_pdf(ruta_temporal)
-    except Exception as e:
-        return api_response(False, f"No se pudo leer el PDF: {e}", error="PDF_READ_ERROR")
+    except Exception:
+        return api_response(
+            False,
+            "No se pudo leer el PDF. Verifica que sea un archivo PDF válido y no esté dañado.",
+            error="PDF_READ_ERROR",
+        )
 
     escenas_parseadas, _dias = parse_desglose_pdf(texto)
     if not escenas_parseadas:

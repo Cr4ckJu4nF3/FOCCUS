@@ -50,7 +50,10 @@ _DEPTS_PATRON = r"Elenco|Extras\s*/\s*BG|Bits|Props|SFX|Arte|Vestuario|C[aá]mar
 
 DEPT_LABEL_GLOBAL = re.compile(rf"(?:^|\s)({_DEPTS_PATRON}):", re.IGNORECASE)
 MODO_VISTA_RE = re.compile(r"^(INT/EXT|EXT/INT|INT|EXT)\b\s*(.*)$", re.IGNORECASE)
-MOMENTO_RE = re.compile(r"\b(D[ií]a|Noche|Amanecer|Atardecer|Ma[ñn]ana|Tarde)\b")
+MOMENTO_RE = re.compile(
+    r"\b(D[ií]a|Noche|Amanecer|Atardecer|Ma[ñn]ana|Tarde)\b",
+    re.IGNORECASE,
+)
 DIA_HEADER_RE = re.compile(
     r"^D[ÍI]A\s+(\d+)\s*·\s*[^,]+,\s*(\d{1,2})\s+de\s+(\w+)\s+(\d{4})\s*·\s*([^·]+)·(?:\s*Llamado:\s*([^·]+)·)?",
     re.IGNORECASE
@@ -106,7 +109,9 @@ def _parse_bloque_escena(numero, texto_bloque, dia, fecha, locacion):
     if not m_momento:
         return None, None
 
-    encabezado = resto[:m_momento.start()].strip(" -")
+    # El modo se extrae por separado, así que para encabezados como
+    # "INT. SALA - DÍA" hay que descartar también el punto de "INT.".
+    encabezado = resto[:m_momento.start()].strip(" .-")
     momento_dia = m_momento.group(1).capitalize()
     contenido = resto[m_momento.end():].strip()
 
@@ -265,7 +270,10 @@ DEPTS_MAYUS = {
     "ANIMALES", "ARMAS", "MAQUILLAJE",
 }
 
-SCENE_ROD_RE = re.compile(r"^Sc\.\s*(\d{1,4})\s+(INT/EXT|EXT/INT|INT|EXT)\s+(.*)$", re.IGNORECASE)
+SCENE_ROD_RE = re.compile(
+    r"^Sc\.\s*(\d{1,4})\s+(INT/EXT|EXT/INT|INT|EXT)\.?\s+(.*)$",
+    re.IGNORECASE,
+)
 PAGCOUNT_SUFFIX_RE = re.compile(r"\s*[\d\s/]*\d\s*p[áa]gs?\.?\s*$", re.IGNORECASE)
 
 
@@ -278,7 +286,7 @@ def _parse_header_escena_rodaje(resto: str):
     m_momento = MOMENTO_RE.search(resto)
     if not m_momento:
         return None
-    encabezado = resto[:m_momento.start()].strip(" -")
+    encabezado = resto[:m_momento.start()].strip(" .-")
     momento_dia = m_momento.group(1).capitalize()
     return encabezado, momento_dia
 

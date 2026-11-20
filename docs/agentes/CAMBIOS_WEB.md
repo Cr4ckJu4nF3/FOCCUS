@@ -2,6 +2,41 @@
 
 foccus-web agrega aquí cada cambio relevante (arriba lo más nuevo). foccus-mobile los adapta cuando el usuario lo pida y cambia el estado a `hecho en móvil`.
 
+## 2026-11-20 – Validación de importación de desglose y cronograma
+- Rama/commit: `main`; sin commit.
+- Qué cambió (web/backend/BD): los dos importadores reconocen y rechazan con mensaje claro archivos que no son PDF; el plan de rodaje rechaza fechas no válidas antes de modificar datos. Se corrige el análisis de encabezados `INT.`/`EXT.` y momentos en mayúsculas. Sin cambios de esquema ni de BD real.
+- Endpoints nuevos o modificados (método, ruta, cuerpo, respuesta): `POST /guiones/{id_guion}/desglose/importar` y `POST /projects/{id_project}/rodajes/importar`; cuerpo exitoso sin cambios. Respuesta de error existente `{success, message, data, error}` ahora usa `UNSUPPORTED_FILE_FORMAT` para archivos que no sean PDF; el rodaje también usa `INVALID_SCHEDULE_DATE` si una fecha no se reconoce. PDF dañado conserva `PDF_READ_ERROR` con mensaje genérico.
+- Pantallas web afectadas: Desglose y Rodaje; los formularios existentes muestran el mensaje del backend, no requieren cambios.
+- Estado para móvil: pendiente; adaptación móvil excluida de esta tarea.
+
+## 2026-11-20 – Corrección transaccional del borrado de guiones
+- Rama/commit: `main`; sin commit.
+- Qué cambió (web/backend/BD): backend elimina desgloses y requerimientos solo si ninguna otra escena los referencia; conserva elementos, versiones y fotos de galería, desvinculando las referencias al guion y escenas borrados. Si falla la limpieza de códigos o su comprobación, revierte la transacción; solo omite códigos si la tabla no existe. Sin cambios de esquema.
+- Endpoints nuevos o modificados (método, ruta, cuerpo, respuesta): `DELETE /guiones/{id_guion}`; sin cambios de método, cuerpo ni respuesta exitosa. Un fallo de base de datos se propaga como error del servidor en lugar de comunicar éxito.
+- Pantallas web afectadas: ninguna modificada.
+- Estado para móvil: pendiente; no se solicitó adaptación.
+
+## 2026-11-20 – Limpieza completa al eliminar guiones
+- Rama/commit: rama actual; sin commit.
+- Qué cambió (web/backend/BD): `DELETE /guiones/{id_guion}` elimina las notas, versiones, escenas y continuidades asociadas, además de los códigos públicos y archivos propios del guion. El borrado sigue siendo transaccional en BD; los archivos se limpian después del commit y un fallo físico devuelve `error: "FILE_CLEANUP_FAILED"` con rutas pendientes. Sin cambios de esquema.
+- Endpoints nuevos o modificados (método, ruta, cuerpo, respuesta): `DELETE /guiones/{id_guion}`; sin cambios de método, ruta ni cuerpo. Éxito conserva `{success, message, data, error}`; el fallo posterior al commit informa explícitamente los archivos pendientes. Recursos de otro proyecto siguen respondiendo 404; sin autenticación sigue respondiendo 401.
+- Pantallas web afectadas: Guion; el flujo existente muestra el mensaje de error devuelto y actualiza la lista tras éxito.
+- Estado para móvil: pendiente; el usuario excluyó adaptación móvil por ahora. No se modificó Flutter.
+
+## 2026-11-20 – Limpieza de códigos al borrar proyectos
+- Rama/commit: `main`; sin commit.
+- Qué cambió (web/backend/BD): backend elimina los códigos del proyecto y sus entidades en la misma transacción de borrado, sin tocar contadores ni códigos de otros proyectos. Sin cambios de esquema ni operaciones sobre datos reales.
+- Endpoints nuevos o modificados (método, ruta, cuerpo, respuesta): `DELETE /projects/{id}` y `POST /projects/{id}/delete`; sin cuerpo y con respuesta exitosa sin cambios. Si falla la limpieza de códigos, se revierte la transacción.
+- Pantallas web afectadas: ninguna modificada.
+- Estado para móvil: pendiente; no se solicitó adaptación y no cambia la forma de la respuesta exitosa.
+
+## 2026-11-20 – Protección de la recuperación de cuentas invitadas
+- Rama/commit: `main`; sin commit.
+- Qué cambió (web/backend/BD): backend genera códigos de recuperación y contraseñas temporales de invitación con aleatoriedad criptográfica. Un código de recuperación solo queda disponible si se envía el correo; cinco errores entre verificación y cambio invalidan el código. Hay una espera de 60 segundos entre solicitudes exitosas por correo. El estado y los límites son en memoria por proceso: no protegen conjuntamente varios workers ni sobreviven reinicios. Sin cambios de BD ni de pantallas.
+- Endpoints nuevos o modificados (método, ruta, cuerpo, respuesta): `POST /users/recover-password` mantiene `{mail}` y la respuesta habitual, pero puede devolver `success: false, error: "RATE_LIMITED"` durante la espera; el fallo SMTP devuelve `MAIL_ERROR` y no deja un código válido. `POST /users/verify-recovery-code` mantiene `{mail, codigo}` y `POST /users/reset-password` mantiene `{mail, codigo, nueva_contrasena}`; comparten el límite de cinco errores, tras el cual el código ya no existe. No hay endpoint de reenvío de invitación.
+- Pantallas web afectadas: ninguna; la pantalla existente de recuperación muestra el mensaje de error del backend.
+- Estado para móvil: pendiente; no se solicitó adaptación. Clientes deben manejar `RATE_LIMITED` y solicitar un nuevo código cuando el anterior se invalide.
+
 ## 2026-11-20 – Autorización de recursos por proyecto y edición de procesos
 - Rama/commit: `main`, `bb4295222290cfb7705893995003b46fe01c8f26`.
 - Qué cambió (web/backend/BD): las lecturas y escrituras de escenas, guiones/versiones, continuidad, rodajes/procesos, desglose, personajes y escenarios verifican que los recursos de la ruta pertenezcan al proyecto activo. Las referencias relacionadas en escenas (guion, rodaje y desglose) también se validan; los IDs de proyecto recibidos al crear guiones, rodajes, personajes o escenarios deben coincidir con el proyecto autorizado. Recursos inexistentes o de otro proyecto responden 404; un `id_project` de cuerpo/formulario distinto responde 403. `GET /guiones` queda limitado al proyecto activo incluso si no se envía `id_project`. Sin cambios de BD. En Rodaje, el administrador ahora puede editar nombre, ubicación, fecha, encargado, estado, orden y descripción de un proceso; el campo de archivo permanece fuera del formulario porque no había flujo de edición de adjuntos.

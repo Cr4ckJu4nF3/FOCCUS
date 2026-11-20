@@ -234,8 +234,12 @@ def get_escenas_disponibles(id_project: str, db: Session):
 def importar_rodaje_pdf(id_project: str, ruta_temporal: str, db: Session):
     try:
         texto = extraer_texto_pdf(ruta_temporal)
-    except Exception as e:
-        return api_response(False, f"No se pudo leer el PDF: {e}", error="PDF_READ_ERROR")
+    except Exception:
+        return api_response(
+            False,
+            "No se pudo leer el PDF. Verifica que sea un archivo PDF válido y no esté dañado.",
+            error="PDF_READ_ERROR",
+        )
 
     dias_parseados, escenas_parseadas = parse_rodaje_pdf(texto)
     if not dias_parseados:
@@ -243,6 +247,12 @@ def importar_rodaje_pdf(id_project: str, ruta_temporal: str, db: Session):
             False,
             "No se pudo reconocer ningun dia de rodaje en este PDF. Revisa que siga el formato esperado.",
             error="NO_DAYS_FOUND"
+        )
+    if any(dia.get("fecha") is None for dia in dias_parseados):
+        return api_response(
+            False,
+            "El cronograma debe incluir una fecha válida en español para cada día.",
+            error="INVALID_SCHEDULE_DATE",
         )
 
     escenas_disponibles = (

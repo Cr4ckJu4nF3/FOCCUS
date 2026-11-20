@@ -45,6 +45,7 @@ import {
   SIGUIENTE_TAB,
   claseBloque,
   crearBloqueHtml,
+  crearOpcionesPdfGuion,
   estimarPaginas,
   extraerEscenas,
   generarPdfGuion,
@@ -105,7 +106,7 @@ function extraerMensajeError(data, fallback) {
   return data.message || fallback;
 }
 
-function NotasVersion({ version, projectId }) {
+export function NotasVersion({ version, projectId, esAdmin }) {
   const [notas, setNotas] = useState([]);
   const [contenido, setContenido] = useState("");
   const [cargando, setCargando] = useState(true);
@@ -142,7 +143,7 @@ function NotasVersion({ version, projectId }) {
   const guardar = async (event) => {
     event.preventDefault();
     const texto = contenido.trim();
-    if (!texto || cargando || errorCarga || guardando) return;
+    if (!esAdmin || !texto || cargando || errorCarga || guardando) return;
     setGuardando(true);
     setError("");
     setExito("");
@@ -193,13 +194,15 @@ function NotasVersion({ version, projectId }) {
           ))}
         </ul>
       )}
-      <form className="guion-form" onSubmit={guardar}>
-        <label htmlFor="nota-version">Agregar nota a esta versión</label>
-        <textarea id="nota-version" rows={3} value={contenido} onChange={(event) => setContenido(event.target.value)} disabled={guardando} required />
-        <button className="guion-reader__action guion-reader__action--primary" type="submit" disabled={cargando || errorCarga || guardando || !contenido.trim()}>
-          {guardando ? "Guardando nota…" : "Guardar nota"}
-        </button>
-      </form>
+      {esAdmin && (
+        <form className="guion-form" onSubmit={guardar}>
+          <label htmlFor="nota-version">Agregar nota a esta versión</label>
+          <textarea id="nota-version" rows={3} value={contenido} onChange={(event) => setContenido(event.target.value)} disabled={guardando} required />
+          <button className="guion-reader__action guion-reader__action--primary" type="submit" disabled={cargando || errorCarga || guardando || !contenido.trim()}>
+            {guardando ? "Guardando nota…" : "Guardar nota"}
+          </button>
+        </form>
+      )}
     </section>
   );
 }
@@ -1908,7 +1911,8 @@ export default function GuionScreen() {
   const versionSeleccionadaParaLector =
     versiones.find((version) => version.id_guion_version === versionLectorId) || versionActualDeGuionActivo;
 
-  const descargarGuionPdf = async (version = versionSeleccionadaParaLector) => {
+  const descargarGuionPdf = async () => {
+    const version = versionSeleccionadaParaLector;
     const contenido = version?.contenido;
     if (!contenido) {
       setError("Esta versión no tiene texto disponible para generar un PDF");
@@ -1917,16 +1921,7 @@ export default function GuionScreen() {
 
     setGenerandoPdf(true);
     try {
-      const nombreArchivo = Array.from(`${guionActivo?.nombre || "guion"}-v${version.numero_de_version}`)
-        .filter((caracter) => caracter.charCodeAt(0) >= 32 && !'<>:"/\\|?*'.includes(caracter))
-        .join("")
-        .trim() || "guion";
-      await generarPdfGuion({
-        titulo: guionActivo?.nombre || "Guion",
-        subtitulo: `Versión ${version.numero_de_version} · ${version.estado || "Sin estado"}`,
-        html: contenido,
-        nombreArchivo,
-      });
+      await generarPdfGuion(crearOpcionesPdfGuion(guionActivo, version));
     } catch (err) {
       setError(err.message || "No se pudo generar el PDF");
     } finally {
@@ -2589,7 +2584,7 @@ export default function GuionScreen() {
                   </select>
                 </label>
                 {versionSeleccionadaParaLector.contenido && (
-                  <button className="guion-reader__action" type="button" onClick={descargarGuionPdf} disabled={generandoPdf}>
+                  <button className="guion-reader__action" type="button" onClick={() => descargarGuionPdf()} disabled={generandoPdf}>
                     <FileText size={16} /> {generandoPdf ? "Generando…" : "Descargar PDF"}
                   </button>
                 )}
@@ -2681,6 +2676,7 @@ export default function GuionScreen() {
                 key={`${projectId}-${versionSeleccionadaParaLector.id_guion_version}`}
                 version={versionSeleccionadaParaLector}
                 projectId={projectId}
+                esAdmin={esAdmin}
               />
             )}
           </section>

@@ -205,6 +205,20 @@ export function extraerEscenas(html) {
 // ---------------------------------------------------------------- PDF
 // Carta, Courier 12 pt (10 caracteres por pulgada), márgenes 1.5" izq y
 // 1" der/sup/inf. Todas las sangrías se miden en columnas de 1 carácter.
+export function crearOpcionesPdfGuion(guion, version) {
+  const nombreArchivo = Array.from(`${guion?.nombre || "guion"}-v${version.numero_de_version}`)
+    .filter((caracter) => caracter.charCodeAt(0) >= 32 && !'<>:"/\\|?*'.includes(caracter))
+    .join("")
+    .trim() || "guion";
+
+  return {
+    titulo: guion?.nombre || "Guion",
+    subtitulo: `Versión ${version.numero_de_version} · ${version.estado || "Sin estado"}`,
+    html: version.contenido,
+    nombreArchivo,
+  };
+}
+
 const CARACTER_MM = 2.54; // 12 pt Courier = 0.1"
 const LINEA_MM = 4.2333; // 12 pt
 const COLUMNAS = {
@@ -249,8 +263,7 @@ export function estimarPaginas(html) {
   return Math.max(1, Math.ceil(lineas / 54));
 }
 
-export async function generarPdfGuion({ titulo, subtitulo, html, nombreArchivo }) {
-  const { jsPDF } = await import("jspdf");
+export function crearDocumentoPdfGuion(jsPDF, { titulo, subtitulo, bloques }) {
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "letter" });
   const anchoPagina = pdf.internal.pageSize.getWidth();
   const altoPagina = pdf.internal.pageSize.getHeight();
@@ -289,7 +302,6 @@ export async function generarPdfGuion({ titulo, subtitulo, html, nombreArchivo }
     lineaActual += 1;
   };
 
-  const bloques = htmlABloques(html);
   let personajeActual = "";
   bloques.forEach((b, i) => {
     const lineas = envolver(b.texto, COLUMNAS[b.tipo].ancho);
@@ -321,5 +333,15 @@ export async function generarPdfGuion({ titulo, subtitulo, html, nombreArchivo }
     });
   });
 
+  return pdf;
+}
+
+export async function generarPdfGuion({ titulo, subtitulo, html, nombreArchivo }) {
+  const { jsPDF } = await import("jspdf");
+  const pdf = crearDocumentoPdfGuion(jsPDF, {
+    titulo,
+    subtitulo,
+    bloques: htmlABloques(html),
+  });
   pdf.save(`${nombreArchivo || "guion"}.pdf`);
 }

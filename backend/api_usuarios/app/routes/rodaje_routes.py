@@ -26,6 +26,7 @@ from app.controllers.rodaje_controller import (
     delete_proceso,
 )
 from app.schemas.rodaje_schema import RodajeSchema, RodajeUpdateSchema, ProcesoRodajeSchema, ProcesoRodajeUpdateSchema
+from app.utils.response import api_response
 
 router = APIRouter()
 
@@ -76,6 +77,15 @@ def importar_rodaje(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_admin)
 ):
+    cabecera = archivo.file.read(1024)
+    archivo.file.seek(0)
+    if b"%PDF-" not in cabecera:
+        return api_response(
+            False,
+            "Formato no soportado. Sube un PDF de plan de rodaje con texto seleccionable.",
+            error="UNSUPPORTED_FILE_FORMAT",
+        )
+
     suffix = os.path.splitext(archivo.filename or "")[1] or ".pdf"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(archivo.file.read())

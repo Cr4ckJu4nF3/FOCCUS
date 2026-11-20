@@ -1,4 +1,3 @@
-import random
 import secrets
 import string
 from threading import RLock
@@ -41,6 +40,8 @@ def format_text(text):
 # CODIGOS DE RECUPERACION
 # ==========================================
 recovery_codes = {}
+recovery_next_request = {}
+recovery_lock = RLock()
 
 # ==========================================
 # 2FA - DISPOSITIVOS VERIFICADOS
@@ -305,68 +306,86 @@ def recover_password(mail: str, db: Session):
     if not user:
         return api_response(False, "Correo no registrado", error="USER_NOT_FOUND")
 
-    codigo = ''.join(random.choices(string.digits, k=6))
+    now = datetime.now()
+    with recovery_lock:
+        for key in list(recovery_next_request):
+            if recovery_next_request[key] <= now:
+                del recovery_next_request[key]
+        for key in list(recovery_codes):
+            if recovery_codes[key]["expira"] <= now:
+                del recovery_codes[key]
+        if normalized_mail in recovery_next_request:
+            return api_response(False, "Espera antes de solicitar otro código", error="RATE_LIMITED")
 
-    recovery_codes[normalized_mail] = {
-        "codigo": codigo,
-        "expira": datetime.now() + timedelta(minutes=15)
-    }
+        codigo = f"{secrets.randbelow(1000000):06d}"
+        attempt = {
+            "codigo": None,
+            "expira": now + timedelta(minutes=15),
+            "intentos": 0,
+        }
+        recovery_codes[normalized_mail] = attempt
+        recovery_next_request[normalized_mail] = now + timedelta(seconds=60)
 
-    enviado = send_recovery_email(normalized_mail, codigo)
+    try:
+        enviado = send_recovery_email(normalized_mail, codigo)
+    except Exception:
+        enviado = False
 
-    if not enviado:
-        return api_response(False, "Error al enviar correo", error="MAIL_ERROR")
+    with recovery_lock:
+        if recovery_codes.get(normalized_mail) is not attempt:
+            return api_response(False, "El envío fue reemplazado por otro", error="SEND_REPLACED")
+        if not enviado:
+            del recovery_codes[normalized_mail]
+            recovery_next_request.pop(normalized_mail, None)
+            return api_response(False, "Error al enviar correo", error="MAIL_ERROR")
+        attempt["codigo"] = codigo
+        return api_response(True, "Código de recuperación enviado al correo")
 
-    return api_response(True, "Código de recuperación enviado al correo")
+
+def _check_recovery_code(normalized_mail: str, codigo: str):
+    """Validar con recovery_lock adquirido; ambos endpoints comparten intentos."""
+    datos = recovery_codes.get(normalized_mail)
+    if not datos:
+        return api_response(False, "No hay solicitud de recuperación", error="NO_REQUEST")
+    if datetime.now() >= datos["expira"]:
+        del recovery_codes[normalized_mail]
+        return api_response(False, "Código expirado", error="CODE_EXPIRED")
+    if datos["codigo"] is None:
+        return api_response(False, "No hay código de recuperación disponible", error="NO_CODE")
+    candidate = codigo.strip()
+    if not candidate.isascii() or not secrets.compare_digest(datos["codigo"], candidate):
+        datos["intentos"] += 1
+        if datos["intentos"] >= 5:
+            del recovery_codes[normalized_mail]
+        return api_response(False, "Código incorrecto", error="INVALID_CODE")
+    return None
 
 
 def verify_recovery_code(mail: str, codigo: str):
     normalized_mail = mail.strip().lower()
-
-    if normalized_mail not in recovery_codes:
-        return api_response(False, "No hay solicitud de recuperación", error="NO_REQUEST")
-
-    datos = recovery_codes[normalized_mail]
-
-    if datetime.now() > datos["expira"]:
-        del recovery_codes[normalized_mail]
-        return api_response(False, "Código expirado", error="CODE_EXPIRED")
-
-    if datos["codigo"] != codigo.strip():
-        return api_response(False, "Código incorrecto", error="INVALID_CODE")
-
-    return api_response(True, "Código verificado correctamente")
+    with recovery_lock:
+        error = _check_recovery_code(normalized_mail, codigo)
+        if error:
+            return error
+        return api_response(True, "Código verificado correctamente")
 
 # ==========================================
 # RESET PASSWORD (cambiar contraseña)
 # ==========================================
 def reset_password(mail: str, codigo: str, nueva_contrasena: str, db: Session):
     normalized_mail = mail.strip().lower()
-
-    if normalized_mail not in recovery_codes:
-        return api_response(False, "No hay solicitud de recuperación", error="NO_REQUEST")
-
-    datos = recovery_codes[normalized_mail]
-
-    if datetime.now() > datos["expira"]:
+    with recovery_lock:
+        error = _check_recovery_code(normalized_mail, codigo)
+        if error:
+            return error
+        user = db.query(User).filter(User.mail == normalized_mail).first()
+        if not user:
+            return api_response(False, "Usuario no encontrado", error="USER_NOT_FOUND")
+        user.contrasena = pwd_context.hash(nueva_contrasena)
+        db.commit()
         del recovery_codes[normalized_mail]
-        return api_response(False, "Código expirado", error="CODE_EXPIRED")
-
-    if datos["codigo"] != codigo:
-        return api_response(False, "Código incorrecto", error="INVALID_CODE")
-
-    user = db.query(User).filter(User.mail == normalized_mail).first()
-
-    if not user:
-        return api_response(False, "Usuario no encontrado", error="USER_NOT_FOUND")
-
-    user.contrasena = pwd_context.hash(nueva_contrasena)
-    db.commit()
-    db.refresh(user)
-
-    del recovery_codes[normalized_mail]
-
-    return api_response(True, "Contraseña actualizada correctamente")
+        db.refresh(user)
+        return api_response(True, "Contraseña actualizada correctamente")
 
 # ==========================================
 # REGISTER (Client + User)
@@ -659,9 +678,9 @@ def invite_users(
             })
             continue
 
-        contrasena_temporal = ''.join(random.choices(
-            string.ascii_letters + string.digits, k=10
-        ))
+        contrasena_temporal = ''.join(
+            secrets.choice(string.ascii_letters + string.digits) for _ in range(10)
+        )
 
         try:
             new_user = User(

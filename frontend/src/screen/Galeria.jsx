@@ -358,7 +358,12 @@ export function GalleryModal({
                 {select(
                   "id_escena",
                   "Escena relacionada",
-                  scenes.filter((scene) => !form.id_guion || String(scene.id_guion) === String(form.id_guion)),
+                  scenes
+                    .filter((scene) => !form.id_guion || String(scene.id_guion) === String(form.id_guion))
+                    .map((scene) => ({
+                      value: scene.id_escena,
+                      label: `Escena ${scene.numero_de_escena}${scene.encabezado ? ` — ${scene.encabezado}` : ""}`,
+                    })),
                   "Selecciona una escena",
                 )}
               </>
@@ -414,7 +419,7 @@ export function GalleryModal({
   );
 }
 
-function GalleryDetails({ item, items = [], characters, locations, scripts, scenes, isAdmin, onClose, onItemUpdate }) {
+export function GalleryDetails({ item, items = [], characters, locations, scripts, scenes, isAdmin, onClose, onItemUpdate }) {
   const [versions, setVersions] = useState([]);
   const [loadingVersions, setLoadingVersions] = useState(true);
   const [versionsError, setVersionsError] = useState("");
@@ -446,7 +451,7 @@ function GalleryDetails({ item, items = [], characters, locations, scripts, scen
   ].filter(([, value]) => value);
 
   const uploadVersionPhoto = async (version, photo) => {
-    if (!photo) return;
+    if (!isAdmin || !photo) return;
     setUploadingVersionId(version.id_version);
     setVersionUploadError("");
     try {
@@ -558,8 +563,8 @@ function GalleryDetails({ item, items = [], characters, locations, scripts, scen
                         />
                       )}
                       {version.foto_pendiente && <span className="gallery-version-history__pending">Imagen pendiente de subir</span>}
-                      <div className="gallery-version-history__actions">
-                        {isAdmin && (
+                      {isAdmin && (
+                        <div className="gallery-version-history__actions">
                           <label className="gallery-version-history__main-toggle">
                             <input
                               type="checkbox"
@@ -571,22 +576,22 @@ function GalleryDetails({ item, items = [], characters, locations, scripts, scen
                             />
                             <span>Actualizar también la imagen principal</span>
                           </label>
-                        )}
-                        <label className="gallery-version-history__upload">
-                          <ImagePlus size={15} />
-                          {uploadingVersionId === version.id_version ? "Subiendo…" : version.foto_pendiente ? "Subir imagen" : "Cambiar imagen"}
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            aria-label={`Subir imagen para la versión ${version.numero_version}`}
-                            disabled={uploadingVersionId !== null}
-                            onChange={(event) => {
-                              uploadVersionPhoto(version, event.target.files?.[0]);
-                              event.target.value = "";
-                            }}
-                          />
-                        </label>
-                      </div>
+                          <label className="gallery-version-history__upload">
+                            <ImagePlus size={15} />
+                            {uploadingVersionId === version.id_version ? "Subiendo…" : version.foto_pendiente ? "Subir imagen" : "Cambiar imagen"}
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              aria-label={`Subir imagen para la versión ${version.numero_version}`}
+                              disabled={uploadingVersionId !== null}
+                              onChange={(event) => {
+                                uploadVersionPhoto(version, event.target.files?.[0]);
+                                event.target.value = "";
+                              }}
+                            />
+                          </label>
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ol>

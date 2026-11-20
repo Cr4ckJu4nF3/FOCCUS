@@ -1,12 +1,12 @@
 import shutil
 from pathlib import Path
 
-from sqlalchemy import or_
+from sqlalchemy import delete, inspect, or_
 from sqlalchemy.orm import Session
 from app.models.project_model import Project
 from app.schemas.project_schema import ProjectSchema
 from app.utils.response import api_response
-from app.utils.codigos import adjuntar_codigos, asignar_codigo
+from app.utils.codigos import adjuntar_codigos, asignar_codigo, codigos_entidad
 from app.models.user_model import User
 from app.models.user_project_model import UserProject
 from app.models.Guion import Guion
@@ -284,6 +284,10 @@ def delete_project(id: str, db: Session):
             {User.id_project: None},
             synchronize_session=False,
         )
+        # Los bulk deletes no activan el listener de Session.before_flush.
+        # No borrar contadores: los consecutivos nunca deben reutilizarse.
+        if inspect(db.connection()).has_table(codigos_entidad.name):
+            db.execute(delete(codigos_entidad).where(codigos_entidad.c.id_project == id))
         db.delete(project)
         db.commit()
     except Exception:

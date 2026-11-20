@@ -21,6 +21,7 @@ from app.schemas.desglose_schema import (
     DesgloseRequerimientoUpdateSchema,
     EscenaGaleriaItemSchema,
 )
+from app.utils.response import api_response
 
 router = APIRouter()
 
@@ -138,6 +139,15 @@ def importar_desglose(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_admin)
 ):
+    cabecera = archivo.file.read(1024)
+    archivo.file.seek(0)
+    if b"%PDF-" not in cabecera:
+        return api_response(
+            False,
+            "Formato no soportado. Sube un PDF de desglose con texto seleccionable.",
+            error="UNSUPPORTED_FILE_FORMAT",
+        )
+
     suffix = os.path.splitext(archivo.filename or "")[1] or ".pdf"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(archivo.file.read())

@@ -1,5 +1,6 @@
 import smtplib
 import os
+import logging
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
@@ -10,6 +11,45 @@ load_dotenv()
 MAIL_USER = os.getenv("MAIL_USER")
 MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
 CONTACT_EMAIL = os.getenv("CONTACT_EMAIL")
+SMTP_TIMEOUT = 15
+logger = logging.getLogger(__name__)
+
+
+def _send_smtp(destinatario: str, mensaje: MIMEMultipart) -> bool:
+    """Devuelve si el servidor aceptó el mensaje, independientemente del cierre."""
+    server = None
+    fase = "preparación"
+    try:
+        contenido = mensaje.as_string()
+        fase = "conexion"
+        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=SMTP_TIMEOUT)
+        fase = "tls"
+        server.starttls()
+        fase = "autenticacion"
+        server.login(MAIL_USER, MAIL_PASSWORD)
+        fase = "envío"
+        rechazados = server.sendmail(MAIL_USER, destinatario, contenido)
+        if rechazados:
+            logger.warning("Error SMTP fase=envío tipo=Rechazo")
+            return False
+        return True
+    except Exception as exc:
+        # La excepción puede contener respuestas del servidor o datos privados.
+        logger.warning("Error SMTP fase=%s tipo=%s", fase, type(exc).__name__)
+        return False
+    finally:
+        if server is not None:
+            try:
+                server.quit()
+            except Exception as exc:
+                logger.warning("Error SMTP fase=cierre tipo=%s", type(exc).__name__)
+                try:
+                    server.close()
+                except Exception as close_exc:
+                    logger.warning(
+                        "Error SMTP fase=cierre_local tipo=%s", type(close_exc).__name__
+                    )
+
 
 def send_recovery_email(destinatario: str, codigo: str):
     try:
@@ -47,15 +87,9 @@ def send_recovery_email(destinatario: str, codigo: str):
             logo.add_header("Content-Disposition", "inline", filename="logo.png")
             mensaje.attach(logo)
 
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(MAIL_USER, MAIL_PASSWORD)
-        server.sendmail(MAIL_USER, destinatario, mensaje.as_string())
-        server.quit()
-
-        return True
-    except Exception as e:
-        print("Error enviando correo:", e)
+        return _send_smtp(destinatario, mensaje)
+    except Exception as exc:
+        logger.warning("Error SMTP fase=preparación tipo=%s", type(exc).__name__)
         return False
     
 # correo para recibir el mail de codigo de verificación de para ingresar a foccus.
@@ -94,15 +128,9 @@ def send_2fa_email(destinatario: str, codigo: str):
             logo.add_header("Content-Disposition", "inline", filename="logo.png")
             mensaje.attach(logo)
 
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(MAIL_USER, MAIL_PASSWORD)
-        server.sendmail(MAIL_USER, destinatario, mensaje.as_string())
-        server.quit()
-
-        return True
-    except Exception as e:
-        print("Error enviando correo 2FA:", e)
+        return _send_smtp(destinatario, mensaje)
+    except Exception as exc:
+        logger.warning("Error SMTP fase=preparación tipo=%s", type(exc).__name__)
         return False
 
 # correo donde el admi invita a demas miembros a traves del correo a hacer participe del equipo.
@@ -152,15 +180,9 @@ def send_invitation_email(destinatario: str, nombre_proyecto: str, contrasena: s
             logo.add_header("Content-Disposition", "inline", filename="logo.png")
             mensaje.attach(logo)
 
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(MAIL_USER, MAIL_PASSWORD)
-        server.sendmail(MAIL_USER, destinatario, mensaje.as_string())
-        server.quit()
-
-        return True
-    except Exception as e:
-        print("Error enviando invitación:", e)
+        return _send_smtp(destinatario, mensaje)
+    except Exception as exc:
+        logger.warning("Error SMTP fase=preparación tipo=%s", type(exc).__name__)
         return False
 
 # mensaje del landing
@@ -222,13 +244,7 @@ def send_contact_email(nombre: str, email: str, celular: str, empresa: str, tipo
             logo.add_header("Content-Disposition", "inline", filename="logo.png")
             msg.attach(logo)
 
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(MAIL_USER, MAIL_PASSWORD)
-        server.sendmail(MAIL_USER, CONTACT_EMAIL, msg.as_string())
-        server.quit()
-
-        return True
-    except Exception as e:
-        print("Error enviando correo de contacto:", e)
+        return _send_smtp(CONTACT_EMAIL, msg)
+    except Exception as exc:
+        logger.warning("Error SMTP fase=preparación tipo=%s", type(exc).__name__)
         return False
