@@ -105,7 +105,7 @@ Formato de cada entrada:
   - Nuevo módulo web `/buscar-codigo` (barra lateral del admin, ítem «Buscar código»); se quitó el cuadro de AdminDashboard. Deep-links nuevos: `/guion?guion=ID[&version=ID]` y `/escenas?guion=ID&escena=ID`.
 - Endpoints modificados (campo opcional `codigo`, solo admin): `GET /projects/{id}/galeria` (ahora también personaje/lugar y respuesta de crear), `GET /projects/{id}/rodajes` y `GET /rodajes/{id}` (`escenas[].codigo`), `GET /guiones/{id}/desglose` (`[].codigo`). Sin cambios de contrato para no-admin (no reciben la clave).
 - Pantallas web afectadas: Guion (tarjetas, ficha, versiones, personajes/escenarios del lateral), Escena (lista y ficha), Galería (tarjetas y ficha), Rodaje (jornadas, ficha y escenas), Desglose, AdminDashboard (código del proyecto), BuscarCodigo.
-- Estado para móvil: pendiente
+- Estado para móvil: hecho en móvil (2026-11-01) — `CodigoChip` en tarjetas/fichas (guion, versión, escena, galería, rodaje y sus escenas, desglose) y pantalla «Buscar código» en el menú del admin.
 
 ## 2026-11-01 – Códigos únicos legibles y buscador (solo admin)
 - Rama/commit: `feat/codigos-y-buscador` (commits `feat(backend)` y `feat(web)`).
@@ -117,7 +117,7 @@ Formato de cada entrada:
 - Endpoint nuevo: `GET /projects/{id_project}/buscar-codigo?q=ESC-01` (solo admin, 403 a otros). `q`: 2–40 caracteres `A-Z0-9-` (se pasa a mayúsculas). Respuesta: `data: [{tipo, codigo, nombre, id_interno, destino}]` (máx. 25; coincidencia exacta, prefijo o parte). Errores: `INVALID_QUERY`, `CODES_NOT_READY` (migración sin aplicar). `destino` es una ruta web (`/galeria?item=ID`, `/rodaje?rodaje=ID`, etc.).
 - Pantallas web afectadas: `AdminDashboard` (cuadro de búsqueda, solo admin), `Galeria` (`?item=`, `?tipo=`), `Rodaje` (`?rodaje=`).
 - Pendiente / fuera de alcance: DES, REQ, GAL, tomas, fotos, QR; mostrar "Código FOCCUS" con botón copiar en cada ficha; deep-link de `Guion` (`?guion=&version=`) y `Escena` (`?guion=&escena=`) (hoy el buscador lleva a la pantalla pero no selecciona la entidad).
-- Estado para móvil: pendiente
+- Estado para móvil: hecho en móvil (2026-11-01) — modelos con `codigo` nullable (Guion, GuionVersion, GaleriaItem), chip copiable y pantalla `BuscarCodigoScreen` (debounce, cargando/error/vacío; abre la ficha de escena y el módulo correspondiente para los demás tipos).
 
 ---
 
@@ -127,7 +127,8 @@ Formato de cada entrada:
 - Endpoints nuevos o modificados: ninguno; sin cambios de BD.
 - Pantallas web afectadas: Guion (editor, lector, PDF, lista), Theme global, todas (accesibilidad).
 - Para móvil: lector con Courier Prime y sangrías proporcionales por tipo de bloque (`gb-*`), respetar MAYÚSCULAS/paréntesis, estados con acción (Reintentar / CTA), ≥12 px de texto.
-- Estado para móvil: pendiente
+- Hecho en móvil (rama `mobile`): lector con bloques en Courier Prime con sangrías, tamaño ajustable y "≈ N min"; menú "Bloque" en el editor. Hoy reconoce bloques por el texto; falta leer las clases `gb-*`.
+- Estado para móvil: parcial (2026-11-01)
 
 ---
 
