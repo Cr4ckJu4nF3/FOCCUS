@@ -309,10 +309,15 @@ def remove_gallery_item_from_scene(id_escena: str, id_galeria: int, id_project: 
 
 # ---------- Mutaciones sobre requerimientos ----------
 
-def create_requerimiento(id_escena: str, data: DesgloseRequerimientoSchema, db: Session):
-    escena = db.query(Escena).filter(Escena.id_escena == id_escena).first()
+def create_requerimiento(
+    id_escena: str,
+    data: DesgloseRequerimientoSchema,
+    id_project: str,
+    db: Session,
+):
+    escena = _obtener_escena_del_proyecto(id_escena, id_project, db)
     if not escena:
-        return api_response(False, "Escena no encontrada")
+        return api_response(False, "Escena no encontrada", error="INVALID_SCENE")
 
     desglose = _obtener_o_crear_desglose(escena, db)
 
@@ -331,8 +336,24 @@ def create_requerimiento(id_escena: str, data: DesgloseRequerimientoSchema, db: 
     return api_response(True, "Requerimiento agregado", _serializar_requerimiento(nuevo))
 
 
-def update_requerimiento(id_requerimiento: str, data: DesgloseRequerimientoUpdateSchema, db: Session):
-    req = db.query(DesgloseRequerimiento).filter(DesgloseRequerimiento.id_requerimiento == id_requerimiento).first()
+def _obtener_requerimiento_del_proyecto(id_requerimiento: str, id_project: str, db: Session):
+    return db.query(DesgloseRequerimiento).join(
+        Escena, Escena.id_desglose == DesgloseRequerimiento.id_desglose
+    ).join(
+        Guion, Guion.id_guion == Escena.id_guion
+    ).filter(
+        DesgloseRequerimiento.id_requerimiento == id_requerimiento,
+        Guion.id_project == id_project,
+    ).first()
+
+
+def update_requerimiento(
+    id_requerimiento: str,
+    data: DesgloseRequerimientoUpdateSchema,
+    id_project: str,
+    db: Session,
+):
+    req = _obtener_requerimiento_del_proyecto(id_requerimiento, id_project, db)
     if not req:
         return api_response(False, "Requerimiento no encontrado")
 
@@ -344,8 +365,8 @@ def update_requerimiento(id_requerimiento: str, data: DesgloseRequerimientoUpdat
     return api_response(True, "Requerimiento actualizado", _serializar_requerimiento(req))
 
 
-def delete_requerimiento(id_requerimiento: str, db: Session):
-    req = db.query(DesgloseRequerimiento).filter(DesgloseRequerimiento.id_requerimiento == id_requerimiento).first()
+def delete_requerimiento(id_requerimiento: str, id_project: str, db: Session):
+    req = _obtener_requerimiento_del_proyecto(id_requerimiento, id_project, db)
     if not req:
         return api_response(False, "Requerimiento no encontrado")
 
@@ -368,7 +389,14 @@ def _generar_id_escena_local(db: Session) -> str:
     return f"esc{new_num:04d}"
 
 
-def importar_desglose_pdf(id_guion: int, ruta_temporal: str, db: Session):
+def importar_desglose_pdf(id_guion: int, ruta_temporal: str, id_project: str, db: Session):
+    guion_importado = db.query(Guion).filter(
+        Guion.id_guion == id_guion,
+        Guion.id_project == id_project,
+    ).first()
+    if not guion_importado:
+        return api_response(False, "Guion no encontrado", error="INVALID_SCRIPT")
+
     try:
         texto = extraer_texto_pdf(ruta_temporal)
     except Exception as e:
@@ -384,8 +412,7 @@ def importar_desglose_pdf(id_guion: int, ruta_temporal: str, db: Session):
 
     escenas_creadas = 0
     # Proyecto del guion (para asignar códigos ESC a las escenas nuevas)
-    guion_importado = db.query(Guion).filter(Guion.id_guion == id_guion).first()
-    id_project_guion = guion_importado.id_project if guion_importado else None
+    id_project_guion = guion_importado.id_project
     escenas_actualizadas = 0
     requerimientos_creados = 0
 

@@ -6,6 +6,7 @@ import ForgotPassword from "./screen/ForgotPassword";
 import ProjectSelection from "./screen/ProjectSelection";
 import ProjectDashboard from "./screen/ProjectDashboard";
 import AdminDashboard from "./screen/AdminDashboard";
+import Clients from "./screen/Clients";
 import Profile from "./screen/Profile";
 import Dashboard from "./screen/Dashboard";
 import Landing from "./screen/Landing";
@@ -57,6 +58,10 @@ export const router = createBrowserRouter([
   {
     path: "/admin-dashboard",
     element: <ProtectedRoute><AdminDashboard /></ProtectedRoute>,
+  },
+  {
+    path: "/clientes",
+    element: <ProtectedRoute><Clients /></ProtectedRoute>,
   },
   {
     path: "/perfil",

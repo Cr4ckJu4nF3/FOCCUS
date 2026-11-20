@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { KeyRound, Eye, EyeOff } from "lucide-react";
 import logo from "../assets/Logo.png";
 import FondoLogin from "../assets/FondoLogin.jpeg";
-import { apiFetch, getActiveRole, getDeviceId, isTokenValid, setToken } from "../api";
+import { apiFetch, getActiveRole, getDeviceId, isTokenValid } from "../api";
 import "../desing/Login.css";
 
 export default function LoginScreen() {
@@ -47,7 +47,7 @@ export default function LoginScreen() {
   if (!/[a-z]/.test(password)) reglas.push("Una letra minúscula");
   if (!/[A-Z]/.test(password)) reglas.push("Una letra mayúscula");
   if (!/[0-9]/.test(password)) reglas.push("Un número");
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) reglas.push("Un carácter especial");
+  if (!/[!@#$%^&*()_+\x2D=\u005B\u005D{};':"\\|,.<>/?]/.test(password)) reglas.push("Un carácter especial");
   return reglas;
 };
 
@@ -58,9 +58,10 @@ export default function LoginScreen() {
 
     try {
       const normalizedMail = mail.trim().toLowerCase();
+      const deviceId = getDeviceId();
       const response = await apiFetch("/users/login", {
         method: "POST",
-        body: JSON.stringify({ mail: normalizedMail, contrasena, remember_me: rememberMe }),
+        body: JSON.stringify({ mail: normalizedMail, contrasena, remember_me: rememberMe, device_id: deviceId }),
       });
 
       const result = await response.json();
@@ -68,63 +69,40 @@ export default function LoginScreen() {
       if (response.ok && result.success) {
         const data = result.data;
 
-        // Guardar el token de sesión y los datos del usuario
-        ["projectId", "id_project", "projectName", "project_role", "project_role_project_id"].forEach((key) =>
-          localStorage.removeItem(key),
-        );
-        localStorage.setItem("id_user", data.id_user);
-        localStorage.setItem("nombre", data.nombre);
-        localStorage.setItem("apellido", data.apellido);
-        localStorage.setItem("mail", data.mail);
-        localStorage.setItem("id_rol", data.id_rol);
-        localStorage.setItem("id_client", data.id_client);
-        const needsProfileCompletion = (data.estado || "").toLowerCase() === "pendiente";
-        if (needsProfileCompletion) {
-          localStorage.setItem("needs_profile_completion", "true");
-        } else {
-          localStorage.removeItem("needs_profile_completion");
+        if (!data?.pending_token || data.requires_2fa !== true) {
+          setError("No se pudo iniciar la verificación de seguridad");
+          return;
         }
-        const dashboardPath = Number(data.id_rol) === 1001 ? "/admin-dashboard" : "/seleccion-proyecto";
-
-        // Verificar si necesita 2FA
-        const deviceId = getDeviceId();
+        const request = { mail: normalizedMail, device_id: deviceId, pending_token: data.pending_token };
         const check2fa = await apiFetch("/users/2fa/check", {
           method: "POST",
-          body: JSON.stringify({ mail: normalizedMail, device_id: deviceId }),
+          body: JSON.stringify(request),
         });
-
-        if (check2fa.ok) {
-          const check2faResult = await check2fa.json();
-          const check2faData = check2faResult.data || check2faResult;
-          if (check2faData.requires_2fa) {
-            const send2faResponse = await apiFetch("/users/2fa/send", {
-              method: "POST",
-              body: JSON.stringify({ mail: normalizedMail, device_id: deviceId }),
-            });
-            const send2faResult = await send2faResponse.json();
-            if (!send2faResponse.ok || !send2faResult.success) {
-              setError(send2faResult.message || "No se pudo enviar el código de verificación");
-              return;
-            }
-            navigate("/verificacion", {
-              state: { mail: normalizedMail, rememberMe, needsProfileCompletion },
-              replace: true,
-            });
-          } else {
-            setToken(data.access_token, rememberMe);
-            navigate(needsProfileCompletion ? "/completar-cuenta" : dashboardPath, { replace: true });
-          }
-        } else {
-          setToken(data.access_token, rememberMe);
-          navigate(needsProfileCompletion ? "/completar-cuenta" : dashboardPath, { replace: true });
+        const checkResult = await check2fa.json();
+        if (!check2fa.ok || !checkResult.success || checkResult.data?.requires_2fa !== true) {
+          setError(checkResult.detail || checkResult.message || "No se pudo comprobar la verificación");
+          return;
         }
+        const send2faResponse = await apiFetch("/users/2fa/send", {
+          method: "POST",
+          body: JSON.stringify(request),
+        });
+        const send2faResult = await send2faResponse.json();
+        if (!send2faResponse.ok || !send2faResult.success) {
+          setError(send2faResult.detail || send2faResult.message || "No se pudo enviar el código de verificación");
+          return;
+        }
+        navigate("/verificacion", {
+          state: { mail: normalizedMail, pendingToken: data.pending_token, deviceId, rememberMe },
+          replace: true,
+        });
       } else {
         const detail = Array.isArray(result.detail)
           ? result.detail.map((item) => item.msg).join(", ")
           : result.detail;
         setError(detail || result.message || result.error || "Correo o contraseña incorrectos");
       }
-    } catch (err) {
+    } catch {
       setError("No se pudo conectar con el servidor");
     } finally {
       setLoading(false);
@@ -155,7 +133,8 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      const { confirmarContrasena, ...datosEnviar } = registro;
+      const datosEnviar = { ...registro };
+      delete datosEnviar.confirmarContrasena;
       const response = await apiFetch("/register", {
         method: "POST",
         body: JSON.stringify(datosEnviar),
@@ -175,7 +154,7 @@ export default function LoginScreen() {
           : result.detail;
         setError(detail || result.message || result.error || "Error al registrar");
       }
-    } catch (err) {
+    } catch {
       setError("No se pudo conectar con el servidor");
     } finally {
       setLoading(false);
@@ -575,7 +554,7 @@ export default function LoginScreen() {
                         { label: "Una letra minúscula", valid: /[a-z]/.test(registro.contrasena) },
                         { label: "Una letra mayúscula", valid: /[A-Z]/.test(registro.contrasena) },
                         { label: "Un número", valid: /[0-9]/.test(registro.contrasena) },
-                        { label: "Un carácter especial", valid: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(registro.contrasena) },
+                        { label: "Un carácter especial", valid: /[!@#$%^&*()_+\x2D=\u005B\u005D{};':"\\|,.<>/?]/.test(registro.contrasena) },
                       ].map((regla) => (
                         <p key={regla.label} className={`requirement ${regla.valid ? "requirement--valid" : ""}`}>
                           {regla.valid ? "✓" : "○"} {regla.label}

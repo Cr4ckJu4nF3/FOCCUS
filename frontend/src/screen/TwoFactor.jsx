@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Shield, ArrowLeft } from "lucide-react";
 import FondoLogin from "../assets/FondoLogin.jpeg";
 import Logo from "../assets/Logo.png";
-import { apiFetch, getDeviceId, setToken } from "../api";
+import { apiFetch, setToken } from "../api";
 import "../desing/TwoFactor.css";
 
 export default function TwoFactorScreen() {
@@ -14,6 +14,8 @@ export default function TwoFactorScreen() {
   const navigate = useNavigate();
   const location = useLocation();
   const mail = location.state?.mail || "";
+  const pendingToken = location.state?.pendingToken;
+  const deviceId = location.state?.deviceId;
 
   const handleVerify = async (e) => {
     e.preventDefault();
@@ -21,34 +23,48 @@ export default function TwoFactorScreen() {
     setLoading(true);
 
     try {
-      const deviceId = getDeviceId();
+      if (!pendingToken || !deviceId || !mail) {
+        setError("El intento de inicio de sesión no está disponible. Vuelve al login.");
+        return;
+      }
       const response = await apiFetch("/users/2fa/verify", {
         method: "POST",
-        body: JSON.stringify({ mail, codigo, device_id: deviceId, remember_me: Boolean(location.state?.rememberMe) }),
+        body: JSON.stringify({ mail, codigo, device_id: deviceId, pending_token: pendingToken }),
       });
 
       const result = await response.json();
 
       if (response.ok && result.success) {
         const data = result.data;
-        // El backend reemite el token tras verificar el segundo factor
-        if (data?.access_token) {
-          setToken(data.access_token, Boolean(location.state?.rememberMe));
+        if (!data?.access_token) {
+          setError("No se recibió una sesión verificada");
+          return;
         }
-        const needsProfileCompletion = location.state?.needsProfileCompletion
-          || localStorage.getItem("needs_profile_completion") === "true";
+        ["projectId", "id_project", "projectName", "project_role", "project_role_project_id"].forEach((key) =>
+          localStorage.removeItem(key),
+        );
+        ["id_user", "nombre", "apellido", "mail", "id_rol", "id_client"].forEach((key) =>
+          localStorage.setItem(key, data[key] ?? ""),
+        );
+        const needsProfileCompletion = (data.estado || "").toLowerCase() === "pendiente";
+        if (needsProfileCompletion) {
+          localStorage.setItem("needs_profile_completion", "true");
+        } else {
+          localStorage.removeItem("needs_profile_completion");
+        }
+        setToken(data.access_token, Boolean(location.state?.rememberMe));
         if (needsProfileCompletion) {
           navigate("/completar-cuenta", { replace: true });
           return;
         }
-        const dashboardPath = Number(localStorage.getItem("id_rol")) === 1001
+        const dashboardPath = Number(data.id_rol) === 1001
           ? "/admin-dashboard"
           : "/seleccion-proyecto";
         navigate(dashboardPath, { replace: true });
       } else {
         setError(result.detail || result.message || result.error || "Código incorrecto o expirado");
       }
-    } catch (err) {
+    } catch {
       setError("No se pudo conectar con el servidor");
     } finally {
       setLoading(false);
@@ -60,10 +76,13 @@ export default function TwoFactorScreen() {
     setReenviado(false);
 
     try {
-      const deviceId = getDeviceId();
+      if (!pendingToken || !deviceId || !mail) {
+        setError("El intento de inicio de sesión no está disponible. Vuelve al login.");
+        return;
+      }
       const response = await apiFetch("/users/2fa/send", {
         method: "POST",
-        body: JSON.stringify({ mail, device_id: deviceId }),
+        body: JSON.stringify({ mail, device_id: deviceId, pending_token: pendingToken }),
       });
 
       const result = await response.json();
@@ -72,9 +91,9 @@ export default function TwoFactorScreen() {
         setReenviado(true);
         setTimeout(() => setReenviado(false), 3000);
       } else {
-        setError(result.message || result.error || "Error al reenviar el código");
+        setError(result.detail || result.message || result.error || "Error al reenviar el código");
       }
-    } catch (err) {
+    } catch {
       setError("No se pudo conectar con el servidor");
     }
   };

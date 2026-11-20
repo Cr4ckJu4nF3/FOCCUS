@@ -3,7 +3,12 @@ from datetime import date
 from fastapi import APIRouter, Depends, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from app.config.database import get_db
-from app.utils.auth import get_current_user, require_project_admin, require_project_member
+from app.utils.auth import (
+    ensure_project_id_matches,
+    get_current_user,
+    require_project_admin,
+    require_project_member,
+)
 from app.utils.codigos import es_admin
 from app.controllers.guion_controller import (
     get_guiones,
@@ -39,7 +44,11 @@ def guiones(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_member)
 ):
-    return get_guiones(db, id_project, incluir_codigo=es_admin(current_user))
+    if id_project:
+        ensure_project_id_matches(id_project, current_user["id_project"])
+    # La query opcional nunca debe convertir el listado en uno global; se
+    # usa siempre el proyecto que autorizó require_project_member.
+    return get_guiones(db, current_user["id_project"], incluir_codigo=es_admin(current_user))
 
 @router.get("/guiones/{id_guion}")
 def guion(id_guion: int, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
@@ -52,6 +61,7 @@ def store_guion(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_admin)
 ):
+    ensure_project_id_matches(data.id_project, current_user["id_project"])
     return create_guion(data, db)
 
 # CREAR GUION DESDE CERO - maestro + primera version en un solo paso,
@@ -62,6 +72,7 @@ def store_guion_desde_cero(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_admin)
 ):
+    ensure_project_id_matches(data.id_project, current_user["id_project"])
     return crear_guion_desde_cero(data, current_user["id_user"], db)
 
 # SUBIR GUION (PDF/Word/FDX) - maestro + primera version en un solo
@@ -77,6 +88,7 @@ def store_guion_desde_archivo(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_admin)
 ):
+    ensure_project_id_matches(id_project, current_user["id_project"])
     return crear_guion_desde_archivo(nombre, descripcion, id_project, archivo, current_user["id_user"], db)
 
 @router.patch("/guiones/{id_guion}")
@@ -141,8 +153,8 @@ def store_nota(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_admin)
 ):
-    return agregar_nota(id_guion_version, data, current_user["id_user"], db)
+    return agregar_nota(id_guion_version, data, current_user["id_user"], current_user["id_project"], db)
 
 @router.get("/guiones/versiones/{id_guion_version}/notas")
 def notas(id_guion_version: int, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
-    return get_notas(id_guion_version, db)
+    return get_notas(id_guion_version, current_user["id_project"], db)

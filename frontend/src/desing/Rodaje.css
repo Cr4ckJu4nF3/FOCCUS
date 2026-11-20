@@ -328,6 +328,17 @@
   gap: 0.5rem;
 }
 
+.rdj-process-item {
+  min-width: 0;
+}
+
+.rdj-process-edit {
+  padding: 0.8rem;
+  background: rgba(8, 12, 17, 0.8);
+  border: 1px solid rgba(250, 250, 250, 0.1);
+  border-radius: 0.6rem;
+}
+
 .rdj-scene-row {
   display: flex;
   align-items: center;

@@ -21,6 +21,7 @@ class LoginSchema(BaseModel):
     mail: str
     contrasena: str
     remember_me: bool = False
+    device_id: str = Field(min_length=1, max_length=255)
 
 class UserUpdateSchema(BaseModel):
     nombre: Optional[str] = None
@@ -91,12 +92,14 @@ class RegisterSchema(BaseModel):
     
 class TwoFactorSendSchema(BaseModel):
     mail: str
-    device_id: str
+    device_id: str = Field(min_length=1, max_length=255)
+    pending_token: str = Field(min_length=1, max_length=128)
 
 class TwoFactorVerifySchema(BaseModel):
     mail: str
     codigo: str
-    device_id: str
+    device_id: str = Field(min_length=1, max_length=255)
+    pending_token: str = Field(min_length=1, max_length=128)
     remember_me: bool = False
     
 class InviteeNameSchema(BaseModel):
@@ -114,7 +117,7 @@ class InviteSchema(BaseModel):
     @field_validator("id_rol")
     @classmethod
     def validate_project_role(cls, value: int) -> int:
-        if value not in {1001, 1002, 1003, 1004, 1005}:
+        if value not in {1001, 1005}:
             raise ValueError("Rol de proyecto no válido")
         return value
 
@@ -162,6 +165,13 @@ class UserProjectSchema(BaseModel):
     id_project: str
     id_rol: int = 1005
 
+    @field_validator("id_rol")
+    @classmethod
+    def validate_project_role(cls, value: int) -> int:
+        if value not in {1001, 1005}:
+            raise ValueError("Rol de proyecto no válido")
+        return value
+
 class UserProjectUpdateSchema(BaseModel):
     departamento: Optional[str] = None
     cargo: Optional[str] = None
@@ -170,6 +180,6 @@ class UserProjectUpdateSchema(BaseModel):
     @field_validator("id_rol")
     @classmethod
     def validate_project_role(cls, value: Optional[int]) -> Optional[int]:
-        if value is not None and value not in {1001, 1002, 1003, 1004, 1005}:
+        if value is not None and value not in {1001, 1005}:
             raise ValueError("Rol de proyecto no válido")
         return value

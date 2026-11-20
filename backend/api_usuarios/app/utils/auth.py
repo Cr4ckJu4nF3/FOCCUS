@@ -1,4 +1,5 @@
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -7,6 +8,15 @@ from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.config.database import get_db
+from app.models.Guion import Guion
+from app.models.desglose_requerimiento_model import DesgloseRequerimiento
+from app.models.escenario_model import Escenario
+from app.models.escena_model import Escena
+from app.models.escena_version_model import EscenaVersion
+from app.models.guion_version_model import GuionVersion
+from app.models.personajes_model import Personaje
+from app.models.proceso_rodaje_model import ProcesoRodaje
+from app.models.rodaje_model import Rodaje
 from app.models.user_model import User
 from app.models.user_project_model import UserProject
 
@@ -15,13 +25,96 @@ load_dotenv()
 # ==========================================
 # CONFIG
 # ==========================================
-# En desarrollo, si no hay JWT_SECRET_KEY en el .env, se usa un valor por
-# defecto para que el proyecto arranque sin configuración extra. Para
-# producción SIEMPRE se debe definir JWT_SECRET_KEY en el .env.
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "foccus-dev-secret-cambiar-en-produccion")
+# Sin clave configurada se usa una clave temporal impredecible; las sesiones
+# se invalidan al reiniciar. En producción debe configurarse una clave común.
+SECRET_KEY = os.getenv("JWT_SECRET_KEY") or secrets.token_urlsafe(32)
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))
 REMEMBER_TOKEN_EXPIRE_MINUTES = 30 * 24 * 60
+
+
+def _validate_child_resources_project(request: Request, project_id: str, db: Session) -> None:
+    """Evita que un ID hijo de otro proyecto se use con un X-Project-Id válido."""
+    params = request.path_params
+    queries = []
+
+    if params.get("id_guion") is not None:
+        queries.append(
+            db.query(Guion.id_project).filter(Guion.id_guion == params["id_guion"])
+        )
+    if params.get("id_escena") is not None:
+        queries.append(
+            db.query(Guion.id_project)
+            .join(Escena, Escena.id_guion == Guion.id_guion)
+            .filter(Escena.id_escena == params["id_escena"])
+        )
+    if params.get("id_guion_version") is not None:
+        queries.append(
+            db.query(Guion.id_project)
+            .join(GuionVersion, GuionVersion.id_guion == Guion.id_guion)
+            .filter(GuionVersion.id_guion_version == params["id_guion_version"])
+        )
+    if params.get("id_escena_version") is not None:
+        queries.append(
+            db.query(Guion.id_project)
+            .join(Escena, Escena.id_guion == Guion.id_guion)
+            .join(EscenaVersion, EscenaVersion.id_escena == Escena.id_escena)
+            .filter(EscenaVersion.id_escena_version == params["id_escena_version"])
+        )
+    if params.get("id_rodaje") is not None:
+        queries.append(
+            db.query(Rodaje.id_project).filter(Rodaje.id_rodaje == params["id_rodaje"])
+        )
+    if params.get("id_proceso") is not None:
+        queries.append(
+            db.query(Rodaje.id_project)
+            .join(ProcesoRodaje, ProcesoRodaje.id_rodaje == Rodaje.id_rodaje)
+            .filter(ProcesoRodaje.id_proceso == params["id_proceso"])
+        )
+    if params.get("id_personaje") is not None:
+        queries.append(
+            db.query(Personaje.id_project).filter(
+                Personaje.id_personaje == params["id_personaje"]
+            )
+        )
+    if params.get("id_escenario") is not None:
+        queries.append(
+            db.query(Escenario.id_project).filter(
+                Escenario.id_escenario == params["id_escenario"]
+            )
+        )
+
+    if params.get("id_requerimiento") is not None or params.get("id_desglose") is not None:
+        query = db.query(Guion.id_project).join(
+            Escena, Escena.id_guion == Guion.id_guion
+        )
+        if params.get("id_requerimiento") is not None:
+            query = query.join(
+                DesgloseRequerimiento,
+                DesgloseRequerimiento.id_desglose == Escena.id_desglose,
+            ).filter(
+                DesgloseRequerimiento.id_requerimiento == params["id_requerimiento"]
+            )
+        else:
+            query = query.filter(Escena.id_desglose == params["id_desglose"])
+        queries.append(query)
+
+    for query in queries:
+        projects = [row[0] for row in query.all()]
+        if not projects or any(resource_project_id != project_id for resource_project_id in projects):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Recurso no encontrado",
+            )
+
+
+def ensure_project_id_matches(requested_project_id: str, authorized_project_id: str) -> None:
+    """Rechaza un project ID de cuerpo/formulario distinto del autorizado."""
+    if requested_project_id != authorized_project_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="El proyecto solicitado no coincide con el proyecto autorizado",
+        )
 
 # ==========================================
 # CREAR TOKEN
@@ -76,7 +169,7 @@ def get_current_user(authorization: str = Header(None)) -> dict:
     token = authorization.split(" ", 1)[1]
     payload = decode_access_token(token)
 
-    if "id_user" not in payload:
+    if "id_user" not in payload or payload.get("two_factor_verified") is not True:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido")
 
     return payload
@@ -151,6 +244,7 @@ def require_project_admin(
             detail="No tienes permisos de administrador en este proyecto",
         )
 
+    _validate_child_resources_project(request, project_id, db)
     return {**current_user, "id_rol": membership.id_rol, "id_project": project_id}
 
 
@@ -195,4 +289,5 @@ def require_project_member(
             detail="No perteneces a este proyecto",
         )
 
+    _validate_child_resources_project(request, requested_project_id, db)
     return {**current_user, "id_rol": membership.id_rol, "id_project": requested_project_id}

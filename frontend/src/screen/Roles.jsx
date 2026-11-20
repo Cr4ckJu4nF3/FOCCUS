@@ -7,17 +7,11 @@ import "../desing/Roles.css";
 
 const rolLabels = {
   1001: "Administrador",
-  1002: "Director",
-  1003: "Jefe de Departamento",
-  1004: "Onset",
   1005: "Usuario",
 };
 
 const rolColors = {
   1001: "#7B5FCF",
-  1002: "#0B4F8A",
-  1003: "#E67E5C",
-  1004: "#22c55e",
   1005: "#6B6B6B",
 };
 
@@ -147,7 +141,7 @@ export default function RolesScreen() {
     const currentUserId = Number(localStorage.getItem("id_user"));
     if (!esAdmin || idUser === currentUserId || savingRoleUserId !== null) return;
     const numericRole = Number(nextRole);
-    if (![1001, 1002, 1003, 1004, 1005].includes(numericRole)) return;
+    if (![1001, 1005].includes(numericRole)) return;
     const member = usuarios.find((user) => user.id_user === idUser);
     if (!member || member.id_rol === numericRole) return;
     if (numericRole === 1001 && !window.confirm(`¿Dar permisos de administrador a ${member.nombre} ${member.apellido}?`)) return;
@@ -332,7 +326,11 @@ export default function RolesScreen() {
               </div>
               <div className="rs-list">
                 {usuarios.map((user, index) => {
-                  const rol = user.id_rol || 1005;
+                  // Las membresías legadas se muestran como Usuario; no se
+                  // modifica su valor en BD hasta que el admin elija una opción.
+                  const rol = [1001, 1005].includes(Number(user.id_rol))
+                    ? Number(user.id_rol)
+                    : 1005;
                   const esActivo = (user.estado || "").toLowerCase() === "activo";
                   const editandoDepartamento = editingCell?.idUser === user.id_user && editingCell?.field === "departamento";
                   const editandoCargo = editingCell?.idUser === user.id_user && editingCell?.field === "cargo";
@@ -406,9 +404,6 @@ export default function RolesScreen() {
                           >
                             <option value={1001}>{rolLabels[1001]}</option>
                             <option value={1005}>{rolLabels[1005]}</option>
-                            {![1001, 1005].includes(Number(user.id_rol)) && (
-                              <option value={user.id_rol}>{rolLabels[user.id_rol]} (actual)</option>
-                            )}
                           </select>
                         ) : (
                           <span

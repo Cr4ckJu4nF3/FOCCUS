@@ -20,11 +20,17 @@ def store_version_escena(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_admin)
 ):
-    return crear_version_escena(id_escena, comentario_cambio, current_user["id_user"], db)
+    return crear_version_escena(
+        id_escena,
+        comentario_cambio,
+        current_user["id_user"],
+        current_user["id_project"],
+        db,
+    )
 
 @router.get("/escenas/{id_escena}/versiones")
 def versiones_escena(id_escena: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
-    return get_versiones_escena(id_escena, db)
+    return get_versiones_escena(id_escena, current_user["id_project"], db)
 
 # SUBIR FOTOS DE CONTINUIDAD - vestuario / objeto / espacio (solo administradores)
 @router.post("/escenas/versiones/{id_escena_version}/fotos")
@@ -38,7 +44,16 @@ def store_fotos(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_admin)
 ):
-    return subir_fotos(id_escena_version, tipo, etiqueta, id_personaje, notas, archivos, db)
+    return subir_fotos(
+        id_escena_version,
+        tipo,
+        etiqueta,
+        id_personaje,
+        notas,
+        archivos,
+        current_user["id_project"],
+        db,
+    )
 
 @router.get("/escenas/versiones/{id_escena_version}/fotos")
 def fotos_version(
@@ -47,4 +62,4 @@ def fotos_version(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_member)
 ):
-    return get_fotos_version(id_escena_version, tipo, db)
+    return get_fotos_version(id_escena_version, tipo, current_user["id_project"], db)

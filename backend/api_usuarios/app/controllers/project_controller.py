@@ -322,8 +322,18 @@ def delete_project(id: str, db: Session):
 
 # GET PROJECTS BY CLIENT
 
-def get_projects_by_client(id_client: int, db: Session):
-    projects = db.query(Project).filter(Project.id_client == id_client).all()
+def get_projects_by_client(id_client: int, db: Session, id_user: int):
+    user = db.query(User).filter(User.id_user == id_user).first()
+    query = db.query(Project).filter(Project.id_client == id_client)
+
+    # El rol se consulta en la BD actual: el rol incluido en el JWT no da
+    # permisos administrativos vigentes por sí solo.
+    if not user or user.id_rol != 1001:
+        query = query.join(UserProject, UserProject.id_project == Project.id_project).filter(
+            UserProject.id_user == id_user
+        ).distinct()
+
+    projects = query.all()
     projects_list = [
         {
             "id_project": p.id_project,

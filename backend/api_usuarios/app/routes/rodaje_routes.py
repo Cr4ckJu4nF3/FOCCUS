@@ -3,7 +3,12 @@ from sqlalchemy.orm import Session
 import tempfile
 import os
 from app.config.database import get_db
-from app.utils.auth import get_current_user, require_project_admin, require_project_member
+from app.utils.auth import (
+    ensure_project_id_matches,
+    get_current_user,
+    require_project_admin,
+    require_project_member,
+)
 from app.utils.codigos import es_admin
 from app.controllers.rodaje_controller import (
     get_rodajes_by_project,
@@ -34,28 +39,34 @@ def escenas_disponibles_del_proyecto(id_project: str, db: Session = Depends(get_
 
 @router.get("/rodajes/{id_rodaje}")
 def rodaje(id_rodaje: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
-    return get_rodaje(id_rodaje, db, incluir_codigo=es_admin(current_user))
+    return get_rodaje(
+        id_rodaje,
+        current_user["id_project"],
+        db,
+        incluir_codigo=es_admin(current_user),
+    )
 
 @router.post("/rodajes")
 def store_rodaje(data: RodajeSchema, db: Session = Depends(get_db), current_user: dict = Depends(require_project_admin)):
-    return create_rodaje(data, db)
+    ensure_project_id_matches(data.id_project, current_user["id_project"])
+    return create_rodaje(data, current_user["id_project"], db)
 
 @router.patch("/rodajes/{id_rodaje}")
 def patch_rodaje(id_rodaje: str, data: RodajeUpdateSchema, db: Session = Depends(get_db), current_user: dict = Depends(require_project_admin)):
-    return update_rodaje(id_rodaje, data, db)
+    return update_rodaje(id_rodaje, data, current_user["id_project"], db)
 
 @router.delete("/rodajes/{id_rodaje}")
 def destroy_rodaje(id_rodaje: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_admin)):
-    return delete_rodaje(id_rodaje, db)
+    return delete_rodaje(id_rodaje, current_user["id_project"], db)
 
 # Asignar / quitar escenas de un dia (para armar el cronograma a mano)
 @router.post("/rodajes/{id_rodaje}/escenas/{id_escena}")
 def store_escena_en_rodaje(id_rodaje: str, id_escena: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_admin)):
-    return asignar_escena(id_rodaje, id_escena, db)
+    return asignar_escena(id_rodaje, id_escena, current_user["id_project"], db)
 
 @router.delete("/rodajes/{id_rodaje}/escenas/{id_escena}")
 def destroy_escena_de_rodaje(id_rodaje: str, id_escena: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_admin)):
-    return quitar_escena(id_rodaje, id_escena, db)
+    return quitar_escena(id_rodaje, id_escena, current_user["id_project"], db)
 
 # Importar un PDF de plan de rodaje (mismo formato Semana > Dia > Escena)
 @router.post("/projects/{id_project}/rodajes/importar")
@@ -80,16 +91,16 @@ def importar_rodaje(
 
 @router.get("/rodajes/{id_rodaje}/procesos")
 def procesos_del_rodaje(id_rodaje: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):
-    return get_procesos_by_rodaje(id_rodaje, db)
+    return get_procesos_by_rodaje(id_rodaje, current_user["id_project"], db)
 
 @router.post("/rodajes/{id_rodaje}/procesos")
 def store_proceso(id_rodaje: str, data: ProcesoRodajeSchema, db: Session = Depends(get_db), current_user: dict = Depends(require_project_admin)):
-    return create_proceso(id_rodaje, data, db)
+    return create_proceso(id_rodaje, data, current_user["id_project"], db)
 
 @router.patch("/rodajes/procesos/{id_proceso}")
 def patch_proceso(id_proceso: int, data: ProcesoRodajeUpdateSchema, db: Session = Depends(get_db), current_user: dict = Depends(require_project_admin)):
-    return update_proceso(id_proceso, data, db)
+    return update_proceso(id_proceso, data, current_user["id_project"], db)
 
 @router.delete("/rodajes/procesos/{id_proceso}")
 def destroy_proceso(id_proceso: int, db: Session = Depends(get_db), current_user: dict = Depends(require_project_admin)):
-    return delete_proceso(id_proceso, db)
+    return delete_proceso(id_proceso, current_user["id_project"], db)

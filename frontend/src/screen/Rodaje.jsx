@@ -12,6 +12,7 @@ import {
   Clock,
   MapPin,
   CheckSquare,
+  Save,
 } from "lucide-react";
 import { apiFetch, getActiveRole, getProjectHeaders, getToken } from "../api";
 import API_URL from "../api";
@@ -68,6 +69,9 @@ export default function RodajeScreen() {
   const [loadingProcesos, setLoadingProcesos] = useState(false);
   const [updatingEstado, setUpdatingEstado] = useState("");
   const [showProcesoForm, setShowProcesoForm] = useState(false);
+  const [editingProcesoId, setEditingProcesoId] = useState(null);
+  const [editProcesoForm, setEditProcesoForm] = useState(null);
+  const [savingProceso, setSavingProceso] = useState(false);
   const [procesoForm, setProcesoForm] = useState({ nombre: "", ubicacion: "", fecha: "", encargado: "", estado: "Pendiente", descripcion: "" });
 
   const fetchRodajes = async () => {
@@ -87,6 +91,8 @@ export default function RodajeScreen() {
   };
 
   useEffect(() => {
+    // Esta petición carga datos del proyecto activo y actualiza el estado desde la respuesta.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchRodajes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
@@ -297,8 +303,72 @@ export default function RodajeScreen() {
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.detail || data.message || "No se pudo eliminar");
       setProcesos((prev) => prev.filter((p) => p.id_proceso !== idProceso));
+      if (editingProcesoId === idProceso) {
+        setEditingProcesoId(null);
+        setEditProcesoForm(null);
+      }
     } catch (err) {
       setError(err.message || "No se pudo eliminar el proceso");
+    }
+  };
+
+  const iniciarEdicionProceso = (proceso) => {
+    setError("");
+    setEditingProcesoId(proceso.id_proceso);
+    setEditProcesoForm({
+      nombre: proceso.nombre || "",
+      ubicacion: proceso.ubicacion || "",
+      fecha: proceso.fecha ? String(proceso.fecha).slice(0, 10) : "",
+      encargado: proceso.encargado || "",
+      estado: proceso.estado || "Pendiente",
+      descripcion: proceso.descripcion || "",
+      orden: proceso.orden ?? 1,
+    });
+  };
+
+  const cancelarEdicionProceso = () => {
+    setEditingProcesoId(null);
+    setEditProcesoForm(null);
+  };
+
+  const handleGuardarProceso = async (event, idProceso) => {
+    event.preventDefault();
+    if (!editProcesoForm?.nombre.trim() || !editProcesoForm?.ubicacion.trim() || !editProcesoForm?.fecha) {
+      setError("Nombre, ubicación y fecha del proceso son obligatorios");
+      return;
+    }
+
+    const payload = {
+      nombre: editProcesoForm.nombre.trim(),
+      ubicacion: editProcesoForm.ubicacion.trim(),
+      fecha: editProcesoForm.fecha,
+      encargado: editProcesoForm.encargado.trim() || null,
+      estado: editProcesoForm.estado,
+      descripcion: editProcesoForm.descripcion.trim() || null,
+      orden: Number(editProcesoForm.orden) || 1,
+    };
+
+    setSavingProceso(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await apiFetch(`/rodajes/procesos/${idProceso}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.detail || data.message || "No se pudo actualizar el proceso");
+      }
+      setProcesos((current) => current.map((item) => (
+        item.id_proceso === idProceso ? { ...item, ...payload } : item
+      )));
+      cancelarEdicionProceso();
+      setSuccess("Proceso actualizado.");
+    } catch (saveError) {
+      setError(saveError.message || "No se pudo actualizar el proceso");
+    } finally {
+      setSavingProceso(false);
     }
   };
 
@@ -528,27 +598,119 @@ export default function RodajeScreen() {
                 ) : (
                   <div className="rdj-scene-list">
                     {procesos.map((p) => (
-                      <div key={p.id_proceso} className="rdj-scene-row">
-                        <CheckSquare size={15} />
-                        <strong>{p.nombre}</strong>
-                        <span className="rdj-scene-row__momento">{p.ubicacion} · {p.fecha}</span>
-                        {esAdmin ? (
-                          <select
-                            className={`rdj-badge rdj-badge--${normalizarEstado(p.estado)} rdj-status-select`}
-                            value={p.estado || "Pendiente"}
-                            disabled={updatingEstado === `proceso-${p.id_proceso}`}
-                            aria-label={`Estado de ${p.nombre}`}
-                            onChange={(evt) => handleEstadoProceso(p, evt.target.value)}
+                      <div key={p.id_proceso} className="rdj-process-item">
+                        {editingProcesoId === p.id_proceso && editProcesoForm ? (
+                          <form
+                            className="rdj-form rdj-process-edit"
+                            onSubmit={(event) => handleGuardarProceso(event, p.id_proceso)}
                           >
-                            {ESTADOS.map((estado) => <option key={estado} value={estado}>{estado}</option>)}
-                          </select>
+                            <div className="rdj-grid">
+                              <label>Nombre
+                                <input
+                                  value={editProcesoForm.nombre}
+                                  onChange={(event) => setEditProcesoForm({ ...editProcesoForm, nombre: event.target.value })}
+                                  required
+                                />
+                              </label>
+                              <label>Ubicación
+                                <input
+                                  value={editProcesoForm.ubicacion}
+                                  onChange={(event) => setEditProcesoForm({ ...editProcesoForm, ubicacion: event.target.value })}
+                                  required
+                                />
+                              </label>
+                            </div>
+                            <div className="rdj-grid">
+                              <label>Fecha
+                                <input
+                                  type="date"
+                                  value={editProcesoForm.fecha}
+                                  onChange={(event) => setEditProcesoForm({ ...editProcesoForm, fecha: event.target.value })}
+                                  required
+                                />
+                              </label>
+                              <label>Encargado
+                                <input
+                                  value={editProcesoForm.encargado}
+                                  onChange={(event) => setEditProcesoForm({ ...editProcesoForm, encargado: event.target.value })}
+                                />
+                              </label>
+                            </div>
+                            <div className="rdj-grid">
+                              <label>Estado
+                                <select
+                                  value={editProcesoForm.estado}
+                                  onChange={(event) => setEditProcesoForm({ ...editProcesoForm, estado: event.target.value })}
+                                >
+                                  {ESTADOS.map((estado) => <option key={estado} value={estado}>{estado}</option>)}
+                                </select>
+                              </label>
+                              <label>Orden
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={editProcesoForm.orden}
+                                  onChange={(event) => setEditProcesoForm({ ...editProcesoForm, orden: event.target.value })}
+                                />
+                              </label>
+                            </div>
+                            <label>Descripción
+                              <textarea
+                                rows={2}
+                                value={editProcesoForm.descripcion}
+                                onChange={(event) => setEditProcesoForm({ ...editProcesoForm, descripcion: event.target.value })}
+                              />
+                            </label>
+                            <div className="rdj-form__actions">
+                              <button type="button" className="rdj-button rdj-button--ghost" onClick={cancelarEdicionProceso}>
+                                Cancelar
+                              </button>
+                              <button type="submit" className="rdj-button" disabled={savingProceso}>
+                                <Save size={15} /> Guardar cambios
+                              </button>
+                            </div>
+                          </form>
                         ) : (
-                          <span className={`rdj-badge rdj-badge--${normalizarEstado(p.estado)}`}>{p.estado || "Pendiente"}</span>
-                        )}
-                        {esAdmin && (
-                          <button type="button" className="rdj-scene-row__remove" onClick={() => handleEliminarProceso(p.id_proceso)}>
-                            <X size={15} />
-                          </button>
+                          <div className="rdj-scene-row">
+                            <CheckSquare size={15} />
+                            <strong>{p.nombre}</strong>
+                            <span className="rdj-scene-row__momento">{p.ubicacion} · {p.fecha}</span>
+                            {esAdmin ? (
+                              <select
+                                className={`rdj-badge rdj-badge--${normalizarEstado(p.estado)} rdj-status-select`}
+                                value={p.estado || "Pendiente"}
+                                disabled={updatingEstado === `proceso-${p.id_proceso}`}
+                                aria-label={`Estado de ${p.nombre}`}
+                                onChange={(evt) => handleEstadoProceso(p, evt.target.value)}
+                              >
+                                {ESTADOS.map((estado) => <option key={estado} value={estado}>{estado}</option>)}
+                              </select>
+                            ) : (
+                              <span className={`rdj-badge rdj-badge--${normalizarEstado(p.estado)}`}>{p.estado || "Pendiente"}</span>
+                            )}
+                            {esAdmin && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="rdj-scene-row__remove"
+                                  onClick={() => iniciarEdicionProceso(p)}
+                                  aria-label={`Editar ${p.nombre}`}
+                                  title="Editar proceso"
+                                >
+                                  <PenLine size={15} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="rdj-scene-row__remove"
+                                  onClick={() => handleEliminarProceso(p.id_proceso)}
+                                  aria-label={`Eliminar ${p.nombre}`}
+                                  title="Eliminar proceso"
+                                >
+                                  <X size={15} />
+                                </button>
+                              </>
+                            )}
+                          </div>
                         )}
                       </div>
                     ))}

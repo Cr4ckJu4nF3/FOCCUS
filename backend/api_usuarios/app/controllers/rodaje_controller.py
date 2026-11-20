@@ -41,7 +41,9 @@ def _serializar_escena_breve(e: Escena):
 def _serializar_rodaje(r: Rodaje, db: Session):
     escenas = (
         db.query(Escena)
+        .join(Guion, Escena.id_guion == Guion.id_guion)
         .filter(Escena.id_rodaje == r.id_rodaje)
+        .filter(Guion.id_project == r.id_project)
         .order_by(Escena.numero_de_escena.asc())
         .all()
     )
@@ -76,8 +78,11 @@ def get_rodajes_by_project(id_project: str, db: Session, incluir_codigo: bool = 
     return api_response(True, "Plan de rodaje del proyecto", data)
 
 
-def get_rodaje(id_rodaje: str, db: Session, incluir_codigo: bool = False):
-    rodaje = db.query(Rodaje).filter(Rodaje.id_rodaje == id_rodaje).first()
+def get_rodaje(id_rodaje: str, id_project: str, db: Session, incluir_codigo: bool = False):
+    rodaje = db.query(Rodaje).filter(
+        Rodaje.id_rodaje == id_rodaje,
+        Rodaje.id_project == id_project,
+    ).first()
     if not rodaje:
         return api_response(False, "Plan de rodaje no encontrado")
 
@@ -87,14 +92,17 @@ def get_rodaje(id_rodaje: str, db: Session, incluir_codigo: bool = False):
     return api_response(True, "Plan de rodaje encontrado", data)
 
 
-def create_rodaje(data: RodajeSchema, db: Session):
-    project = db.query(Project).filter(Project.id_project == data.id_project).first()
+def create_rodaje(data: RodajeSchema, id_project: str, db: Session):
+    if data.id_project != id_project:
+        return api_response(False, "El proyecto solicitado no coincide con el proyecto autorizado", error="PROJECT_MISMATCH")
+
+    project = db.query(Project).filter(Project.id_project == id_project).first()
     if not project:
         return api_response(False, "El proyecto indicado no existe", error="PROJECT_NOT_FOUND")
 
     new_rodaje = Rodaje(
         id_rodaje=_generar_id_rodaje(db),
-        id_project=data.id_project,
+        id_project=id_project,
         nombre=data.nombre,
         descripcion=data.descripcion,
         fecha_inicio=data.fecha_inicio,
@@ -119,8 +127,11 @@ def create_rodaje(data: RodajeSchema, db: Session):
     return api_response(True, "Plan de rodaje creado", respuesta)
 
 
-def update_rodaje(id_rodaje: str, data: RodajeUpdateSchema, db: Session):
-    rodaje = db.query(Rodaje).filter(Rodaje.id_rodaje == id_rodaje).first()
+def update_rodaje(id_rodaje: str, data: RodajeUpdateSchema, id_project: str, db: Session):
+    rodaje = db.query(Rodaje).filter(
+        Rodaje.id_rodaje == id_rodaje,
+        Rodaje.id_project == id_project,
+    ).first()
     if not rodaje:
         return api_response(False, "Plan de rodaje no encontrado")
 
@@ -136,8 +147,11 @@ def update_rodaje(id_rodaje: str, data: RodajeUpdateSchema, db: Session):
     return api_response(True, "Plan de rodaje actualizado", respuesta)
 
 
-def delete_rodaje(id_rodaje: str, db: Session):
-    rodaje = db.query(Rodaje).filter(Rodaje.id_rodaje == id_rodaje).first()
+def delete_rodaje(id_rodaje: str, id_project: str, db: Session):
+    rodaje = db.query(Rodaje).filter(
+        Rodaje.id_rodaje == id_rodaje,
+        Rodaje.id_project == id_project,
+    ).first()
     if not rodaje:
         return api_response(False, "Plan de rodaje no encontrado")
 
@@ -151,12 +165,20 @@ def delete_rodaje(id_rodaje: str, db: Session):
 # usaba desde el frontend; esto es lo que permite construir el
 # cronograma "a mano" en la opcion Crear desde cero)
 
-def asignar_escena(id_rodaje: str, id_escena: str, db: Session):
-    rodaje = db.query(Rodaje).filter(Rodaje.id_rodaje == id_rodaje).first()
+def asignar_escena(id_rodaje: str, id_escena: str, id_project: str, db: Session):
+    rodaje = db.query(Rodaje).filter(
+        Rodaje.id_rodaje == id_rodaje,
+        Rodaje.id_project == id_project,
+    ).first()
     if not rodaje:
         return api_response(False, "Plan de rodaje no encontrado")
 
-    escena = db.query(Escena).filter(Escena.id_escena == id_escena).first()
+    escena = db.query(Escena).join(
+        Guion, Guion.id_guion == Escena.id_guion
+    ).filter(
+        Escena.id_escena == id_escena,
+        Guion.id_project == id_project,
+    ).first()
     if not escena:
         return api_response(False, "Escena no encontrada")
 
@@ -170,8 +192,17 @@ def asignar_escena(id_rodaje: str, id_escena: str, db: Session):
     return api_response(True, "Escena asignada al dia de rodaje", _serializar_rodaje(rodaje, db))
 
 
-def quitar_escena(id_rodaje: str, id_escena: str, db: Session):
-    escena = db.query(Escena).filter(Escena.id_escena == id_escena, Escena.id_rodaje == id_rodaje).first()
+def quitar_escena(id_rodaje: str, id_escena: str, id_project: str, db: Session):
+    escena = db.query(Escena).join(
+        Guion, Guion.id_guion == Escena.id_guion
+    ).join(
+        Rodaje, Rodaje.id_rodaje == Escena.id_rodaje
+    ).filter(
+        Escena.id_escena == id_escena,
+        Escena.id_rodaje == id_rodaje,
+        Guion.id_project == id_project,
+        Rodaje.id_project == id_project,
+    ).first()
     if not escena:
         return api_response(False, "La escena no esta asignada a este dia de rodaje")
 
@@ -286,10 +317,11 @@ def importar_rodaje_pdf(id_project: str, ruta_temporal: str, db: Session):
 
 # ---------- Procesos del rodaje (checklist de tareas de un dia) ----------
 
-def get_procesos_by_rodaje(id_rodaje: str, db: Session):
+def get_procesos_by_rodaje(id_rodaje: str, id_project: str, db: Session):
     procesos = (
-        db.query(ProcesoRodaje)
+        db.query(ProcesoRodaje).join(Rodaje, Rodaje.id_rodaje == ProcesoRodaje.id_rodaje)
         .filter(ProcesoRodaje.id_rodaje == id_rodaje)
+        .filter(Rodaje.id_project == id_project)
         .order_by(ProcesoRodaje.orden.asc(), ProcesoRodaje.fecha.asc())
         .all()
     )
@@ -312,8 +344,11 @@ def get_procesos_by_rodaje(id_rodaje: str, db: Session):
     return api_response(True, "Procesos del plan de rodaje", procesos_list)
 
 
-def create_proceso(id_rodaje: str, data: ProcesoRodajeSchema, db: Session):
-    rodaje = db.query(Rodaje).filter(Rodaje.id_rodaje == id_rodaje).first()
+def create_proceso(id_rodaje: str, data: ProcesoRodajeSchema, id_project: str, db: Session):
+    rodaje = db.query(Rodaje).filter(
+        Rodaje.id_rodaje == id_rodaje,
+        Rodaje.id_project == id_project,
+    ).first()
     if not rodaje:
         return api_response(False, "El plan de rodaje indicado no existe", error="RODAJE_NOT_FOUND")
 
@@ -342,8 +377,13 @@ def create_proceso(id_rodaje: str, data: ProcesoRodajeSchema, db: Session):
     })
 
 
-def update_proceso(id_proceso: int, data: ProcesoRodajeUpdateSchema, db: Session):
-    proceso = db.query(ProcesoRodaje).filter(ProcesoRodaje.id_proceso == id_proceso).first()
+def update_proceso(id_proceso: int, data: ProcesoRodajeUpdateSchema, id_project: str, db: Session):
+    proceso = db.query(ProcesoRodaje).join(
+        Rodaje, Rodaje.id_rodaje == ProcesoRodaje.id_rodaje
+    ).filter(
+        ProcesoRodaje.id_proceso == id_proceso,
+        Rodaje.id_project == id_project,
+    ).first()
     if not proceso:
         return api_response(False, "Proceso no encontrado")
 
@@ -360,8 +400,13 @@ def update_proceso(id_proceso: int, data: ProcesoRodajeUpdateSchema, db: Session
     })
 
 
-def delete_proceso(id_proceso: int, db: Session):
-    proceso = db.query(ProcesoRodaje).filter(ProcesoRodaje.id_proceso == id_proceso).first()
+def delete_proceso(id_proceso: int, id_project: str, db: Session):
+    proceso = db.query(ProcesoRodaje).join(
+        Rodaje, Rodaje.id_rodaje == ProcesoRodaje.id_rodaje
+    ).filter(
+        ProcesoRodaje.id_proceso == id_proceso,
+        Rodaje.id_project == id_project,
+    ).first()
     if not proceso:
         return api_response(False, "Proceso no encontrado")
 

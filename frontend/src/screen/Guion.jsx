@@ -105,6 +105,105 @@ function extraerMensajeError(data, fallback) {
   return data.message || fallback;
 }
 
+function NotasVersion({ version, projectId }) {
+  const [notas, setNotas] = useState([]);
+  const [contenido, setContenido] = useState("");
+  const [cargando, setCargando] = useState(true);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState("");
+  const [errorCarga, setErrorCarga] = useState(false);
+  const [exito, setExito] = useState("");
+  const [intento, setIntento] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const cargar = async () => {
+      try {
+        const response = await fetch(`${API_URL}/guiones/versiones/${version.id_guion_version}/notas`, {
+          headers: { Authorization: `Bearer ${getToken()}`, "X-Project-Id": projectId },
+          signal: controller.signal,
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(extraerMensajeError(data, "No se pudieron cargar las notas"));
+        setNotas(Array.isArray(data.data) ? data.data : []);
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          setError(err.message || "No se pudieron cargar las notas");
+          setErrorCarga(true);
+        }
+      } finally {
+        if (!controller.signal.aborted) setCargando(false);
+      }
+    };
+    cargar();
+    return () => controller.abort();
+  }, [version.id_guion_version, projectId, intento]);
+
+  const guardar = async (event) => {
+    event.preventDefault();
+    const texto = contenido.trim();
+    if (!texto || cargando || errorCarga || guardando) return;
+    setGuardando(true);
+    setError("");
+    setExito("");
+    try {
+      const response = await fetch(`${API_URL}/guiones/versiones/${version.id_guion_version}/notas`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+          "X-Project-Id": projectId,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ contenido: texto }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(extraerMensajeError(data, "No se pudo guardar la nota"));
+      setNotas((actuales) => [data.data, ...actuales]);
+      setContenido("");
+      setExito("Nota guardada en esta versión.");
+    } catch (err) {
+      setError(err.message || "No se pudo guardar la nota");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <section className="guion-notas" aria-label={`Notas de la versión ${version.numero_de_version}`}>
+      <h2>Notas de la versión {version.numero_de_version}</h2>
+      {cargando && <p role="status">Cargando notas…</p>}
+      {error && <p className="guion-notas__error" role="alert">{error}</p>}
+      {exito && <p role="status">{exito}</p>}
+      {!cargando && errorCarga && (
+        <button className="guion-reader__action" type="button" onClick={() => {
+          setError("");
+          setErrorCarga(false);
+          setCargando(true);
+          setIntento((actual) => actual + 1);
+        }}>Volver a cargar notas</button>
+      )}
+      {!cargando && !error && notas.length === 0 && <p>Aún no hay notas para esta versión.</p>}
+      {notas.length > 0 && (
+        <ul className="guion-notas__lista">
+          {notas.map((nota) => (
+            <li key={nota.id_nota}>
+              <p>{nota.contenido}</p>
+              <small>Usuario {nota.id_user}{nota.fecha_creacion ? ` · ${nota.fecha_creacion}` : ""}</small>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form className="guion-form" onSubmit={guardar}>
+        <label htmlFor="nota-version">Agregar nota a esta versión</label>
+        <textarea id="nota-version" rows={3} value={contenido} onChange={(event) => setContenido(event.target.value)} disabled={guardando} required />
+        <button className="guion-reader__action guion-reader__action--primary" type="submit" disabled={cargando || errorCarga || guardando || !contenido.trim()}>
+          {guardando ? "Guardando nota…" : "Guardar nota"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
 export default function GuionScreen() {
   const projectId = localStorage.getItem("projectId") || "";
   const projectName = localStorage.getItem("projectName")?.trim() || "";
@@ -2577,6 +2676,13 @@ export default function GuionScreen() {
                 <p className="guion-reader__empty">Este formato no tiene vista previa disponible en el navegador. Usa el acceso al archivo original desde el detalle del guion.</p>
               )}
             </article>
+            {!editandoContenido && (
+              <NotasVersion
+                key={`${projectId}-${versionSeleccionadaParaLector.id_guion_version}`}
+                version={versionSeleccionadaParaLector}
+                projectId={projectId}
+              />
+            )}
           </section>
         )}
       </main>

@@ -106,7 +106,7 @@ def store_requerimiento(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_admin)
 ):
-    return create_requerimiento(id_escena, data, db)
+    return create_requerimiento(id_escena, data, current_user["id_project"], db)
 
 
 @router.patch("/desglose/requerimientos/{id_requerimiento}")
@@ -116,7 +116,7 @@ def patch_requerimiento(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_admin)
 ):
-    return update_requerimiento(id_requerimiento, data, db)
+    return update_requerimiento(id_requerimiento, data, current_user["id_project"], db)
 
 
 @router.delete("/desglose/requerimientos/{id_requerimiento}")
@@ -125,7 +125,7 @@ def destroy_requerimiento(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_admin)
 ):
-    return delete_requerimiento(id_requerimiento, db)
+    return delete_requerimiento(id_requerimiento, current_user["id_project"], db)
 
 
 # Importar un PDF de desglose (formato de exportacion estandar) y crear/
@@ -144,7 +144,7 @@ def importar_desglose(
         ruta_temporal = tmp.name
 
     try:
-        return importar_desglose_pdf(id_guion, ruta_temporal, db)
+        return importar_desglose_pdf(id_guion, ruta_temporal, current_user["id_project"], db)
     finally:
         try:
             os.remove(ruta_temporal)

@@ -1,7 +1,7 @@
 from datetime import date
 from sqlalchemy.orm import Session
 from sqlalchemy import func as sqlfunc
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile
 from app.models.Guion import Guion
 from app.models.guion_version_model import GuionVersion
 from app.models.guion_nota_model import GuionNota
@@ -27,7 +27,10 @@ def _serializar_guion_con_version_actual(g: Guion, db: Session):
     if g.id_guion_version_actual:
         version_actual = (
             db.query(GuionVersion)
-            .filter(GuionVersion.id_guion_version == g.id_guion_version_actual)
+            .filter(
+                GuionVersion.id_guion_version == g.id_guion_version_actual,
+                GuionVersion.id_guion == g.id_guion,
+            )
             .first()
         )
 
@@ -398,11 +401,19 @@ def actualizar_estado_version(
 
 # AGREGAR NOTA A UNA VERSION
 
-def agregar_nota(id_guion_version: int, data: GuionNotaSchema, id_user: int, db: Session):
-    version = db.query(GuionVersion).filter(GuionVersion.id_guion_version == id_guion_version).first()
-
+def _verificar_version_proyecto(id_guion_version: int, id_project: str, db: Session):
+    version = (
+        db.query(GuionVersion)
+        .join(Guion, Guion.id_guion == GuionVersion.id_guion)
+        .filter(GuionVersion.id_guion_version == id_guion_version, Guion.id_project == id_project)
+        .first()
+    )
     if not version:
-        return api_response(False, "Version de guion no encontrada")
+        raise HTTPException(status_code=404, detail="Versión de guion no encontrada")
+
+
+def agregar_nota(id_guion_version: int, data: GuionNotaSchema, id_user: int, id_project: str, db: Session):
+    _verificar_version_proyecto(id_guion_version, id_project, db)
 
     nota = GuionNota(
         id_guion_version=id_guion_version,
@@ -423,7 +434,8 @@ def agregar_nota(id_guion_version: int, data: GuionNotaSchema, id_user: int, db:
 
 # LISTAR NOTAS DE UNA VERSION
 
-def get_notas(id_guion_version: int, db: Session):
+def get_notas(id_guion_version: int, id_project: str, db: Session):
+    _verificar_version_proyecto(id_guion_version, id_project, db)
     notas = (
         db.query(GuionNota)
         .filter(GuionNota.id_guion_version == id_guion_version)

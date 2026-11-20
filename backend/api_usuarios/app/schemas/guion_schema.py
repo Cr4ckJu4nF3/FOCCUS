@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Literal, Optional
 from datetime import date
 
@@ -50,3 +50,11 @@ class GuionDesdeCeroSchema(BaseModel):
 
 class GuionNotaSchema(BaseModel):
     contenido: str
+
+    @field_validator("contenido")
+    @classmethod
+    def validar_contenido(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("La nota no puede estar vacía")
+        return value

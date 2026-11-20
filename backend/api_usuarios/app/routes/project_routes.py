@@ -46,7 +46,7 @@ def projects_by_client(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    return get_projects_by_client(id_client, db)
+    return get_projects_by_client(id_client, db, current_user["id_user"])
 
 @router.get("/projects/{id}")
 def project(id: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_member)):

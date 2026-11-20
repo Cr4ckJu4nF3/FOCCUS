@@ -5,6 +5,8 @@ from fastapi import UploadFile
 from app.models.escena_model import Escena
 from app.models.escena_version_model import EscenaVersion
 from app.models.continuidad_foto_model import ContinuidadFoto
+from app.models.Guion import Guion
+from app.models.personajes_model import Personaje
 from app.utils.response import api_response
 from app.utils.file_storage import guardar_archivo, EXTENSIONES_FOTO
 
@@ -13,8 +15,30 @@ TIPOS_VALIDOS = {"vestuario", "objeto", "espacio"}
 
 # CREAR NUEVA VERSION DE CONTINUIDAD PARA UNA ESCENA
 
-def crear_version_escena(id_escena: str, comentario_cambio: Optional[str], id_user: int, db: Session):
-    escena = db.query(Escena).filter(Escena.id_escena == id_escena).first()
+def _version_en_proyecto(id_escena_version: int, id_project: str, db: Session):
+    return db.query(EscenaVersion).join(
+        Escena, Escena.id_escena == EscenaVersion.id_escena
+    ).join(
+        Guion, Guion.id_guion == Escena.id_guion
+    ).filter(
+        EscenaVersion.id_escena_version == id_escena_version,
+        Guion.id_project == id_project,
+    ).first()
+
+
+def crear_version_escena(
+    id_escena: str,
+    comentario_cambio: Optional[str],
+    id_user: int,
+    id_project: str,
+    db: Session,
+):
+    escena = db.query(Escena).join(
+        Guion, Guion.id_guion == Escena.id_guion
+    ).filter(
+        Escena.id_escena == id_escena,
+        Guion.id_project == id_project,
+    ).first()
     if not escena:
         return api_response(False, "Escena no encontrada")
 
@@ -44,7 +68,16 @@ def crear_version_escena(id_escena: str, comentario_cambio: Optional[str], id_us
 
 # LISTAR VERSIONES DE CONTINUIDAD DE UNA ESCENA
 
-def get_versiones_escena(id_escena: str, db: Session):
+def get_versiones_escena(id_escena: str, id_project: str, db: Session):
+    escena = db.query(Escena.id_escena).join(
+        Guion, Guion.id_guion == Escena.id_guion
+    ).filter(
+        Escena.id_escena == id_escena,
+        Guion.id_project == id_project,
+    ).first()
+    if not escena:
+        return api_response(False, "Escena no encontrada")
+
     versiones = (
         db.query(EscenaVersion)
         .filter(EscenaVersion.id_escena == id_escena)
@@ -74,11 +107,18 @@ def subir_fotos(
     id_personaje: Optional[str],
     notas: Optional[str],
     archivos: List[UploadFile],
+    id_project: str,
     db: Session
 ):
-    version = db.query(EscenaVersion).filter(EscenaVersion.id_escena_version == id_escena_version).first()
+    version = _version_en_proyecto(id_escena_version, id_project, db)
     if not version:
         return api_response(False, "Version de escena no encontrada")
+
+    if id_personaje and not db.query(Personaje.id_personaje).filter(
+        Personaje.id_personaje == id_personaje,
+        Personaje.id_project == id_project,
+    ).first():
+        return api_response(False, "El personaje no pertenece a este proyecto", error="INVALID_CHARACTER")
 
     if tipo not in TIPOS_VALIDOS:
         return api_response(False, "Tipo invalido. Usa: vestuario, objeto o espacio", error="INVALID_TIPO")
@@ -121,7 +161,10 @@ def subir_fotos(
 
 # LISTAR FOTOS DE UNA VERSION (opcionalmente filtrado por ?tipo=)
 
-def get_fotos_version(id_escena_version: int, tipo: Optional[str], db: Session):
+def get_fotos_version(id_escena_version: int, tipo: Optional[str], id_project: str, db: Session):
+    if not _version_en_proyecto(id_escena_version, id_project, db):
+        return api_response(False, "Version de escena no encontrada")
+
     query = db.query(ContinuidadFoto).filter(ContinuidadFoto.id_escena_version == id_escena_version)
     if tipo:
         query = query.filter(ContinuidadFoto.tipo == tipo)

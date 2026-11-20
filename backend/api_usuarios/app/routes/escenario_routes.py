@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.config.database import get_db
-from app.utils.auth import get_current_user, require_project_admin, require_project_member
+from app.utils.auth import (
+    ensure_project_id_matches,
+    require_project_admin,
+    require_project_member,
+)
 from app.utils.codigos import es_admin
 from app.controllers.escenario_controller import (
     get_escenarios_by_project,
@@ -21,6 +25,7 @@ def escenarios_del_proyecto(id_project: str, db: Session = Depends(get_db), curr
 
 @router.post("/escenarios")
 def store_escenario(data: EscenarioSchema, db: Session = Depends(get_db), current_user: dict = Depends(require_project_admin)):
+    ensure_project_id_matches(data.id_project, current_user["id_project"])
     return create_escenario(data, db)
 
 

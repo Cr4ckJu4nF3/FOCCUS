@@ -51,7 +51,7 @@ router = APIRouter()
 # LOGIN
 @router.post("/users/login")
 def login(user: LoginSchema, db: Session = Depends(get_db)):
-    return login_user(user.mail, user.contrasena, db, user.remember_me)
+    return login_user(user.mail, user.contrasena, db, user.remember_me, user.device_id)
 
 # RECOVER PASSWORD
 @router.post("/users/recover-password")
@@ -76,20 +76,20 @@ def register_user(data: RegisterSchema, db: Session = Depends(get_db)):
 
 # 2FA - VERIFICAR SI NECESITA 2FA
 @router.post("/users/2fa/check")
-def check_2fa(data: TwoFactorSendSchema, db: Session = Depends(get_db)):
-    return check_2fa_required(data.mail, data.device_id)
+def check_2fa(data: TwoFactorSendSchema):
+    return check_2fa_required(data.mail, data.device_id, data.pending_token)
 
 
 # 2FA - ENVIAR CODIGO
 @router.post("/users/2fa/send")
 def send_2fa(data: TwoFactorSendSchema, db: Session = Depends(get_db)):
-    return send_2fa_code(data.mail, data.device_id, db)
+    return send_2fa_code(data.mail, data.device_id, data.pending_token)
 
 
 # 2FA - VERIFICAR CODIGO
 @router.post("/users/2fa/verify")
 def verify_2fa(data: TwoFactorVerifySchema, db: Session = Depends(get_db)):
-    return verify_2fa_code(data.mail, data.codigo, data.device_id, db, data.remember_me)
+    return verify_2fa_code(data.mail, data.codigo, data.device_id, data.pending_token, db)
 
 # COMPLETE INVITED ACCOUNT
 @router.post("/users/complete-invitation")

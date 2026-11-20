@@ -25,7 +25,7 @@ def escena(id_escena: str, db: Session = Depends(get_db), current_user: dict = D
 # CREAR ESCENA (subdividir el guion en escenas) - solo administradores
 @router.post("/escenas")
 def store_escena(data: EscenaSchema, db: Session = Depends(get_db), current_user: dict = Depends(require_project_admin)):
-    return create_escena(data, db)
+    return create_escena(data, current_user["id_project"], db)
 
 @router.patch("/escenas/{id_escena}")
 def patch_escena(
@@ -34,7 +34,7 @@ def patch_escena(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_project_admin)
 ):
-    return update_escena(id_escena, data, db)
+    return update_escena(id_escena, data, current_user["id_project"], db)
 
 @router.delete("/escenas/{id_escena}")
 def destroy_escena(id_escena: str, db: Session = Depends(get_db), current_user: dict = Depends(require_project_admin)):

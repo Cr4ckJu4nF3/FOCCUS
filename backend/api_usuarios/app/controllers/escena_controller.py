@@ -1,6 +1,8 @@
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from app.models.escena_model import Escena
 from app.models.Guion import Guion
+from app.models.rodaje_model import Rodaje
 from app.schemas.escena_schema import EscenaSchema, EscenaUpdateSchema
 from app.utils.response import api_response
 from app.utils.codigos import adjuntar_codigos, asignar_codigo
@@ -74,10 +76,30 @@ def get_escena(id_escena: str, db: Session, incluir_codigo: bool = False):
 
 # CREAR ESCENA (subdividir un guion en escenas)
 
-def create_escena(escena: EscenaSchema, db: Session):
-    guion = db.query(Guion).filter(Guion.id_guion == escena.id_guion).first()
+def _validate_scene_links(id_project: str, id_rodaje: str | None, id_desglose: str | None, db: Session):
+    if id_rodaje and not db.query(Rodaje.id_rodaje).filter(
+        Rodaje.id_rodaje == id_rodaje,
+        Rodaje.id_project == id_project,
+    ).first():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recurso no encontrado")
+
+    if id_desglose and not db.query(Escena.id_escena).join(
+        Guion, Guion.id_guion == Escena.id_guion
+    ).filter(
+        Escena.id_desglose == id_desglose,
+        Guion.id_project == id_project,
+    ).first():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recurso no encontrado")
+
+
+def create_escena(escena: EscenaSchema, id_project: str, db: Session):
+    guion = db.query(Guion).filter(
+        Guion.id_guion == escena.id_guion,
+        Guion.id_project == id_project,
+    ).first()
     if not guion:
-        return api_response(False, "El guion indicado no existe", error="GUION_NOT_FOUND")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Guion no encontrado")
+    _validate_scene_links(id_project, escena.id_rodaje, escena.id_desglose, db)
 
     id_escena = _generar_id_escena(db)
 
@@ -114,13 +136,24 @@ def create_escena(escena: EscenaSchema, db: Session):
 
 # UPDATE ESCENA (PATCH)
 
-def update_escena(id_escena: str, escena: EscenaUpdateSchema, db: Session):
-    escena_db = db.query(Escena).filter(Escena.id_escena == id_escena).first()
+def update_escena(id_escena: str, escena: EscenaUpdateSchema, id_project: str, db: Session):
+    escena_db = db.query(Escena).join(
+        Guion, Guion.id_guion == Escena.id_guion
+    ).filter(
+        Escena.id_escena == id_escena,
+        Guion.id_project == id_project,
+    ).first()
 
     if not escena_db:
         return api_response(False, "Escena no encontrada")
 
     update_data = escena.model_dump(exclude_unset=True)
+    _validate_scene_links(
+        id_project,
+        update_data.get("id_rodaje", escena_db.id_rodaje),
+        update_data.get("id_desglose", escena_db.id_desglose),
+        db,
+    )
     for key, value in update_data.items():
         setattr(escena_db, key, value)
 

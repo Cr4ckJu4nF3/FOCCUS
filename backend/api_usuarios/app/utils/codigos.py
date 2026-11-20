@@ -295,11 +295,15 @@ def adjuntar_codigos_galeria(db: Session, items: list, incluir: bool) -> list:
     personajes = [i for i in items if i.get("tipo") == "personaje"]
     mapa = codigos_de(db, "PER", (i.get("id_personaje") for i in personajes))
     for item in personajes:
-        item["codigo"] = mapa.get(str(item.get("id_personaje")))
+        codigo = mapa.get(str(item.get("id_personaje")))
+        if codigo:
+            item["codigo"] = codigo
     lugares = [i for i in items if i.get("tipo") == "lugar"]
     mapa = codigos_de(db, "LOC", (i.get("id_escenario") for i in lugares))
     for item in lugares:
-        item["codigo"] = mapa.get(str(item.get("id_escenario")))
+        codigo = mapa.get(str(item.get("id_escenario")))
+        if codigo:
+            item["codigo"] = codigo
     return items
 
 

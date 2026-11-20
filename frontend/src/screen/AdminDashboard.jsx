@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
+  Building2,
   CalendarDays,
   Camera,
   ChevronDown,
@@ -14,6 +15,7 @@ import {
   LayoutDashboard,
   LoaderCircle,
   LogOut,
+  Pencil,
   Plus,
   Search,
   Trash2,
@@ -24,6 +26,7 @@ import {
 import logo from "../assets/FoccusNB_White.png";
 import { apiFetch, clearSession, getActiveRole, setActiveProject as persistActiveProject } from "../api";
 import CodigoChip from "../componentes/CodigoChip";
+import EditProjectModal from "../componentes/EditProjectModal";
 import "../desing/AdminDashboard.css";
 
 const formatOptions = [
@@ -105,6 +108,9 @@ export default function AdminDashboardScreen() {
   const [showCenterProjectPicker, setShowCenterProjectPicker] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
+  const [editProjectOpen, setEditProjectOpen] = useState(false);
+  const [projectMessage, setProjectMessage] = useState("");
+  const projectsRevision = useRef(0);
   const [projectForm, setProjectForm] = useState(emptyProjectForm);
   const [creatingProject, setCreatingProject] = useState(false);
   const [dashboardData, setDashboardData] = useState({
@@ -121,6 +127,7 @@ export default function AdminDashboardScreen() {
     let isCurrent = true;
 
     const loadProjects = async () => {
+      const revision = projectsRevision.current;
       setProjectsLoading(true);
       setProjectsError("");
       try {
@@ -132,6 +139,7 @@ export default function AdminDashboardScreen() {
         }
         const items = result.data || result;
         const userProjects = Array.isArray(items) ? items : [];
+        if (!isCurrent || revision !== projectsRevision.current) return;
         if (isCurrent) setProjects(userProjects);
         if (projectId) {
           const selectedProject = userProjects.find(
@@ -154,6 +162,7 @@ export default function AdminDashboardScreen() {
           }
           if (isCurrent) {
             persistActiveProject(selectedProject);
+            setActiveProject({ id: String(selectedProject.id_project), name: selectedProject.project_name });
             setProjectRole(Number(selectedProject.id_rol) || 0);
           }
           if (Number(selectedProject.id_rol) !== 1001 && !isGlobalAdmin) {
@@ -167,9 +176,9 @@ export default function AdminDashboardScreen() {
           }
         }
       } catch (loadError) {
-        if (isCurrent) setProjectsError(loadError.message || "No se pudieron cargar los proyectos");
+        if (isCurrent && revision === projectsRevision.current) setProjectsError(loadError.message || "No se pudieron cargar los proyectos");
       } finally {
-        if (isCurrent) setProjectsLoading(false);
+        if (isCurrent && revision === projectsRevision.current) setProjectsLoading(false);
       }
     };
 
@@ -260,6 +269,7 @@ export default function AdminDashboardScreen() {
   }, [dashboardData.breakdownScenes]);
 
   const selectProject = (project) => {
+    setProjectMessage("");
     const selected = { id: String(project.id_project), name: project.project_name };
     persistActiveProject(project);
     if (Number(project.id_rol) !== 1001) {
@@ -424,6 +434,17 @@ export default function AdminDashboardScreen() {
   if (!isAdmin && !isGlobalAdmin) return <Navigate to="/proyecto-dashboard" replace />;
 
   const navigateToModule = (path) => navigate(path, { state: { projectName, projectId } });
+  const handleProjectSaved = (updated) => {
+    projectsRevision.current += 1;
+    setProjectsLoading(false);
+    setProjects((current) => current.map((project) =>
+      String(project.id_project) === String(projectId) ? { ...project, ...updated } : project,
+    ));
+    setActiveProject({ id: String(projectId), name: updated.project_name });
+    localStorage.setItem("projectName", updated.project_name);
+    setEditProjectOpen(false);
+    setProjectMessage("Proyecto actualizado correctamente.");
+  };
   const handleLogout = () => {
     clearSession();
     navigate("/", { replace: true });
@@ -472,6 +493,11 @@ export default function AdminDashboardScreen() {
           <button className="admin-navigation__item admin-navigation__item--active" type="button">
             <LayoutDashboard size={18} /> Resumen general
           </button>
+          {isGlobalAdmin && (
+            <button className="admin-navigation__item" onClick={() => navigate("/clientes")} type="button">
+              <Building2 size={18} /> Empresas cliente
+            </button>
+          )}
           <button className="admin-navigation__item" disabled={!projectId} onClick={() => navigateToModule("/guion")} type="button">
             <FileText size={18} /> Guiones
           </button>
@@ -614,6 +640,18 @@ export default function AdminDashboardScreen() {
             </div>
             <div className="admin-welcome__badge"><span /> Vista de administrador</div>
           </section>
+
+          {projectMessage && <p role="status">{projectMessage}</p>}
+          {projectId && isAdmin && !projectsLoading && projects.some(
+            (project) => String(project.id_project) === String(projectId) && Number(project.id_rol) === 1001,
+          ) && (
+            <div className="admin-project-form__actions">
+              <button type="button" onClick={() => {
+                setProjectMessage("");
+                setEditProjectOpen(true);
+              }}><Pencil size={15} /> Editar proyecto</button>
+            </div>
+          )}
 
           {!projectId ? (
             <section className="admin-project-empty">
@@ -841,6 +879,15 @@ export default function AdminDashboardScreen() {
           )}
         </main>
       </div>
+      {editProjectOpen && isAdmin && projectId && (
+        <EditProjectModal
+          projectId={projectId}
+          formatOptions={formatOptions}
+          genreOptions={genreOptions}
+          onClose={() => setEditProjectOpen(false)}
+          onSaved={handleProjectSaved}
+        />
+      )}
       {createProjectOpen && isGlobalAdmin && (
         <div className="admin-project-modal" role="presentation" onMouseDown={(event) => {
           if (event.target === event.currentTarget && !creatingProject) setCreateProjectOpen(false);

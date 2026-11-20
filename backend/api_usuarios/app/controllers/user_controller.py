@@ -1,5 +1,7 @@
 import random
+import secrets
 import string
+from threading import RLock
 from datetime import datetime, timedelta
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -43,8 +45,9 @@ recovery_codes = {}
 # ==========================================
 # 2FA - DISPOSITIVOS VERIFICADOS
 # ==========================================
-verified_devices = {}
-two_factor_codes = {}
+# Los intentos solo existen en este proceso y caducan a los 10 minutos.
+pending_logins = {}
+pending_logins_lock = RLock()
 
 # ==========================================
 # GET ALL USERS
@@ -261,7 +264,7 @@ def remove_user_from_project(
 # ==========================================
 # LOGIN
 # ==========================================
-def login_user(mail: str, contrasena: str, db: Session, remember_me: bool = False):
+def login_user(mail: str, contrasena: str, db: Session, remember_me: bool, device_id: str):
     normalized_mail = mail.strip().lower()
     user = db.query(User).filter(User.mail == normalized_mail).first()
 
@@ -271,36 +274,25 @@ def login_user(mail: str, contrasena: str, db: Session, remember_me: bool = Fals
     if not pwd_context.verify(contrasena, user.contrasena):
         return api_response(False, "Contraseña incorrecta", error="INVALID_PASSWORD")
 
-    # id_client viene directo del usuario (se asigna en el registro). Si
-    # por algun motivo un usuario viejo no lo tiene (invitado antes de
-    # este fix, por ejemplo), se recurre al respaldo de mirar su primer
-    # proyecto, igual que antes.
-    id_client = user.id_client
-    if id_client is None:
-        user_project = db.query(UserProject).filter(UserProject.id_user == user.id_user).first()
-        if user_project:
-            project = db.query(Project).filter(Project.id_project == user_project.id_project).first()
-            if project:
-                id_client = project.id_client
+    token = secrets.token_urlsafe(32)
+    now = datetime.now()
+    with pending_logins_lock:
+        for key in list(pending_logins):
+            if pending_logins[key]["expira"] <= now:
+                del pending_logins[key]
+        pending_logins[token] = {
+            "id_user": user.id_user,
+            "mail": normalized_mail,
+            "device_id": device_id,
+            "remember_me": remember_me,
+            "expira": now + timedelta(minutes=10),
+            "codigo": None,
+            "intentos": 0,
+        }
 
-    user.ultimo_acceso = func.now()
-    db.commit()
-
-    token = create_access_token(
-        {"id_user": user.id_user, "id_rol": user.id_rol},
-        REMEMBER_TOKEN_EXPIRE_MINUTES if remember_me else ACCESS_TOKEN_EXPIRE_MINUTES,
-    )
-
-    return api_response(True, "Login exitoso", {
-        "id_user": user.id_user,
-        "nombre": user.nombre,
-        "apellido": user.apellido,
-        "mail": user.mail,
-        "id_rol": user.id_rol,
-        "id_client": id_client,
-        "estado": user.estado,
-        "access_token": token,
-        "token_type": "bearer"
+    return api_response(True, "Se requiere verificación", {
+        "requires_2fa": True,
+        "pending_token": token,
     })
 
 # ==========================================
@@ -441,8 +433,6 @@ def register(data, db: Session):
         db.refresh(new_user)
         db.refresh(new_client)
 
-        token = create_access_token({"id_user": new_user.id_user, "id_rol": new_user.id_rol})
-
         return api_response(True, "Registro exitoso", {
             "id_user": new_user.id_user,
             "nombre": new_user.nombre,
@@ -450,8 +440,6 @@ def register(data, db: Session):
             "mail": new_user.mail,
             "id_cliente": new_client.id_cliente,
             "razon_social": new_client.razon_social,
-            "access_token": token,
-            "token_type": "bearer"
         })
 
     except IntegrityError as e:
@@ -484,59 +472,64 @@ def register(data, db: Session):
 # ==========================================
 # 2FA - VERIFICAR SI DISPOSITIVO NECESITA 2FA
 # ==========================================
-def check_2fa_required(mail: str, device_id: str):
-    return api_response(True, "Se requiere verificación", {
-        "requires_2fa": True
-    })
+def _pending_login(mail: str, device_id: str, pending_token: str):
+    """Se llama con pending_logins_lock adquirido."""
+    attempt = pending_logins.get(pending_token)
+    if attempt and attempt["expira"] <= datetime.now():
+        del pending_logins[pending_token]
+        attempt = None
+    if not attempt or attempt["mail"] != mail.strip().lower() or attempt["device_id"] != device_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Intento de inicio de sesión inválido o expirado")
+    return attempt
+
+
+def check_2fa_required(mail: str, device_id: str, pending_token: str):
+    with pending_logins_lock:
+        _pending_login(mail, device_id, pending_token)
+        return api_response(True, "Se requiere verificación", {"requires_2fa": True})
 
 # ==========================================
 # 2FA - ENVIAR CODIGO
 # ==========================================
-def send_2fa_code(mail: str, device_id: str, db: Session):
-    user = db.query(User).filter(User.mail == mail).first()
+def send_2fa_code(mail: str, device_id: str, pending_token: str):
+    with pending_logins_lock:
+        attempt = _pending_login(mail, device_id, pending_token)
+        codigo = f"{secrets.randbelow(1000000):06d}"
+        # Invalidar el código anterior incluso si el envío nuevo falla.
+        attempt["codigo"] = None
+        generation = secrets.token_urlsafe(16)
+        attempt["envio"] = generation
 
-    if not user:
-        return api_response(False, "Usuario no encontrado", error="USER_NOT_FOUND")
-
-    codigo = ''.join(random.choices(string.digits, k=6))
-
-    two_factor_codes[mail] = {
-        "codigo": codigo,
-        "device_id": device_id,
-        "expira": datetime.now() + timedelta(minutes=10)
-    }
-
-    enviado = send_2fa_email(mail, codigo)
-
-    if not enviado:
-        return api_response(False, "Error al enviar código", error="MAIL_ERROR")
-
-    return api_response(True, "Código de verificación enviado al correo", {
-        "requires_2fa": True
-    })
+    # No bloquear los demás intentos mientras se espera al servidor de correo.
+    enviado = send_2fa_email(attempt["mail"], codigo)
+    with pending_logins_lock:
+        attempt = _pending_login(mail, device_id, pending_token)
+        if attempt.get("envio") != generation:
+            return api_response(False, "El envío fue reemplazado por otro", error="SEND_REPLACED")
+        if not enviado:
+            return api_response(False, "Error al enviar código", error="MAIL_ERROR")
+        attempt["codigo"] = codigo
+        return api_response(True, "Código de verificación enviado al correo", {"requires_2fa": True})
 
 # ==========================================
 # 2FA - VERIFICAR CODIGO
 # ==========================================
-def verify_2fa_code(mail: str, codigo: str, device_id: str, db: Session, remember_me: bool = False):
-    if mail not in two_factor_codes:
-        return api_response(False, "No hay código de verificación pendiente", error="NO_CODE")
+def verify_2fa_code(mail: str, codigo: str, device_id: str, pending_token: str, db: Session):
+    with pending_logins_lock:
+        attempt = _pending_login(mail, device_id, pending_token)
+        if attempt["codigo"] is None:
+            return api_response(False, "No hay código de verificación pendiente", error="NO_CODE")
+        if not codigo.isascii() or not secrets.compare_digest(attempt["codigo"], codigo):
+            attempt["intentos"] += 1
+            if attempt["intentos"] >= 5:
+                del pending_logins[pending_token]
+            return api_response(False, "Código incorrecto", error="INVALID_CODE")
+        # Consumir el intento antes de generar la sesión; no puede reutilizarse.
+        del pending_logins[pending_token]
 
-    datos = two_factor_codes[mail]
-
-    if datetime.now() > datos["expira"]:
-        del two_factor_codes[mail]
-        return api_response(False, "Código expirado", error="CODE_EXPIRED")
-
-    if datos["codigo"] != codigo:
-        return api_response(False, "Código incorrecto", error="INVALID_CODE")
-
-    key = f"{mail}:{device_id}"
-    verified_devices[key] = datetime.now() + timedelta(hours=5)
-
-    del two_factor_codes[mail]
-
-    user = db.query(User).filter(User.mail == mail).first()
+    user = db.query(User).filter(User.id_user == attempt["id_user"], User.mail == attempt["mail"]).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Cuenta no disponible")
 
     user.ultimo_acceso = func.now()
     db.commit()
@@ -550,8 +543,8 @@ def verify_2fa_code(mail: str, codigo: str, device_id: str, db: Session, remembe
                 id_client = project.id_client
 
     token = create_access_token(
-        {"id_user": user.id_user, "id_rol": user.id_rol},
-        REMEMBER_TOKEN_EXPIRE_MINUTES if remember_me else ACCESS_TOKEN_EXPIRE_MINUTES,
+        {"id_user": user.id_user, "id_rol": user.id_rol, "two_factor_verified": True},
+        REMEMBER_TOKEN_EXPIRE_MINUTES if attempt["remember_me"] else ACCESS_TOKEN_EXPIRE_MINUTES,
     )
 
     return api_response(True, "Verificación exitosa", {
@@ -596,7 +589,7 @@ def invite_users(
             detail="No puedes invitar usuarios a este proyecto",
         )
 
-    if id_rol not in {1001, 1002, 1003, 1004, 1005}:
+    if id_rol not in {1001, 1005}:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Rol de proyecto no válido")
 
     usuarios_creados = []
@@ -819,6 +812,8 @@ def update_user_project_membership(
 
     update_data = data.model_dump(exclude_unset=True)
     if "id_rol" in update_data:
+        if update_data["id_rol"] not in {1001, 1005}:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Rol de proyecto no válido")
         if id_user == acting_user_id:
             return api_response(False, "No puedes cambiar tu propio rol de proyecto", error="SELF_ROLE_CHANGE")
         if membership.id_rol == 1001 and update_data["id_rol"] != 1001:

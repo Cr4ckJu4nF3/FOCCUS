@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
 from app.config.database import get_db
@@ -47,7 +47,7 @@ def store_gallery_item_version(
     id_galeria: int,
     data: GaleriaVersionCreateSchema,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_project_member),
+    current_user: dict = Depends(require_project_admin),
 ):
     return create_item_version(id_project, id_galeria, data.model_dump(), db)
 
@@ -57,7 +57,7 @@ def store_gallery_item_use_without_changes(
     id_project: str,
     id_galeria: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_project_member),
+    current_user: dict = Depends(require_project_admin),
 ):
     return record_item_use_without_changes(id_project, id_galeria, db)
 
@@ -70,13 +70,8 @@ def store_gallery_version_photo(
     foto: UploadFile | None = File(None),
     actualizar_imagen_principal: bool = Form(False),
     db: Session = Depends(get_db),
-    current_user: dict = Depends(require_project_member),
+    current_user: dict = Depends(require_project_admin),
 ):
-    if actualizar_imagen_principal and current_user["id_rol"] != 1001:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo un administrador del proyecto puede actualizar la imagen principal",
-        )
     return upload_item_version_photo(
         id_project,
         id_galeria,
