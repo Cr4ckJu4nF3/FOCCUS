@@ -109,6 +109,17 @@ Si `JWT_SECRET_KEY` se deja vacío, se genera una clave temporal aleatoria: las 
 
 ## Módulos de la API
 
+FOCCUS tiene **un único backend FastAPI** (`app.main`), organizado en routers; no son cuatro servicios independientes. Sus responsabilidades principales son:
+
+| Routers | Responsabilidad |
+|---|---|
+| `user`, `role`, `contact` | Acceso, usuarios, roles y contacto |
+| `client`, `project`, `codigo` | Clientes, proyectos y búsqueda por código |
+| `guion`, `escena`, `desglose` | Guiones, escenas y desglose |
+| `continuidad`, `galeria`, `personaje`, `escenario`, `rodaje` | Continuidad, recursos y planificación del rodaje |
+
+El catálogo interactivo completo se genera en `/docs` y el contrato OpenAPI en `/openapi.json`. Algunos ejemplos de rutas:
+
 | Módulo | Ruta base | Descripción |
 |---|---|---|
 | Autenticación | `/users/login`, `/register`, `/users/2fa/*`, `/users/recover-password` | Login, registro, verificación en dos pasos, recuperación de contraseña |
@@ -124,7 +135,7 @@ Si `JWT_SECRET_KEY` se deja vacío, se genera una clave temporal aleatoria: las 
 | Desglose | `/guiones/{id}/desglose` | Desglose de escenas de un guion |
 | Códigos (solo admin) | `/projects/{id}/buscar-codigo?q=` | Busca por código (ej. `ESC-003`); 403 si no es admin |
 
-Todas las rutas de escritura (crear/editar/borrar) requieren un token JWT válido en el header `Authorization: Bearer <token>`. Las acciones administrativas (crear/editar/borrar clientes, proyectos, roles, guiones, escenas, rodajes, invitar o remover usuarios) exigen además que el usuario tenga rol de Administrador.
+Las rutas protegidas requieren un JWT válido en `Authorization: Bearer <token>` y, según la operación, comprueban rol y pertenencia al proyecto. Hay excepciones públicas, como login, registro y recuperación de contraseña; consulta `/docs` y las rutas para cada caso.
 
 ## Pruebas y evidencia T6
 
@@ -134,11 +145,26 @@ Ejecución del **21-11-2026**, Windows, Python 3.12.10 y Node 24.16.0. Las 36 pr
 
 Se eligió `backend/api_usuarios/app/utils/auth.py` porque controla JWT, 2FA, roles y separación de recursos por proyecto. Con las pruebas existentes de permisos y los casos nuevos se cubrieron **108 de 116 sentencias (93 %, redondeado por coverage.py)**, no ramas ni todo el backend. Las sentencias sin ejecutar fueron 99, 216, 225, 232, 258, 269, 277 y 287. Antes de los casos nuevos, las dos suites existentes cubrían 96 de 116 (83 %).
 
-En PowerShell, desde la raíz, con las dependencias del backend ya instaladas:
+Preparación comprobada en PowerShell desde la raíz de la **rama de evidencia**, sin copiar ni leer `.env`:
 
 ```powershell
 cd backend/api_usuarios
-# Solo si falta coverage: .\.venv\Scripts\python.exe -m pip install coverage
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+La instalación de dependencias en un entorno virtual nuevo no demuestra una instalación funcional completa del producto; las versiones no están fijadas salvo bcrypt. Con Python 3.12.10 se repitieron estas pruebas el 22-11-2026. Para comprobar JWT y validación **sin coverage**:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest -v tests.test_t6_seguridad_aislada
+```
+
+Resultado: **27 pruebas aprobadas**. Se firma y verifica un JWT con una clave ficticia, incluyendo casos inválidos y expirados; no se demuestra un login exitoso.
+
+Para repetir además las nueve pruebas HTTP de permisos y medir cobertura, instala `coverage` **solo si aún no está instalado** (no está en `requirements.txt`):
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install coverage
 .\.venv\Scripts\python.exe -m coverage run --source=app.utils.auth -m unittest -v tests.test_t6_seguridad_aislada tests.test_project_resource_ownership tests.test_projects_client_permissions
 .\.venv\Scripts\python.exe -m coverage report -m
 ```
@@ -195,9 +221,9 @@ La colección está en `backend/api_usuarios/tests/FOCCUS_T6.postman_collection.
 # Terminal 1: comprobar que el puerto 8765 esté libre; detener con Ctrl+C al terminar.
 .\.venv\Scripts\python.exe -m uvicorn tests.postman_app_aislada:app --host 127.0.0.1 --port 8765 --no-access-log
 
-# Terminal 2: si Newman no está instalado, instalación local temporal:
-npm install --prefix "$env:TEMP\foccus-newman-t6" newman@6.2.3 --no-save --no-audit --no-fund
-& "$env:TEMP\foccus-newman-t6\node_modules\.bin\newman.cmd" run tests\FOCCUS_T6.postman_collection.json --reporters cli
+# Terminal 2: desde backend/api_usuarios; si falta Newman en esta carpeta, instalarlo:
+npm install --prefix "$env:TEMP\foccus-newman-t6-verificacion" newman@6.2.3 --no-save --no-audit --no-fund
+& "$env:TEMP\foccus-newman-t6-verificacion\node_modules\.bin\newman.cmd" run tests\FOCCUS_T6.postman_collection.json --reporters cli
 ```
 
 Resultado final: **7 solicitudes y 7 aserciones aprobadas, 0 fallidas, código 0**. En la repetición se usó un puerto libre y se sobrescribió `baseUrl` con `--env-var`. Se probó `POST /users/login` con usuario inexistente (200 con `success: false` y `USER_NOT_FOUND`), validación de dispositivo (422), `GET /users` sin JWT o con JWT inválido (401), límite de contraseña en `POST /users/reset-password` (422) y `POST /users/2fa/check` sin intento (401). `GET /docs` devolvió 200 en la aplicación parcial. La colección no prueba login exitoso, SMTP ni MySQL real.

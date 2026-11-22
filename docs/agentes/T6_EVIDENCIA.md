@@ -2,6 +2,18 @@
 
 Fecha: 21-11-2026. Esto es evidencia parcial, no una valoración de la lista ni una aprobación del jurado. El móvil está pendiente.
 
+## Verificación complementaria: 22-11-2026
+
+En un worktree limpio de `docs/t6-evidencia-20261121` se creó un entorno virtual nuevo con Python 3.12.10 y se instalaron las dependencias de `requirements.txt`; después se instaló `coverage` únicamente para medir cobertura. No se leyó `.env`, ni se usaron MySQL, correo o credenciales reales. Los comandos reproducibles están en [README: pruebas T6](../../README.md#pruebas-y-evidencia-t6).
+
+| Punto | Evidencia y límite |
+|---|---|
+| 3 | `app.main` registra los routers de un **único backend FastAPI**; el README agrupa sus responsabilidades. Esto describe FOCCUS, no prueba que existan cuatro servicios. |
+| 4 | Suite JWT/validación: 27/27; arranque aislado de `app.main`: 1/1, con `/`, `/docs` y `/openapi.json` HTTP 200 y JWT ficticio firmado y validado. La base está simulada y la dependencia de BD deshabilitada. No se probó login real ni arranque con MySQL; instalar dependencias no equivale a una instalación completa del producto. |
+| 12 | El README explica routers, OpenAPI y reproducción en PowerShell. Suite combinada: 36/36; cobertura de sentencias de `auth.py`: 108/116 (93 %). Newman 6.2.3: 7/7 solicitudes y aserciones contra cuatro rutas de una API parcial simulada. No demuestra toda la API ni infraestructura real. |
+
+Se usaron datos ficticios. El mensaje de conexión MySQL lo emite el motor simulado. No se ejecutó lint en esta verificación; Docker y catálogo de bloques siguen en pausa. No se declara completo lo que no se ha verificado.
+
 ## Plan de pruebas acordado
 
 - **Alcance:** acceso y permisos, proyectos, guiones y escenas, galería y continuidad, rodaje. Móvil pendiente de su equipo.
@@ -84,5 +96,5 @@ Este archivo es el registro local, no un issue externo. No se demostró que los 
 - **8:** 27 casos unitarios y nueve integrados descritos, ejecutados con datos ficticios; alcance de negocio parcial.
 - **9:** cobertura de sentencias de `auth.py` 93 % y colección con tests 7/7; no equivale a cobertura integral.
 - **10:** ejecución y defecto registrado aquí; confirmación en el sistema de seguimiento acordado queda pendiente.
-- **12:** README y OpenAPI comprobados en arranque simulado; la responsabilidad de «cuarto backend» requiere confirmación del equipo/instructor.
+- **12:** README y OpenAPI comprobados en arranque simulado; FOCCUS organiza sus responsabilidades en routers de un único backend.
 - **14:** lint falla; sin línea base T5 no se demuestra ausencia de regresiones.
