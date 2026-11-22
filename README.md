@@ -105,7 +105,7 @@ Archivo `backend/api_usuarios/.env` (nunca se sube a Git — está en `.gitignor
 | `JWT_SECRET_KEY` | Clave secreta para firmar los tokens JWT | genera una con `python -c "import secrets; print(secrets.token_hex(32))"`. También la usa `scripts/generate_token.py` |
 | `JWT_EXPIRE_MINUTES` | Minutos de validez de la sesión | `1440` (24 horas) |
 
-Si `JWT_SECRET_KEY` se deja vacío, el backend arranca igual usando una clave por defecto de desarrollo — **no usar esa configuración en producción**.
+Si `JWT_SECRET_KEY` se deja vacío, se genera una clave temporal aleatoria: las sesiones se invalidan al reiniciar. En producción hay que configurar una clave segura y común.
 
 ## Módulos de la API
 
@@ -125,6 +125,88 @@ Si `JWT_SECRET_KEY` se deja vacío, el backend arranca igual usando una clave po
 | Códigos (solo admin) | `/projects/{id}/buscar-codigo?q=` | Busca por código (ej. `ESC-003`); 403 si no es admin |
 
 Todas las rutas de escritura (crear/editar/borrar) requieren un token JWT válido en el header `Authorization: Bearer <token>`. Las acciones administrativas (crear/editar/borrar clientes, proyectos, roles, guiones, escenas, rodajes, invitar o remover usuarios) exigen además que el usuario tenga rol de Administrador.
+
+## Pruebas y evidencia T6
+
+Ejecución del **21-11-2026**, Windows, Python 3.12.10 y Node 24.16.0. Las 36 pruebas de backend y Newman se repitieron sobre una copia aislada del commit base `9126d8f` con los archivos T6 añadidos; frontend se probó en el árbol de trabajo con cambios sin commit. No es una instalación limpia ni una prueba de todo el producto. Plan, defectos y límites: [evidencia T6](docs/agentes/T6_EVIDENCIA.md).
+
+### Backend: seguridad y cobertura
+
+Se eligió `backend/api_usuarios/app/utils/auth.py` porque controla JWT, 2FA, roles y separación de recursos por proyecto. Con las pruebas existentes de permisos y los casos nuevos se cubrieron **108 de 116 sentencias (93 %, redondeado por coverage.py)**, no ramas ni todo el backend. Las sentencias sin ejecutar fueron 99, 216, 225, 232, 258, 269, 277 y 287. Antes de los casos nuevos, las dos suites existentes cubrían 96 de 116 (83 %).
+
+En PowerShell, desde la raíz, con las dependencias del backend ya instaladas:
+
+```powershell
+cd backend/api_usuarios
+# Solo si falta coverage: .\.venv\Scripts\python.exe -m pip install coverage
+.\.venv\Scripts\python.exe -m coverage run --source=app.utils.auth -m unittest -v tests.test_t6_seguridad_aislada tests.test_project_resource_ownership tests.test_projects_client_permissions
+.\.venv\Scripts\python.exe -m coverage report -m
+```
+
+Resultado: **36 pruebas aprobadas, 0 fallidas, código 0**. Las 27 nuevas comprueban JWT, roles y validación; las 9 existentes ejecutan permisos mediante HTTP local y SQLite en memoria. Se sustituyen `dotenv.load_dotenv` y la creación del motor MySQL antes de importar el backend: el mensaje `Conexion exitosa MySQL` proviene del motor simulado, **no** de una conexión real. Tampoco se envía correo; los archivos de continuidad se simulan. No ejecutar indiscriminadamente todas las suites: algunas podrían necesitar servicios o configuración reales.
+
+El arranque de `app.main` completo se comprobó aparte, en un proceso de prueba con motor y creación de tablas simulados, carpeta temporal y sin `.env`:
+
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest -v tests.test_t6_arranque_aislado
+```
+
+Resultado: **1 prueba, 0 fallos, código 0**. Uvicorn inició en puerto libre; `/`, `/docs` y `/openapi.json` respondieron 200. La documentación describió 69 rutas en la copia base. El JWT se firmó y validó realmente con una clave ficticia, no mediante un login completo. No se verificaron consultas reales, SMTP ni persistencia en ese arranque.
+
+### Matriz de casos ejecutados
+
+Cada paso es ejecutar el método `test_NN` correspondiente en `tests/test_t6_seguridad_aislada.py`; su código contiene los datos ficticios y las comprobaciones exactas. «Aprobado» significa que se ejecutó y que todas las aserciones del caso pasaron, no que se haya probado una API o BD de producción.
+
+| ID | Datos ficticios y acción | Resultado esperado | Resultado real |
+|---|---|---|---|
+| 01 | Firmar JWT de usuario 1 con 2FA y verificar | Devuelve usuario 1 | Aprobado |
+| 02 | Verificar sin cabecera | HTTPException 401 | Aprobado |
+| 03 | Verificar `Basic prueba` | 401 | Aprobado |
+| 04 | Verificar Bearer malformado | 401 | Aprobado |
+| 05 | Firmar JWT ya expirado y verificar | 401 | Aprobado |
+| 06 | Firmar JWT sin `id_user` y verificar | 401 | Aprobado |
+| 07 | Firmar JWT sin 2FA y verificar | 401 | Aprobado |
+| 08 | Firmar JWT con 2FA falso y verificar | 401 | Aprobado |
+| 09 | Consultar rol simulado 1001 con claim 1005 | Autoriza como 1001 | Aprobado |
+| 10 | Consultar rol simulado 1005 con claim 1001 | 403 | Aprobado |
+| 11 | Consultar administrador con cuenta inexistente | 401 | Aprobado |
+| 12 | Validar login con `a@example.test` y dispositivo `d` | Acepta dispositivo | Aprobado |
+| 13 | Validar login sin dispositivo | Error de validación | Aprobado |
+| 14 | Validar login con dispositivo vacío | Error de validación | Aprobado |
+| 15 | Validar login con dispositivo de 256 caracteres | Error de validación | Aprobado |
+| 16 | Validar recuperación con contraseña de 72 bytes | Acepta | Aprobado |
+| 17 | Validar recuperación con contraseña de 73 bytes | Error de validación | Aprobado |
+| 18 | Validar recuperación con 37 caracteres `ñ` (74 bytes) | Error de validación | Aprobado |
+| 19 | Validar invitación ficticia con nombre ` Persona ` | Acepta y elimina espacios | Aprobado |
+| 20 | Validar invitación con nombre solo espacios | Error de validación | Aprobado |
+| 21 | Validar invitación con fecha de nacimiento de hoy | Error de validación | Aprobado |
+| 22 | Validar invitación con fecha futura | Error de validación | Aprobado |
+| 23 | Validar contraseña `Ab1!` | Error por longitud | Aprobado |
+| 24 | Validar contraseña `prueba123!` | Error por falta de mayúscula | Aprobado |
+| 25 | Validar contraseña `PRUEBA123!` | Error por falta de minúscula | Aprobado |
+| 26 | Validar contraseña `PruebaABC!` | Error por falta de número | Aprobado |
+| 27 | Validar contraseña `Prueba123` | Error por falta de carácter especial | Aprobado |
+
+### API: colección Postman
+
+La colección está en `backend/api_usuarios/tests/FOCCUS_T6.postman_collection.json`. Utiliza únicamente datos ficticios y `baseUrl` local; **no cambiarla para apuntar a producción**. Ejecutarla exclusivamente contra `tests.postman_app_aislada`, que expone cuatro rutas reales de usuario con BD simulada; no es la aplicación completa. Desde `backend/api_usuarios`, en dos terminales:
+
+```powershell
+# Terminal 1: comprobar que el puerto 8765 esté libre; detener con Ctrl+C al terminar.
+.\.venv\Scripts\python.exe -m uvicorn tests.postman_app_aislada:app --host 127.0.0.1 --port 8765 --no-access-log
+
+# Terminal 2: si Newman no está instalado, instalación local temporal:
+npm install --prefix "$env:TEMP\foccus-newman-t6" newman@6.2.3 --no-save --no-audit --no-fund
+& "$env:TEMP\foccus-newman-t6\node_modules\.bin\newman.cmd" run tests\FOCCUS_T6.postman_collection.json --reporters cli
+```
+
+Resultado final: **7 solicitudes y 7 aserciones aprobadas, 0 fallidas, código 0**. En la repetición se usó un puerto libre y se sobrescribió `baseUrl` con `--env-var`. Se probó `POST /users/login` con usuario inexistente (200 con `success: false` y `USER_NOT_FOUND`), validación de dispositivo (422), `GET /users` sin JWT o con JWT inválido (401), límite de contraseña en `POST /users/reset-password` (422) y `POST /users/2fa/check` sin intento (401). `GET /docs` devolvió 200 en la aplicación parcial. La colección no prueba login exitoso, SMTP ni MySQL real.
+
+### Frontend y pendientes
+
+Desde `frontend` en el árbol sucio: `npm test` dio **37 aprobadas, 0 fallidas**, código 0; `npm run build` terminó con código 0 y aviso de chunks de más de 500 kB. `npm run lint` falló con código 1: **14 errores**, en `Escena.jsx` (2), `Landing.jsx` (1), `Profile.jsx` (7), `ProjectRegistration.jsx` (1) y `ProjectSelection.jsx` (3). No se corrigieron en esta ejecución. En Chrome aislado se comprobó inicio → login y acceso sin sesión a `/guion` → inicio, sin backend; no se verificó la app móvil.
+
+Durante el montaje de la aplicación Postman, la primera ejecución tuvo 1 aserción fallida: el login devolvió 500 porque la sustitución de dependencias no se aplicaba al copiar las rutas. Se corrigió el servidor **de prueba** incluyendo el router mediante FastAPI; la reejecución pasó 7/7. No se presenta como defecto de producción ni como ciclo con commit. Faltan **dos ciclos demostrables de defecto real → corrección con commit → reejecución**; no se crearon commits ni issues. También quedan pendientes el arranque desde cero y la integración con infraestructura real en un entorno de prueba autorizado.
 
 ## Novedades de la versión actual
 
