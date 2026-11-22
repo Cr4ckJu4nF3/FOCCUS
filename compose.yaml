@@ -1,0 +1,74 @@
+name: foccus-local
+
+services:
+  mysql:
+    image: mysql:8.4
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    environment:
+      MYSQL_DATABASE: foccus_local
+      MYSQL_USER: foccus_local
+      MYSQL_PASSWORD: solo-local-foccus
+      MYSQL_ROOT_PASSWORD: solo-local-root
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - privada
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root --password=solo-local-root --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  api:
+    build: ./backend/api_usuarios
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: foccus_local
+      DB_PASSWORD: solo-local-foccus
+      DB_NAME: foccus_local
+      JWT_SECRET_KEY: clave-ficticia-solo-para-desarrollo-local
+      JWT_EXPIRE_MINUTES: "1440"
+      MAIL_USER: ""
+      MAIL_PASSWORD: ""
+      CONTACT_EMAIL: ""
+      PYTHON_DOTENV_DISABLED: "1"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - uploads:/app/app/assets/uploads
+    networks:
+      - privada
+      - web_local
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  web:
+    build: ./frontend
+    ports:
+      - "127.0.0.1:5173:5173"
+    networks:
+      - web_local
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+networks:
+  privada:
+    internal: true
+  web_local:
+
+volumes:
+  mysql_data:
+  uploads:
