@@ -1,0 +1,96 @@
+{
+  "info": {
+    "name": "FOCCUS T6 - API aislada",
+    "description": "Usar exclusivamente con tests.postman_app_aislada en localhost. Datos ficticios, sin tokens ni servicios reales.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8765" },
+    { "key": "correo", "value": "persona@example.test" }
+  ],
+  "item": [
+    {
+      "name": "Login de usuario inexistente",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/users/login",
+        "body": { "mode": "raw", "raw": "{\"mail\":\"{{correo}}\",\"contrasena\":\"PruebaFicticia1!\",\"device_id\":\"dispositivo-prueba\"}" }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('HTTP 200 y usuario inexistente', function () {",
+        "  pm.response.to.have.status(200);",
+        "  const body = pm.response.json();",
+        "  pm.expect(body.success).to.eql(false);",
+        "  pm.expect(body.error).to.eql('USER_NOT_FOUND');",
+        "});"
+      ] } }]
+    },
+    {
+      "name": "Login sin device_id",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/users/login",
+        "body": { "mode": "raw", "raw": "{\"mail\":\"{{correo}}\",\"contrasena\":\"PruebaFicticia1!\"}" }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Valida device_id requerido', function () { pm.response.to.have.status(422); pm.expect(pm.response.json().detail[0].loc).to.include('device_id'); });"
+      ] } }]
+    },
+    {
+      "name": "Login con device_id vacío",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/users/login",
+        "body": { "mode": "raw", "raw": "{\"mail\":\"{{correo}}\",\"contrasena\":\"PruebaFicticia1!\",\"device_id\":\"\"}" }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Rechaza identificador vacío', function () { pm.response.to.have.status(422); });"
+      ] } }]
+    },
+    {
+      "name": "Lista de usuarios sin autenticación",
+      "request": { "method": "GET", "url": "{{baseUrl}}/users" },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Requiere JWT', function () { pm.response.to.have.status(401); });"
+      ] } }]
+    },
+    {
+      "name": "Lista de usuarios con JWT malformado",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer no-es-un-jwt" }],
+        "url": "{{baseUrl}}/users"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Rechaza JWT malformado', function () { pm.response.to.have.status(401); });"
+      ] } }]
+    },
+    {
+      "name": "Contraseña de recuperación demasiado larga",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/users/reset-password",
+        "body": { "mode": "raw", "raw": "{\"mail\":\"{{correo}}\",\"codigo\":\"123456\",\"nueva_contrasena\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}" }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Rechaza más de 72 bytes', function () { pm.response.to.have.status(422); });"
+      ] } }]
+    },
+    {
+      "name": "2FA sin intento pendiente",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/users/2fa/check",
+        "body": { "mode": "raw", "raw": "{\"mail\":\"{{correo}}\",\"device_id\":\"dispositivo-prueba\",\"pending_token\":\"inexistente\"}" }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Rechaza intento inexistente', function () { pm.response.to.have.status(401); });"
+      ] } }]
+    }
+  ]
+}

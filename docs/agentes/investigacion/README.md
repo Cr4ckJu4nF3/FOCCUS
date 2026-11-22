@@ -2,6 +2,8 @@
 
 Un informe por tema, con el nombre `AAAA-MM-DD-tema.md`. Agrega aquí una línea por informe (lo más nuevo arriba).
 
+- [2026-11-21 · Lista de chequeo T6 para FOCCUS](2026-11-21-lista-chequeo-t6.md) — viabilidad, evidencias existentes y pendientes de los puntos asignados al equipo.
+- [2026-11-21 · Catálogo de fichas reutilizables en el guion](2026-11-21-catalogo-fichas-guion.md) — escenas del proyecto, conservación de fichas y copia independiente entre guiones.
 - [2026-11-08 · Navegación y editor de guion unificado](2026-11-08-navegacion-editor-unificado.md) — regreso predecible, mayor espacio de escritura y coherencia entre creación y edición.
 - [2026-11-08 · Navegación persistente y escenas desde el guion](2026-11-08-navegacion-escenas-guion.md) — fuentes, flujos existentes y recomendaciones para la navegación y el formulario contextual de escenas.
 - [2026-11-01 · Códigos únicos y buscador transversal](2026-11-01-codigos-y-buscador.md) — prácticas de producción, estado actual de IDs, propuesta de códigos por proyecto, backfill seguro y buscador exclusivo para administradores.
