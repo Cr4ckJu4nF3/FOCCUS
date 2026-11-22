@@ -76,7 +76,7 @@ export default function ClientsScreen() {
 
   if (!isGlobalAdmin) {
     return (
-      <main className="clients-access-denied">
+      <main className="clients-page clients-access-denied">
         <p role="alert">Esta pantalla está disponible solo para el administrador global.</p>
         <button type="button" onClick={() => navigate("/seleccion-proyecto", { replace: true })}>
           Volver
