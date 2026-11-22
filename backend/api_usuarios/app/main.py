@@ -38,7 +38,7 @@ from app.routes.catalogo_bloque_routes import router as catalogo_bloque_router
 # FASTAPI
  
 app = FastAPI(
-    title="API´S RACCORD",
+    title="API FOCCUS",
     version="1.0"
 )
  

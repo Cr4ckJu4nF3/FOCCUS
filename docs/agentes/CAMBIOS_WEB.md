@@ -2,6 +2,13 @@
 
 foccus-web agrega aquí cada cambio relevante (arriba lo más nuevo). foccus-mobile los adapta cuando el usuario lo pida y cambia el estado a `hecho en móvil`.
 
+## 2026-11-22 – Identidad FOCCUS en pestaña y documentación
+- Rama/commit: `main`; este cambio.
+- Qué cambió (web/backend/BD): título y favicon web con el logo existente; título de OpenAPI actualizado. Sin cambios de BD.
+- Endpoints nuevos o modificados (método, ruta, cuerpo, respuesta): `GET /openapi.json`, sin cuerpo; `info.title` pasa a `API FOCCUS`. `GET /docs` muestra el nuevo título. Los endpoints de negocio no cambian.
+- Pantallas web afectadas: pestaña del navegador y documentación Swagger.
+- Estado para móvil: pendiente; no se requiere adaptación de contratos de negocio.
+
 ## 2026-11-22 – Catálogo de bloques aplicado en Aiven
 - BD: `catalogo_bloques` creada en `foccus`, sin backfill. El contrato de la
   tabla está en `scripts/migracion_20261122_catalogo_aiven.py`. Los registros
