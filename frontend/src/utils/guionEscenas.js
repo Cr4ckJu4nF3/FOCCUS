@@ -1,6 +1,7 @@
 const PREFIJOS_ESCENA = [
   [/^INT\.?\s*\/\s*EXT\.?\s*/i, "Int/Ext"],
   [/^EXT\.?\s*\/\s*INT\.?\s*/i, "Ext/Int"],
+  [/^I\/E\.?(?=\s|$)\s*/i, "Int/Ext"],
   [/^INT\.?\s*/i, "Int"],
   [/^EXT\.?\s*/i, "Ext"],
 ];
