@@ -1,9 +1,8 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Annotated, Literal, Optional, Union
 from datetime import date
 
-class EscenaSchema(BaseModel):
-    id_guion: int
+class EscenaSinGuionSchema(BaseModel):
     numero_de_escena: str
     encabezado: str
     descripcion: Optional[str] = None
@@ -16,6 +15,9 @@ class EscenaSchema(BaseModel):
     estado: Optional[str] = "Pendiente"
     id_rodaje: Optional[str] = None
     id_desglose: Optional[str] = None
+
+class EscenaSchema(EscenaSinGuionSchema):
+    id_guion: int
 
 class EscenaUpdateSchema(BaseModel):
     numero_de_escena: Optional[str] = None
@@ -30,3 +32,35 @@ class EscenaUpdateSchema(BaseModel):
     id_rodaje: Optional[str] = None
     id_desglose: Optional[str] = None
     estado: Optional[str] = None
+
+
+class EscenaCrearSincronizacionSchema(EscenaSinGuionSchema):
+    model_config = ConfigDict(extra="forbid")
+
+
+class EscenaActualizarSincronizacionSchema(EscenaUpdateSchema):
+    model_config = ConfigDict(extra="forbid")
+
+
+class AccionCrearEscenaSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tipo: Literal["crear"]
+    payload: EscenaCrearSincronizacionSchema
+
+
+class AccionActualizarEscenaSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tipo: Literal["actualizar"]
+    id_escena: str
+    payload: EscenaActualizarSincronizacionSchema
+
+
+class SincronizarEscenasSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    acciones: list[Annotated[
+        Union[AccionCrearEscenaSchema, AccionActualizarEscenaSchema],
+        Field(discriminator="tipo"),
+    ]]

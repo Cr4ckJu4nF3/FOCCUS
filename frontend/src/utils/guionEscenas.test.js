@@ -143,3 +143,91 @@ test("una sola operación evita numeraciones duplicadas entre escenas nuevas", (
   assert.equal(plan.errores.length, 1);
   assert.match(plan.errores[0], /número 4/);
 });
+
+test("una ficha de otro guion fuerza una copia y no reutiliza la fila del mismo encabezado", () => {
+  const original = {
+    id_escena: "esc0001",
+    numero_de_escena: "1",
+    encabezado: "INT. CASA - DÍA",
+    descripcion: "Descripción original",
+    id_rodaje: "rod1",
+    id_desglose: "dsg1",
+  };
+  const plan = planificarSincronizacionEscenas(
+    [{ numero: 1, encabezado: original.encabezado, descripcion: "" }],
+    [original],
+    [{
+      indice: 0,
+      forzarCreacion: true,
+      form: {
+        numero_de_escena: "2",
+        encabezado: original.encabezado,
+        descripcion: original.descripcion,
+        estado: "Pendiente",
+      },
+    }],
+  );
+  assert.deepEqual(plan.errores, []);
+  assert.equal(plan.acciones.length, 1);
+  assert.equal(plan.acciones[0].tipo, "crear");
+  assert.equal(plan.acciones[0].payload.numero_de_escena, "2");
+  assert.equal(plan.acciones[0].payload.descripcion, "Descripción original");
+  assert.equal("id_rodaje" in plan.acciones[0].payload, false);
+  assert.equal("id_desglose" in plan.acciones[0].payload, false);
+  assert.equal(original.id_rodaje, "rod1");
+});
+
+test("reutilizar una ficha de este guion no la actualiza ni permite duplicar su identidad", () => {
+  const fila = {
+    id_escena: "esc0001",
+    numero_de_escena: "1",
+    encabezado: "INT. CASA - DÍA",
+    descripcion: "Se conserva",
+  };
+  const escena = { numero: 1, encabezado: fila.encabezado, descripcion: "" };
+  const reutilizada = planificarSincronizacionEscenas([escena], [fila], [{
+    indice: 0,
+    id_escena: fila.id_escena,
+    reutilizar: true,
+    form: { numero_de_escena: "1", encabezado: fila.encabezado },
+  }]);
+  assert.deepEqual(reutilizada.acciones, []);
+  assert.deepEqual(reutilizada.errores, []);
+  assert.equal(fila.descripcion, "Se conserva");
+
+  const duplicada = planificarSincronizacionEscenas(
+    [escena, escena],
+    [fila],
+    [
+      { indice: 0, id_escena: fila.id_escena, reutilizar: true, form: { numero_de_escena: "1" } },
+      { indice: 1, id_escena: fila.id_escena, reutilizar: true, form: { numero_de_escena: "1" } },
+    ],
+  );
+  assert.match(duplicada.errores.join(" "), /más de una vez/);
+});
+
+test("un encabezado coincidente con número distinto no se asocia a una ficha por intuición", () => {
+  const plan = planificarSincronizacionEscenas(
+    [{ numero: 2, encabezado: "INT. CASA - DÍA", descripcion: "" }],
+    [{
+      id_escena: "esc0001",
+      numero_de_escena: "1",
+      encabezado: "INT. CASA - DÍA",
+    }],
+  );
+  assert.deepEqual(plan.acciones, []);
+  assert.match(plan.errores.join(" "), /número no/);
+});
+
+test("texto sin encabezados de escena se guarda sin planificar borrados de fichas existentes", () => {
+  const persistidas = [{
+    id_escena: "esc0001",
+    numero_de_escena: "1",
+    encabezado: "INT. CASA - DÍA",
+  }];
+  const plan = planificarSincronizacionEscenas([], persistidas);
+
+  assert.deepEqual(plan.acciones, []);
+  assert.deepEqual(plan.errores, []);
+  assert.deepEqual(plan.noRelacionadas.map((escena) => escena.id_escena), ["esc0001"]);
+});

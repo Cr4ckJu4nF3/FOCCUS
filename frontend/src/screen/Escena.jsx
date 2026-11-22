@@ -235,7 +235,9 @@ export default function EscenaScreen() {
 
   const handleDeleteEscena = async (idEscena, evt) => {
     evt.stopPropagation();
-    if (!window.confirm("¿Eliminar esta escena? No se puede deshacer.")) return;
+    if (!window.confirm(
+      "ELIMINAR FICHA Y DATOS ASOCIADOS DEL PROYECTO: se borrarán la ficha, sus versiones y fotos de continuidad, además de vínculos específicos. El desglose solo se borra si ninguna otra escena lo usa; los recursos de galería y rodaje se conservan y se desvinculan cuando aplica. No se borrará ni cambiará el texto de ninguna versión histórica del guion. Esta acción es permanente. ¿Confirmas la eliminación global?",
+    )) return;
     try {
       const token = getToken();
       const response = await fetchWithProject(`${API_URL}/escenas/${idEscena}`, {

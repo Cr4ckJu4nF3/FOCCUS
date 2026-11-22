@@ -2,6 +2,55 @@
 
 foccus-web agrega aquí cada cambio relevante (arriba lo más nuevo). foccus-mobile los adapta cuando el usuario lo pida y cambia el estado a `hecho en móvil`.
 
+## 2026-11-22 – Catálogo de bloques aplicado en Aiven
+- BD: `catalogo_bloques` creada en `foccus`; catálogo inicialmente vacío,
+  sin backfill. Contrato verificado y reversa en `bd/ESQUEMA.md` y
+  `bd/MIGRACIONES.md`. Esta entrada actualiza el estado de la propuesta del
+  2026-11-21.
+- API y pantallas: sin modificaciones en este seguimiento; no se comprobó
+  despliegue ni flujo HTTP de la aplicación.
+- Estado para móvil: pendiente; no se modificó Flutter.
+
+## 2026-11-22 – Asociación manual al copiar escenas antiguas
+- Rama/commit: rama actual; sin commit.
+- Qué cambió (web/backend/BD): si la versión no tiene un vínculo único `data-escena-id`, el editor permite elegir explícitamente el fragmento de origen y revisar una vista previa antes de abrir la ficha de copia. Encabezados repetidos e IDs duplicados también requieren selección manual; no se relaciona por encabezado ni por posición. Se conserva el formato y se crea una identidad independiente; no se copian fotos ni relaciones. Si el fragmento no contiene texto, no se inventa ni inserta contenido y se indica «Nueva escena» como alternativa. Cancelar no altera el borrador. Sin cambios de backend, esquema ni datos reales; se mantienen los dos modos previos de borrado.
+- Endpoints nuevos o modificados (método, ruta, cuerpo, respuesta): ninguno.
+- Pantallas web afectadas: Guion, catálogo de escenas y selección/preview de fragmento de origen.
+- Estado para móvil: no requiere adaptación; no cambian contratos ni Flutter.
+- Validación y límites: `node --test src/utils/guionVersionEscenas.test.js` (8/8), ESLint focalizado en JSX/utilidades/prueba y `npm run build` pasan; build mantiene el aviso de tamaño de chunks. La asociación manual solo ofrece fragmentos que la versión actual de origen permita leer; si no existe texto editable o ningún fragmento con cuerpo, se detiene sin copiar. No se inspeccionó ni modificó BD real.
+
+## 2026-11-21 – Copia y borrado seguro de escenas
+- Rama/commit: `main`; sin commit.
+- Qué cambió (web/backend/BD): copiar escena crea una ficha independiente y copia únicamente su fragmento HTML completo con formato y datos escalares; no copia continuidad, rodaje, desglose, galería ni relaciones. «Quitar de versión» solo retira texto del borrador; «Eliminar ficha» borra ficha y datos escena-específicos, conservando el HTML histórico, los recursos de galería y las relaciones compartidas. Se guarda HTML y fichas en una transacción; si no hay vínculo explícito o es ambiguo, se muestra error. Sin migración ni cambios en estructura/datos reales.
+- Endpoints nuevos o modificados (método, ruta, cuerpo, respuesta): `POST /guiones/texto` y `POST /guiones/{id_guion}/versiones/texto` aceptan opcionalmente `acciones_escena`, lista de acciones `crear` (incluye `client_key`) y `actualizar` (incluye `id_escena`), ligada al HTML mediante `data-escena-key` / `data-escena-id`. Los cuerpos anteriores siguen válidos. `DELETE /escenas/{id_escena}` conserva ruta, cuerpo y respuesta exitosa; ahora limpia continuidad, vínculos y fichas auxiliares no compartidas, sin modificar versiones de guion.
+- Pantallas web afectadas: Guion (crear, nueva versión, editar, copiar y quitar de versión); Escenas (confirmación de eliminación global). Mensajes del catálogo de bloques incluyen detalle HTTP y distinguen fallos de tabla/servidor como hipótesis no verificadas, sin alterar persistencia.
+- Estado para móvil: pendiente; las rutas existentes conservan contratos anteriores y `acciones_escena` es opcional, por lo que móvil no requiere cambio para continuar usando los flujos previos.
+
+## 2026-11-21 – Bloques reutilizables por proyecto
+- Rama/commit: `main`; sin commit.
+- Qué cambió (web/backend/BD): guardado automático por ráfagas y antes de retirar bloques de acción, diálogo, paréntesis y transición; catálogo independiente de las versiones, con búsqueda, vista e inserción. Fallos se muestran y pueden reintentarse mientras la página siga abierta. La tabla requiere la migración offline de `foccus-bd`, no aplicada en ninguna BD real.
+- Endpoints nuevos o modificados (método, ruta, cuerpo, respuesta): `GET /proyectos/{id_project}/catalogo-bloques?tipo=accion&q=texto` para miembros, devuelve lista `[{id_catalogo_bloque,id_project,tipo,html}]`; `POST` a la misma ruta para admin (`id_rol` 1001), cuerpo `{"tipo":"accion","html":"<p class=\"gb gb-accion\">Texto</p>"}`, devuelve el mismo objeto e ignora duplicados idénticos. JWT y `X-Project-Id` del proyecto; 401/403 sin acceso, 422 datos inválidos y 503 si falla BD. Tipos permitidos: `accion`, `dialogo`, `parentesis`, `transicion`; HTML seguro limitado a 30000 caracteres.
+- Pantallas web afectadas: Guion, creación desde cero, nueva versión y edición.
+- Estado para móvil: pendiente; no se modificó Flutter ni los contratos anteriores.
+
+## 2026-11-21 – Catálogo de bloques: propuesta de BD
+- Estado: DDL offline propuesto, **no aplicado**; sin cambios en web, backend, móvil ni endpoints. Contrato y riesgos en `bd/ESQUEMA.md` y `bd/MIGRACIONES.md`.
+- Para móvil: pendiente de definir y adaptar cuando exista el contrato API; quitar un bloque del guion no debe eliminar la ficha reutilizable.
+
+## 2026-11-21 – Selector de escenas reutilizables
+- Rama/commit: `main`; sin commit.
+- Qué cambió (web/backend/BD): el botón «Escena» abre el catálogo de fichas de todo el proyecto con búsqueda, consulta de campos y origen del guion. «Nueva escena» conserva la creación y «Editar ficha» conserva el acceso contextual de edición. Una ficha del guion destino conserva su identidad; una de otro guion se crea como ficha independiente, sin copiar vínculos de rodaje/desglose. Los conflictos de identidad o numeración se informan y no se resuelven por coincidencia de encabezado únicamente. Las sincronizaciones fallidas quedan en `localStorage` aisladas por proyecto y se pueden reintentar tras recargar. Se permite guardar texto en modo escenas aunque algún bloque no tenga encabezado; las fichas existentes se conservan. No se modificó esquema ni BD real.
+- Endpoints nuevos o modificados (método, ruta, cuerpo, respuesta): nuevo `GET /projects/{id_project}/escenas`, requiere token, membresía y `X-Project-Id` coincidente; devuelve `{success,message,data}` con las fichas del proyecto y `nombre_guion`. Las lecturas `GET /guiones/{id_guion}/escenas` y `GET /escenas/{id_escena}` y el borrado `DELETE /escenas/{id_escena}` filtran ahora por el proyecto activo; contrato de éxito existente conservado. Continúa el lote `POST /guiones/{id_guion}/escenas/sincronizar` descrito abajo.
+- Pantallas web afectadas: Guion (crear desde cero, nueva versión, edición del contenido y selector de Personaje/Lugar/Objeto).
+- Estado para móvil: pendiente; no se modificó Flutter. El GET nuevo permite listar escenas de un proyecto; la persistencia de fallos de sincronización aplica únicamente al editor web.
+
+## 2026-11-21 – Sincronización de escenas por lote
+- Rama/commit: `main`; sin commit.
+- Qué cambió (web/backend/BD): la sincronización de fichas del editor usa un lote transaccional; se eliminó el primer intento individual que ignoraba errores al crear el guion. No cambia el esquema ni los endpoints anteriores. La versión y las fichas aún se guardan por separado: un error se informa; el reintento se conserva ahora entre recargas en el almacenamiento local del navegador, separado por proyecto.
+- Endpoints nuevos o modificados (método, ruta, cuerpo, respuesta): `POST /guiones/{id_guion}/escenas/sincronizar`, administrador del proyecto, JWT y `X-Project-Id`; cuerpo `{"acciones":[{"tipo":"crear","payload":{"numero_de_escena":"1","encabezado":"INT. CASA"}},{"tipo":"actualizar","id_escena":"esc0001","payload":{"descripcion":"Texto"}}]}`. Respuesta habitual `{success,message,data,error}` con fichas en el orden de las acciones; 409 para conflictos, 404 para recursos ajenos o inexistentes, 422 para datos inválidos. Sin eliminaciones; en actualizaciones se conservan campos omitidos.
+- Pantallas web afectadas: editor de guiones (creación, nueva versión y edición). El selector y la copia entre guiones se documentan en la entrada posterior.
+- Estado para móvil: pendiente; no se solicitó modificar Flutter.
+
 ## 2026-11-20 – Validación de importación de desglose y cronograma
 - Rama/commit: `main`; sin commit.
 - Qué cambió (web/backend/BD): los dos importadores reconocen y rechazan con mensaje claro archivos que no son PDF; el plan de rodaje rechaza fechas no válidas antes de modificar datos. Se corrige el análisis de encabezados `INT.`/`EXT.` y momentos en mayúsculas. Sin cambios de esquema ni de BD real.

@@ -1,4 +1,6 @@
 from datetime import date
+from html.parser import HTMLParser
+import re
 import shutil
 from pathlib import Path
 
@@ -17,6 +19,8 @@ from app.models.escena_galeria_item_model import EscenaGaleriaItem
 from app.models.galeria_model import GaleriaItem
 from app.models.galeria_version_model import GaleriaVersion
 from app.schemas.guion_schema import (
+    AccionActualizarEscenaVersionSchema,
+    AccionCrearEscenaVersionSchema,
     GuionSchema,
     GuionUpdateSchema,
     GuionVersionSchema,
@@ -25,12 +29,134 @@ from app.schemas.guion_schema import (
     GuionDesdeCeroSchema,
     GuionNotaSchema
 )
+from app.schemas.escena_schema import (
+    AccionActualizarEscenaSchema,
+    AccionCrearEscenaSchema,
+    SincronizarEscenasSchema,
+)
 from app.utils.response import api_response
 from app.utils.codigos import adjuntar_codigos, asignar_codigo
 from app.utils.file_storage import guardar_archivo, EXTENSIONES_GUION
 from app.utils import file_storage
 from app.utils.codigos import codigos_entidad
 from app.utils.guion_content import extraer_contenido_guion
+
+
+class _MarcadoresEscenaParser(HTMLParser):
+    """Lee únicamente la identidad explícita de los bloques de escena."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.escenas = []
+        self.error = None
+
+    def handle_starttag(self, tag, attrs):
+        atributos = {}
+        for nombre, valor in attrs:
+            if nombre in atributos:
+                self.error = "El HTML repite un atributo de identidad de escena."
+            atributos[nombre] = valor
+        es_escena = tag == "p" and "gb-escena" in (atributos.get("class") or "").split()
+        tiene_id = "data-escena-id" in atributos
+        tiene_clave = "data-escena-key" in atributos
+        if (tiene_id or tiene_clave) and not es_escena:
+            self.error = "La identidad de escena solo puede estar en un encabezado de escena."
+        if not es_escena:
+            return
+        if tiene_id == tiene_clave:
+            self.error = "Cada encabezado debe tener una sola asociación segura con una ficha."
+            return
+        clave = atributos.get("data-escena-key") if tiene_clave else None
+        id_escena = atributos.get("data-escena-id") if tiene_id else None
+        if clave and not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", clave):
+            self.error = "La clave temporal de escena no es válida."
+        if id_escena and not re.fullmatch(r"[A-Za-z0-9_-]{1,15}", id_escena):
+            self.error = "El identificador de escena no es válido."
+        self.escenas.append({"id_escena": id_escena, "client_key": clave})
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+
+
+def _preparar_contenido_y_escenas(contenido, acciones, id_guion, id_project, db):
+    """Valida asociaciones explícitas y aplica las fichas sin confirmar aún."""
+    parser = _MarcadoresEscenaParser()
+    parser.feed(contenido or "")
+    parser.close()
+    if parser.error:
+        raise HTTPException(status_code=422, detail=parser.error)
+
+    ids_html = [fila["id_escena"] for fila in parser.escenas if fila["id_escena"]]
+    claves_html = [fila["client_key"] for fila in parser.escenas if fila["client_key"]]
+    if len(ids_html) != len(set(ids_html)) or len(claves_html) != len(set(claves_html)):
+        raise HTTPException(status_code=409, detail="Una ficha o clave temporal aparece más de una vez en el documento.")
+
+    ids_acciones = [
+        accion.id_escena for accion in acciones
+        if isinstance(accion, AccionActualizarEscenaVersionSchema)
+    ]
+    claves_acciones = [
+        accion.client_key for accion in acciones
+        if isinstance(accion, AccionCrearEscenaVersionSchema)
+    ]
+    if len(ids_acciones) != len(set(ids_acciones)) or len(claves_acciones) != len(set(claves_acciones)):
+        raise HTTPException(status_code=409, detail="Una ficha aparece más de una vez en las acciones de guardado.")
+    if set(claves_html) != set(claves_acciones):
+        raise HTTPException(status_code=422, detail="Cada escena nueva debe estar asociada a una única acción de creación.")
+    if not set(ids_acciones).issubset(set(ids_html)):
+        raise HTTPException(status_code=422, detail="Hay cambios de ficha que no corresponden a una escena del documento.")
+
+    filas = {
+        fila.id_escena: fila
+        for fila in db.query(Escena).filter(
+            Escena.id_guion == id_guion,
+            Escena.id_escena.in_(ids_html or [""]),
+        ).all()
+    }
+    if set(ids_html) != set(filas):
+        raise HTTPException(status_code=404, detail="Una escena del documento ya no pertenece al guion. No se guardó la versión.")
+
+    acciones_sync = []
+    for accion in acciones:
+        if isinstance(accion, AccionCrearEscenaVersionSchema):
+            acciones_sync.append(AccionCrearEscenaSchema(tipo="crear", payload=accion.payload))
+        else:
+            acciones_sync.append(AccionActualizarEscenaSchema(
+                tipo="actualizar",
+                id_escena=accion.id_escena,
+                payload=accion.payload,
+            ))
+
+    if acciones_sync:
+        # Import local para conservar la separación routes → controllers y
+        # permitir que el guardado de versión comparta esta transacción.
+        from app.controllers.escena_controller import aplicar_lote_escenas
+
+        resultado = aplicar_lote_escenas(
+            id_guion,
+            SincronizarEscenasSchema(acciones=acciones_sync),
+            id_project,
+            db,
+        )
+    else:
+        resultado = []
+
+    ids_nuevos = {
+        accion.client_key: escena.id_escena
+        for accion, escena in zip(acciones, resultado)
+        if isinstance(accion, AccionCrearEscenaVersionSchema)
+    }
+    if ids_nuevos:
+        patron = re.compile(r'(data-escena-key=")([A-Za-z0-9_-]{1,80})(")')
+
+        def reemplazar_clave(coincidencia):
+            id_escena = ids_nuevos.get(coincidencia.group(2))
+            if not id_escena:
+                return coincidencia.group(0)
+            return f'{coincidencia.group(1).replace("data-escena-key", "data-escena-id")}{id_escena}{coincidencia.group(3)}'
+
+        contenido = patron.sub(reemplazar_clave, contenido)
+    return contenido, resultado
 
 # GET ALL GUIONES (filtrable por proyecto con ?id_project=)
 
@@ -113,40 +239,51 @@ def create_guion(guion: GuionSchema, db: Session):
 # directo en el sistema, en un solo paso, sin necesidad de archivo)
 
 def crear_guion_desde_cero(data: GuionDesdeCeroSchema, id_user: int, db: Session):
-    new_guion = Guion(
-        nombre=data.nombre,
-        descripcion=data.descripcion,
-        id_project=data.id_project
-    )
-    db.add(new_guion)
-    db.flush()  # asigna id_guion antes del commit
+    try:
+        new_guion = Guion(
+            nombre=data.nombre,
+            descripcion=data.descripcion,
+            id_project=data.id_project
+        )
+        db.add(new_guion)
+        db.flush()  # asigna id_guion antes de insertar la primera versión
 
-    primera_version = GuionVersion(
-        id_guion=new_guion.id_guion,
-        numero_de_version=1,
-        archivo=None,
-        contenido=data.contenido,
-        fecha_de_emision=data.fecha_de_emision,
-        estado=data.estado,
-        comentario_cambio="Version inicial creada desde el sistema",
-        creado_por=id_user
-    )
-    db.add(primera_version)
-    db.flush()
-    codigo_guion = asignar_codigo(db, "GUI", new_guion.id_guion, new_guion.id_project)
-    codigo_version = asignar_codigo(db, "VGU", primera_version.id_guion_version, new_guion.id_project)
+        contenido = data.contenido
+        if data.acciones_escena is not None:
+            contenido, _ = _preparar_contenido_y_escenas(
+                contenido, data.acciones_escena, new_guion.id_guion, new_guion.id_project, db,
+            )
 
-    new_guion.id_guion_version_actual = primera_version.id_guion_version
-    db.commit()
-    db.refresh(new_guion)
-    db.refresh(primera_version)
+        primera_version = GuionVersion(
+            id_guion=new_guion.id_guion,
+            numero_de_version=1,
+            archivo=None,
+            contenido=contenido,
+            fecha_de_emision=data.fecha_de_emision,
+            estado=data.estado,
+            comentario_cambio="Version inicial creada desde el sistema",
+            creado_por=id_user
+        )
+        db.add(primera_version)
+        db.flush()
+        codigo_guion = asignar_codigo(db, "GUI", new_guion.id_guion, new_guion.id_project)
+        codigo_version = asignar_codigo(db, "VGU", primera_version.id_guion_version, new_guion.id_project)
+
+        new_guion.id_guion_version_actual = primera_version.id_guion_version
+        db.commit()
+        db.refresh(new_guion)
+        db.refresh(primera_version)
+    except Exception:
+        db.rollback()
+        raise
 
     respuesta = {
         "id_guion": new_guion.id_guion,
         "nombre": new_guion.nombre,
         "id_project": new_guion.id_project,
         "id_guion_version": primera_version.id_guion_version,
-        "numero_de_version": primera_version.numero_de_version
+        "numero_de_version": primera_version.numero_de_version,
+        "contenido": primera_version.contenido,
     }
     if codigo_guion:  # creación solo-admin
         respuesta["codigo"] = codigo_guion
@@ -470,35 +607,45 @@ def subir_version(id_guion: int, data: GuionVersionSchema, archivo: UploadFile, 
 # CREAR NUEVA VERSION ESCRITA DIRECTO EN EL SISTEMA (sin archivo)
 
 def crear_version_texto(id_guion: int, data: GuionVersionTextoSchema, id_user: int, db: Session):
-    guion = db.query(Guion).filter(Guion.id_guion == id_guion).first()
+    guion = db.query(Guion).filter(Guion.id_guion == id_guion).with_for_update().first()
 
     if not guion:
         return api_response(False, "Guion no encontrado")
 
-    ultima_version = (
-        db.query(sqlfunc.max(GuionVersion.numero_de_version))
-        .filter(GuionVersion.id_guion == id_guion)
-        .scalar()
-    ) or 0
+    try:
+        contenido = data.contenido
+        if data.acciones_escena is not None:
+            contenido, _ = _preparar_contenido_y_escenas(
+                contenido, data.acciones_escena, id_guion, guion.id_project, db,
+            )
 
-    nueva_version = GuionVersion(
-        id_guion=id_guion,
-        numero_de_version=ultima_version + 1,
-        archivo=None,
-        contenido=data.contenido,
-        fecha_de_emision=data.fecha_de_emision,
-        estado=data.estado,
-        comentario_cambio=data.comentario_cambio,
-        creado_por=id_user
-    )
+        ultima_version = (
+            db.query(sqlfunc.max(GuionVersion.numero_de_version))
+            .filter(GuionVersion.id_guion == id_guion)
+            .scalar()
+        ) or 0
 
-    db.add(nueva_version)
-    db.flush()  # asigna id_guion_version antes del commit
-    codigo_version = asignar_codigo(db, "VGU", nueva_version.id_guion_version, guion.id_project)
+        nueva_version = GuionVersion(
+            id_guion=id_guion,
+            numero_de_version=ultima_version + 1,
+            archivo=None,
+            contenido=contenido,
+            fecha_de_emision=data.fecha_de_emision,
+            estado=data.estado,
+            comentario_cambio=data.comentario_cambio,
+            creado_por=id_user
+        )
 
-    guion.id_guion_version_actual = nueva_version.id_guion_version
-    db.commit()
-    db.refresh(nueva_version)
+        db.add(nueva_version)
+        db.flush()  # asigna id_guion_version antes del commit
+        codigo_version = asignar_codigo(db, "VGU", nueva_version.id_guion_version, guion.id_project)
+
+        guion.id_guion_version_actual = nueva_version.id_guion_version
+        db.commit()
+        db.refresh(nueva_version)
+    except Exception:
+        db.rollback()
+        raise
 
     respuesta = {
         "id_guion_version": nueva_version.id_guion_version,

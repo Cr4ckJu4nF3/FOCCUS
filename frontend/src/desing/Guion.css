@@ -1534,6 +1534,162 @@
   }
 }
 
+.guion-scene-picker {
+  width: min(1120px, 100%);
+}
+
+.guion-scene-picker__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(270px, 0.8fr);
+  gap: 1rem;
+  min-height: 260px;
+  max-height: 55vh;
+}
+
+.guion-scene-picker__list {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.guion-scene-picker__item {
+  display: grid;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid rgba(250, 250, 250, 0.12);
+  border-radius: 0.65rem;
+  color: #edf4fb;
+  background: rgba(17, 27, 40, 0.78);
+  text-align: left;
+  cursor: pointer;
+}
+
+.guion-scene-picker__item:hover,
+.guion-scene-picker__item.is-selected {
+  border-color: rgba(119, 180, 231, 0.65);
+  background: rgba(48, 80, 111, 0.72);
+}
+
+.guion-scene-picker__item strong {
+  line-height: 1.4;
+}
+
+.guion-scene-picker__item small {
+  color: #9dc8ec;
+}
+
+.guion-scene-picker__item span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #b8c5d3;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.guion-scene-picker__detail {
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid rgba(250, 250, 250, 0.1);
+  border-radius: 0.75rem;
+  background: rgba(8, 15, 24, 0.56);
+}
+
+.guion-scene-picker__detail h4 {
+  margin: 0.45rem 0 0.8rem;
+  color: #f5f8fc;
+  line-height: 1.45;
+}
+
+.guion-scene-picker__detail p {
+  color: #c4cfdb;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.guion-scene-picker__detail dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 1rem 0;
+}
+
+.guion-scene-picker__detail dl div {
+  min-width: 0;
+}
+
+.guion-scene-picker__detail dt {
+  color: #91bce3;
+  font-size: 0.7rem;
+}
+
+.guion-scene-picker__detail dd {
+  overflow-wrap: anywhere;
+  margin: 0.15rem 0 0;
+  color: #edf4fb;
+  font-size: 0.8rem;
+}
+
+.guion-scene-picker__copy-note {
+  padding: 0.65rem;
+  border-left: 3px solid #78b9e8;
+  background: rgba(69, 125, 171, 0.12);
+}
+
+.guion-scene-picker__inline-error {
+  color: #fecaca !important;
+}
+
+.guion-source-fragment__layout {
+  margin: 0.9rem 0;
+}
+
+.guion-scene-picker__item:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.guion-scene-picker__item:disabled:hover {
+  border-color: rgba(250, 250, 250, 0.12);
+  background: rgba(17, 27, 40, 0.78);
+}
+
+.guion-source-fragment__preview {
+  max-height: 46vh;
+  overflow: auto;
+  padding: 0.65rem;
+  border-radius: 0.45rem;
+  background: #fff;
+  color: #111827;
+}
+
+.guion-source-fragment__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  padding-top: 0.9rem;
+}
+
+@media (max-width: 720px) {
+  .guion-scene-picker__layout {
+    grid-template-columns: 1fr;
+    max-height: none;
+  }
+
+  .guion-scene-picker__list {
+    max-height: 35vh;
+  }
+
+  .guion-source-fragment__actions {
+    flex-direction: column-reverse;
+  }
+}
+
 .guion-message__retry {
   display: block;
   margin-top: 0.6rem;
@@ -2842,4 +2998,102 @@ html[data-theme] .guion-page .guion-composer--new :is(
 
 .guion-notas__error {
   color: #b42318;
+}
+
+/* El área de lectura y sus notas siguen el tema de la interfaz. La página
+   imprimible permanece blanca para conservar el aspecto de papel del guion. */
+.guion-reader {
+  border-color: var(--theme-border, rgba(255, 255, 255, 0.11));
+  background: var(--theme-surface, #151a24);
+}
+
+html[data-theme="light"] .guion-reader {
+  border-color: #dfe5ed;
+  background: #e9edf2;
+}
+
+.guion-notas {
+  border-color: var(--theme-border, rgba(255, 255, 255, 0.1));
+  color: var(--theme-foreground, #f4f6fa);
+  background: var(--theme-surface-raised, #1c2330);
+}
+
+.guion-notas h2 {
+  margin: 0 0 0.9rem;
+  color: inherit;
+  font-size: 1.15rem;
+  line-height: 1.4;
+}
+
+.guion-notas > p,
+.guion-notas__lista p {
+  color: inherit;
+  line-height: 1.55;
+}
+
+.guion-notas__lista li {
+  border-color: var(--theme-border, rgba(255, 255, 255, 0.1));
+}
+
+.guion-notas__lista small {
+  color: var(--theme-muted, #a3adbd);
+}
+
+.guion-notas .guion-form label {
+  color: inherit;
+  font-weight: 600;
+}
+
+.guion-notas .guion-form textarea {
+  border-color: var(--theme-border, rgba(255, 255, 255, 0.1));
+  color: var(--theme-foreground, #f4f6fa);
+  background: var(--theme-surface, #151a24);
+}
+
+.guion-notas .guion-form textarea::placeholder {
+  color: var(--theme-muted, #a3adbd);
+}
+
+.guion-notas .guion-form textarea:focus-visible {
+  border-color: var(--color-focus, #a99bf5);
+}
+
+.guion-notas p.guion-notas__error {
+  color: var(--color-danger, #ff8a8a);
+}
+
+html[data-theme="light"] .guion-notas {
+  border-color: #d9e1eb;
+  color: #273448;
+  background: #fff;
+}
+
+html[data-theme="light"] .guion-notas__lista li {
+  border-color: #e2e7ef;
+}
+
+html[data-theme="light"] .guion-notas__lista small {
+  color: #5b6a7e;
+}
+
+html[data-theme="light"] .guion-notas .guion-form label {
+  color: #344256;
+}
+
+html[data-theme="light"] .guion-notas .guion-form textarea {
+  border-color: #d7deea;
+  color: #273448;
+  background: #f8f9fc;
+}
+
+html[data-theme="light"] .guion-notas .guion-form textarea::placeholder {
+  color: #5b6a7e;
+}
+
+html[data-theme="light"] .guion-notas .guion-form textarea:focus-visible {
+  border-color: #5b3fc4;
+}
+
+html[data-theme="light"] .guion-notas p.guion-notas__error {
+  color: #b91c1c;
 }

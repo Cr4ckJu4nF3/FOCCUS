@@ -75,6 +75,21 @@ export function limpiarHtmlGuion(html) {
         const clases = atributo.value.split(/\s+/).filter((c) => /^gb(-[a-z]+)?$/.test(c));
         if (clases.length) nodo.setAttribute("class", clases.join(" "));
         else nodo.removeAttribute("class");
+      } else if (
+        atributo.name === "data-escena-id"
+        && nodo.tagName === "P"
+        && tipoDeElemento(nodo) === "escena"
+        && /^[A-Za-z0-9_-]{1,15}$/.test(atributo.value || "")
+      ) {
+        // El identificador persistido comparte el límite de `escenas.id_escena`.
+      } else if (
+        atributo.name === "data-escena-key"
+        && nodo.tagName === "P"
+        && tipoDeElemento(nodo) === "escena"
+        && /^[A-Za-z0-9_-]{1,80}$/.test(atributo.value || "")
+      ) {
+        // Estas dos marcas son el vínculo explícito entre el texto de una
+        // versión y su ficha. No se conserva ninguna otra data-* del HTML.
       } else if (atributo.name !== "style" || !/^text-align:\s*(left|center|right|justify)\s*;?$/i.test(atributo.value)) {
         nodo.removeAttribute(atributo.name);
       }
@@ -146,7 +161,15 @@ export function htmlABloques(html) {
     if (!texto.trim()) return;
     const previo = bloques.length ? bloques[bloques.length - 1].tipo : null;
     const tipo = tipoDeElemento(el) || adivinarTipo(el, texto, previo);
-    bloques.push({ tipo, texto: texto.replace(/\n+$/, ""), html: htmlInterno });
+    const estilo = el.getAttribute("style");
+    bloques.push({
+      tipo, texto: texto.replace(/\n+$/, ""), html: htmlInterno,
+      ...(estilo && /^text-align:\s*(left|center|right|justify)\s*;?$/i.test(estilo) ? { estilo } : {}),
+      ...(tipo === "escena" && el.getAttribute("data-escena-id")
+        ? { id_escena: el.getAttribute("data-escena-id") } : {}),
+      ...(tipo === "escena" && el.getAttribute("data-escena-key")
+        ? { client_key: el.getAttribute("data-escena-key") } : {}),
+    });
   };
 
   const recorrer = (padre) => {
@@ -175,12 +198,28 @@ export function htmlABloques(html) {
 // Lista de bloques -> HTML con clases gb-* (convierte contenido antiguo al
 // abrirlo en el editor; el usuario puede revisar los tipos antes de guardar).
 export const bloquesAHtml = (bloques) =>
-  bloques.map((b) => `<p class="${claseBloque(b.tipo)}">${b.html}</p>`).join("");
+  bloques.map((b) => {
+    const estilo = b.estilo && /^text-align:\s*(left|center|right|justify)\s*;?$/i.test(b.estilo)
+      ? ` style="${b.estilo}"` : "";
+    const id = b.tipo === "escena" && /^[A-Za-z0-9_-]{1,15}$/.test(b.id_escena || "")
+      ? ` data-escena-id="${b.id_escena}"` : "";
+    const clave = b.tipo === "escena" && /^[A-Za-z0-9_-]{1,80}$/.test(b.client_key || "")
+      ? ` data-escena-key="${b.client_key}"` : "";
+    return `<p class="${claseBloque(b.tipo)}"${estilo}${id}${clave}>${b.html}</p>`;
+  }).join("");
 
 export const normalizarHtmlGuion = (html) => bloquesAHtml(htmlABloques(html));
 
 export const crearBloqueHtml = (tipo, texto = "") =>
   `<p class="${claseBloque(tipo)}">${texto ? escaparHtml(texto) : "<br>"}</p>`;
+
+export const crearBloqueEscenaHtml = (texto = "", identidad = {}) => {
+  const id = /^[A-Za-z0-9_-]{1,15}$/.test(identidad.id_escena || "")
+    ? ` data-escena-id="${identidad.id_escena}"` : "";
+  const clave = /^[A-Za-z0-9_-]{1,80}$/.test(identidad.client_key || "")
+    ? ` data-escena-key="${identidad.client_key}"` : "";
+  return `<p class="${claseBloque("escena")}"${id}${clave}>${texto ? escaparHtml(texto) : "<br>"}</p>`;
+};
 
 // Escenas del guion (para sincronizar la tabla `escenas`): cada bloque de
 // tipo "escena" abre una escena; lo que sigue es su descripción en texto plano.
@@ -189,7 +228,12 @@ export function extraerEscenas(html) {
   let actual = null;
   htmlABloques(html).forEach((b) => {
     if (b.tipo === "escena") {
-      actual = { encabezado: b.texto.trim(), lineas: [] };
+      actual = {
+        encabezado: b.texto.trim(),
+        id_escena: b.id_escena || null,
+        client_key: b.client_key || null,
+        lineas: [],
+      };
       escenas.push(actual);
     } else if (actual) {
       actual.lineas.push(b.texto);
@@ -199,6 +243,8 @@ export function extraerEscenas(html) {
     numero: i + 1,
     encabezado: e.encabezado,
     descripcion: e.lineas.join("\n"),
+    id_escena: e.id_escena,
+    client_key: e.client_key,
   }));
 }
 

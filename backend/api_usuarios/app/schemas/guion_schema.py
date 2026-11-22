@@ -1,6 +1,32 @@
-from pydantic import BaseModel, field_validator
-from typing import Literal, Optional
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing import Annotated, Literal, Optional, Union
 from datetime import date
+from app.schemas.escena_schema import (
+    EscenaActualizarSincronizacionSchema,
+    EscenaCrearSincronizacionSchema,
+)
+
+
+class AccionCrearEscenaVersionSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tipo: Literal["crear"]
+    client_key: str = Field(pattern=r"^[A-Za-z0-9_-]{1,80}$")
+    payload: EscenaCrearSincronizacionSchema
+
+
+class AccionActualizarEscenaVersionSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tipo: Literal["actualizar"]
+    id_escena: str
+    payload: EscenaActualizarSincronizacionSchema
+
+
+AccionEscenaVersionSchema = Annotated[
+    Union[AccionCrearEscenaVersionSchema, AccionActualizarEscenaVersionSchema],
+    Field(discriminator="tipo"),
+]
 
 class GuionSchema(BaseModel):
     nombre: str
@@ -24,6 +50,10 @@ class GuionVersionTextoSchema(BaseModel):
     fecha_de_emision: date
     estado: str = "Borrador"
     comentario_cambio: Optional[str] = None
+    # Contrato opcional y aditivo: el editor web lo usa para guardar la
+    # versión y sus fichas de escena en una sola transacción. Los clientes
+    # anteriores pueden seguir omitiéndolo.
+    acciones_escena: Optional[list[AccionEscenaVersionSchema]] = None
 
 class GuionVersionEstadoSchema(BaseModel):
     estado: Literal[
@@ -47,6 +77,7 @@ class GuionDesdeCeroSchema(BaseModel):
     contenido: str
     fecha_de_emision: date
     estado: str = "Borrador"
+    acciones_escena: Optional[list[AccionEscenaVersionSchema]] = None
 
 class GuionNotaSchema(BaseModel):
     contenido: str

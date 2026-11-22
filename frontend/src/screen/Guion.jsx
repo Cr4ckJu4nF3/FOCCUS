@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useMemo } from "react";
 import { useBlocker, useSearchParams } from "react-router-dom";
 import CodigoChip from "../componentes/CodigoChip";
 import {
@@ -45,6 +46,7 @@ import {
   SIGUIENTE_TAB,
   claseBloque,
   crearBloqueHtml,
+  crearBloqueEscenaHtml,
   crearOpcionesPdfGuion,
   estimarPaginas,
   extraerEscenas,
@@ -58,11 +60,21 @@ import {
 import {
   analizarEncabezadoEscena,
   camposEscenaVacios,
+  crearHtmlCopiaEscena,
+  desvincularPestanaSinEncabezados,
+  encontrarEscenaEnRango,
+  extraerFragmentosEscena,
   encabezadoDesdeCamposEscena,
-  planificarSincronizacionEscenas,
+  htmlDesdePestanas,
+  marcarEscenasNuevas,
+  nuevaClaveEscena,
+  planificarAccionesVersionEscenas,
+  quitarEscenaLocal,
+  retirarCambioEscena,
 } from "../utils/guionEscenas";
 import EstadoVista from "../componentes/EstadoVista";
 import { hayCambiosGuion } from "../utils/guionBorrador";
+import { TIPOS_CATALOGO, bloqueCatalogoSeguro, bloquesParaCatalogo, crearColaCatalogo } from "../utils/catalogoBloques";
 import "../desing/Guion.css";
 import "../desing/GuionPagina.css";
 
@@ -71,6 +83,33 @@ const fetchWithProject = (url, options = {}) =>
     ...options,
     headers: { ...(options.headers || {}), ...getProjectHeaders() },
   });
+
+const claveSincronizacionesEscenas = (idProject) => `foccus:guion-sync:v1:${idProject}`;
+
+function cargarSincronizacionesEscenas(idProject) {
+  if (!idProject) return [];
+  try {
+    const pendientes = JSON.parse(localStorage.getItem(claveSincronizacionesEscenas(idProject)) || "[]");
+    if (!Array.isArray(pendientes)) return [];
+    return pendientes
+      .filter((tarea) => tarea && String(tarea.idProject || idProject) === String(idProject))
+      .map((tarea) => ({ ...tarea, idProject }));
+  } catch {
+    return [];
+  }
+}
+
+function persistirSincronizacionesEscenas(idProject, pendientes) {
+  if (!idProject) return false;
+  try {
+    const clave = claveSincronizacionesEscenas(idProject);
+    if (pendientes.length) localStorage.setItem(clave, JSON.stringify(pendientes));
+    else localStorage.removeItem(clave);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const ESTADOS_VERSION = ["Borrador", "Pendiente", "En revisión", "Aprobado", "En Rodaje", "Completado", "Finalizado", "Archivado"];
 
@@ -236,6 +275,84 @@ export default function GuionScreen() {
   const [tipoBloqueActual, setTipoBloqueActual] = useState("accion");
   const editorRef = useRef(null);
   const ultimaSeleccionRef = useRef(null); // ultimo cursor/seleccion dentro del editor, para restaurarlo tras usar la barra de herramientas o insertar un personaje/escenario
+  const [estadoCatalogo, setEstadoCatalogo] = useState({ pendientes: 0, enviando: false, error: "" });
+  const [selectorBloques, setSelectorBloques] = useState(false);
+  const [tipoCatalogo, setTipoCatalogo] = useState("");
+  const [busquedaBloques, setBusquedaBloques] = useState("");
+  const [bloquesCatalogo, setBloquesCatalogo] = useState([]);
+  const [bloqueSeleccionado, setBloqueSeleccionado] = useState(null);
+  const [cargandoBloques, setCargandoBloques] = useState(false);
+  const [errorBloques, setErrorBloques] = useState("");
+  const [recargaBloques, setRecargaBloques] = useState(0);
+  const colaCatalogo = useMemo(() => crearColaCatalogo({
+    extraer: bloquesParaCatalogo,
+    notificar: (estado) => setEstadoCatalogo({ ...estado, projectId }),
+    enviar: async (bloque) => {
+      if (!projectId) throw new Error("No se identificó el proyecto activo.");
+      const response = await fetch(`${API_URL}/proyectos/${encodeURIComponent(projectId)}/catalogo-bloques`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}`, "X-Project-Id": projectId },
+        body: JSON.stringify(bloque),
+      });
+      let resultado;
+      try {
+        resultado = await response.json();
+      } catch {
+        resultado = null;
+      }
+      if (!response.ok) {
+        const detalle = extraerMensajeError(resultado, "No se confirmó el guardado del bloque.");
+        const pista = response.status === 503
+          ? " El servidor reportó un problema al guardar; la tabla del catálogo podría no estar disponible en este entorno, pero no se verificó la causa. El bloque sigue pendiente y no se considera guardado."
+          : ` (HTTP ${response.status}). El bloque sigue pendiente y no se considera guardado.`;
+        throw new Error(`${detalle}${pista}`);
+      }
+      if (!resultado || resultado.id_catalogo_bloque == null
+        || String(resultado.id_project) !== String(projectId) || resultado.tipo !== bloque.tipo || typeof resultado.html !== "string") {
+        throw new Error("El servidor no confirmó el bloque del proyecto; reintenta.");
+      }
+    },
+  }), [projectId]);
+  const estadoCatalogoActual = estadoCatalogo.projectId === projectId ? estadoCatalogo : colaCatalogo.estado();
+
+  useEffect(() => () => colaCatalogo.vaciar(), [colaCatalogo]);
+  useEffect(() => {
+    if (!selectorBloques || !projectId) return undefined;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setCargandoBloques(true);
+      setErrorBloques("");
+      try {
+        const params = new URLSearchParams();
+        if (tipoCatalogo) params.set("tipo", tipoCatalogo);
+        if (busquedaBloques.trim()) params.set("q", busquedaBloques.trim());
+        const response = await fetch(`${API_URL}/proyectos/${encodeURIComponent(projectId)}/catalogo-bloques?${params}`, {
+          headers: { Authorization: `Bearer ${getToken()}`, "X-Project-Id": projectId },
+          signal: controller.signal,
+        });
+        let data;
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
+        if (!response.ok) {
+          const detalle = extraerMensajeError(data, "No se pudo cargar el catálogo.");
+          const pista = response.status === 503
+            ? " El servidor reportó un problema de consulta; puede faltar la tabla del catálogo en este entorno, pero no se verificó la causa."
+            : ` (HTTP ${response.status}).`;
+          throw new Error(`${detalle}${pista}`);
+        }
+        if (!Array.isArray(data)) throw new Error("La respuesta del catálogo no es válida.");
+        if (!controller.signal.aborted) setBloquesCatalogo(data.map((item) => bloqueCatalogoSeguro(item, projectId)).filter(Boolean));
+      } catch (err) {
+        if (!controller.signal.aborted) { setBloquesCatalogo([]); setErrorBloques(err.message || "No se pudo cargar el catálogo."); }
+      } finally {
+        if (!controller.signal.aborted) setCargandoBloques(false);
+      }
+    }, 250);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [selectorBloques, projectId, tipoCatalogo, busquedaBloques, recargaBloques, estadoCatalogoActual.pendientes, estadoCatalogoActual.enviando]);
 
   // Modo "por escenas" dentro del editor de creacion desde cero: en vez de
   // un solo bloque de texto, se escribe escena por escena. Cada escena es
@@ -250,9 +367,37 @@ export default function GuionScreen() {
   const [contextoEscena, setContextoEscena] = useState(null);
   const [errorFormEscena, setErrorFormEscena] = useState("");
   const [cambiosEscenaPendientes, setCambiosEscenaPendientes] = useState([]);
-  const [sincronizacionesPendientes, setSincronizacionesPendientes] = useState([]);
+  const [colasSincronizacion, setColasSincronizacion] = useState(
+    () => ({ [projectId]: cargarSincronizacionesEscenas(projectId) }),
+  );
+  const sincronizacionesPendientes = Object.prototype.hasOwnProperty.call(colasSincronizacion, projectId)
+    ? colasSincronizacion[projectId]
+    : cargarSincronizacionesEscenas(projectId);
+  const setSincronizacionesPendientes = (actualizar) => setColasSincronizacion((actuales) => {
+    const pendientes = Object.prototype.hasOwnProperty.call(actuales, projectId)
+      ? actuales[projectId]
+      : cargarSincronizacionesEscenas(projectId);
+    const siguiente = typeof actualizar === "function" ? actualizar(pendientes) : actualizar;
+    return { ...actuales, [projectId]: siguiente };
+  });
   const [sincronizandoEscenas, setSincronizandoEscenas] = useState(false);
   const campoEncabezadoEscenaRef = useRef(null);
+  const [selectorEscenasAbierto, setSelectorEscenasAbierto] = useState(false);
+  const [escenasCatalogo, setEscenasCatalogo] = useState([]);
+  const [escenaCatalogoSeleccionada, setEscenaCatalogoSeleccionada] = useState(null);
+  const [busquedaEscenas, setBusquedaEscenas] = useState("");
+  const [cargandoEscenasCatalogo, setCargandoEscenasCatalogo] = useState(false);
+  const [errorEscenasCatalogo, setErrorEscenasCatalogo] = useState("");
+  const [dialogoAsociacionOrigen, setDialogoAsociacionOrigen] = useState(false);
+  const [fragmentosOrigen, setFragmentosOrigen] = useState([]);
+  const [fragmentoOrigenSeleccionado, setFragmentoOrigenSeleccionado] = useState(null);
+  const [escenaPendienteAsociacion, setEscenaPendienteAsociacion] = useState(null);
+  const [htmlOrigenPendiente, setHtmlOrigenPendiente] = useState("");
+  const cantidadVinculosOrigen = escenaPendienteAsociacion
+    ? fragmentosOrigen.filter(
+      (fragmento) => String(fragmento.id_escena || "") === String(escenaPendienteAsociacion.id_escena),
+    ).length
+    : 0;
 
   // Personajes / Escenarios del proyecto (atajos dentro del editor)
   const [personajes, setPersonajes] = useState([]);
@@ -318,8 +463,15 @@ export default function GuionScreen() {
   const hayDatosVersion = showVersionModal && (
     JSON.stringify(versionForm) !== versionInicial || Boolean(archivoVersion)
   );
-  const hayPendientes = hayBorrador || hayDatosSubida || hayDatosVersion || sincronizacionesPendientes.length > 0;
+  const hayPendientes = hayBorrador || hayDatosSubida || hayDatosVersion || sincronizacionesPendientes.length > 0 || estadoCatalogoActual.pendientes > 0;
   const confirmarSalida = () => {
+    if (editorRef.current) {
+      colaCatalogo.programar(editorRef.current.innerHTML);
+      colaCatalogo.vaciar();
+    }
+    if (colaCatalogo.estado().pendientes > 0 && !window.confirm(
+      "Hay bloques del catálogo sin confirmar. Si sales ahora pueden perderse. ¿Salir de todos modos?",
+    )) return false;
     if (guardandoEdicion || sincronizandoEscenas || uploading) {
       window.alert("Espera a que termine el guardado o la sincronización antes de salir.");
       return false;
@@ -368,6 +520,16 @@ export default function GuionScreen() {
     fetchGuiones();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    const pendientesDelProyecto = sincronizacionesPendientes.filter(
+      (tarea) => String(tarea.idProject || projectId) === String(projectId),
+    );
+    // Esta escritura replica la cola activa; encolar y limpiar también la
+    // persisten de forma síncrona para no depender del próximo render.
+    persistirSincronizacionesEscenas(projectId, pendientesDelProyecto);
+  }, [projectId, sincronizacionesPendientes]);
 
   const fetchVersiones = async (idGuion) => {
     if (!idGuion) {
@@ -431,49 +593,63 @@ export default function GuionScreen() {
   const fetchPersonajes = async () => {
     if (!projectId) return;
     try {
+      const proyectoSolicitado = projectId;
       const token = getToken();
-      const response = await fetchWithProject(`${API_URL}/projects/${projectId}/personajes`, {
+      const response = await fetchWithProject(`${API_URL}/projects/${encodeURIComponent(proyectoSolicitado)}/personajes`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
+      if (!response.ok || data.success === false) {
+        throw new Error(extraerMensajeError(data, "No se pudieron cargar los personajes del proyecto"));
+      }
+      if (String(localStorage.getItem("projectId") || "") !== String(proyectoSolicitado)) return;
       setPersonajes(Array.isArray(data.data) ? data.data : []);
-    } catch {
-      // silencioso: no bloquea la escritura del guion si esto falla
+    } catch (err) {
+      setGalleryError(err.message || "No se pudieron cargar los personajes del proyecto");
     }
   };
 
   const fetchEscenarios = async () => {
     if (!projectId) return;
     try {
+      const proyectoSolicitado = projectId;
       const token = getToken();
-      const response = await fetchWithProject(`${API_URL}/projects/${projectId}/escenarios`, {
+      const response = await fetchWithProject(`${API_URL}/projects/${encodeURIComponent(proyectoSolicitado)}/escenarios`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
+      if (!response.ok || data.success === false) {
+        throw new Error(extraerMensajeError(data, "No se pudieron cargar los lugares del proyecto"));
+      }
+      if (String(localStorage.getItem("projectId") || "") !== String(proyectoSolicitado)) return;
       setEscenarios(Array.isArray(data.data) ? data.data : []);
-    } catch {
-      // silencioso
+    } catch (err) {
+      setGalleryError(err.message || "No se pudieron cargar los lugares del proyecto");
     }
   };
 
   const fetchGalleryItems = async () => {
     if (!projectId) return;
+    const proyectoSolicitado = projectId;
     setGalleryLoading(true);
     setGalleryError("");
     try {
       const token = getToken();
-      const response = await fetchWithProject(`${API_URL}/projects/${projectId}/galeria`, {
+      const response = await fetchWithProject(`${API_URL}/projects/${encodeURIComponent(proyectoSolicitado)}/galeria`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
       if (!response.ok || data.success === false) {
         throw new Error(extraerMensajeError(data, "No se pudo cargar la galería"));
       }
+      if (String(localStorage.getItem("projectId") || "") !== String(proyectoSolicitado)) return;
       setGalleryItems(Array.isArray(data.data) ? data.data : []);
     } catch (err) {
       setGalleryError(err.message || "No se pudo cargar la galería");
     } finally {
-      setGalleryLoading(false);
+      if (String(localStorage.getItem("projectId") || "") === String(proyectoSolicitado)) {
+        setGalleryLoading(false);
+      }
     }
   };
 
@@ -657,7 +833,13 @@ export default function GuionScreen() {
 
   const handleActivarModoEscenas = () => {
     // Al activar, lo que ya estaba escrito pasa a ser el contenido de la Escena 1
-    setEscenasBorrador([{ numero: 1, texto: contenidoInicial }]);
+    const textoTieneEncabezado = extraerEscenas(contenidoInicial).length > 0;
+    const nueva = vista === "crear-cero" || !htmlATextoPlano(contenidoInicial).trim();
+    setEscenasBorrador([{
+      numero: 1,
+      texto: contenidoInicial,
+      ...(!textoTieneEncabezado && nueva ? { client_key: nuevaClaveEscena() } : {}),
+    }]);
     setEscenaActivaIndex(0);
     setEscenasActivo(true);
   };
@@ -665,18 +847,22 @@ export default function GuionScreen() {
   const handleDesactivarModoEscenas = () => {
     // Al desactivar, se unen todas las escenas de vuelta en un solo bloque
     // (union con salto de linea real en HTML, no con "\n" que el navegador ignora)
-    setContenidoInicial(escenasBorrador.map((esc) => esc.texto).join(""));
+    setContenidoInicial(htmlDesdePestanas(escenasBorrador));
     setEscenasActivo(false);
   };
 
   const handleNuevaEscenaBorrador = () => {
-    setEscenasBorrador((prev) => [...prev, { numero: prev.length + 1, texto: "" }]);
+    setEscenasBorrador((prev) => [
+      ...prev,
+      { numero: prev.length + 1, texto: "", client_key: nuevaClaveEscena() },
+    ]);
     setEscenaActivaIndex(escenasBorrador.length); // el nuevo bloque queda ultimo
   };
 
   const handleEliminarEscenaBorrador = (idx) => {
     if (escenasBorrador.length <= 1) return; // siempre debe quedar al menos una escena
     if (escenasBorrador[idx]?.texto && !window.confirm("Esta escena contiene texto. ¿Deseas eliminarla del borrador?")) return;
+    colaCatalogo.capturar(idx === escenaActivaIndex && editorRef.current ? editorRef.current.innerHTML : escenasBorrador[idx]?.texto);
     setEscenasBorrador((prev) => prev.filter((_, i) => i !== idx).map((esc, i) => ({ ...esc, numero: i + 1 })));
     setEscenaActivaIndex((prevActivo) => {
       if (idx < prevActivo) return prevActivo - 1;
@@ -712,12 +898,30 @@ export default function GuionScreen() {
 
   const sincronizarDesdeEditor = () => {
     if (editorRef.current) {
+      colaCatalogo.programar(editorRef.current.innerHTML);
       if (vista === "lector" && editandoContenido) {
         setContenidoEditado(editorRef.current.innerHTML);
       } else {
         setTextoEditorActivo(editorRef.current.innerHTML);
       }
     }
+  };
+
+  const capturarAntesDeEditar = () => {
+    if (editorRef.current) colaCatalogo.antesDeRetirar(editorRef.current.innerHTML);
+  };
+  const manejarAntesDeInput = (event) => {
+    const tipo = event.nativeEvent.inputType || "";
+    const seleccion = window.getSelection();
+    if (/^(delete|history|insertReplacement|insertFrom)/.test(tipo) || (seleccion && !seleccion.isCollapsed)) {
+      capturarAntesDeEditar();
+    } else if (tipo.startsWith("insert") && editorRef.current) {
+      colaCatalogo.antesDeEditar(editorRef.current.innerHTML);
+    }
+  };
+  const manejarBlurEditor = () => {
+    sincronizarDesdeEditor();
+    colaCatalogo.vaciar();
   };
 
   // Recuerda donde esta el cursor/seleccion dentro del editor mientras se
@@ -773,9 +977,16 @@ export default function GuionScreen() {
   };
 
   const establecerTipoBloque = (tipo) => {
+    capturarAntesDeEditar();
     const bloque = asegurarBloqueActual();
     if (!bloque) return;
     bloque.setAttribute("class", claseBloque(tipo));
+    if (tipo === "escena" && !bloque.dataset.escenaId && !bloque.dataset.escenaKey) {
+      bloque.dataset.escenaKey = nuevaClaveEscena();
+    } else if (tipo !== "escena") {
+      bloque.removeAttribute("data-escena-id");
+      bloque.removeAttribute("data-escena-key");
+    }
     setTipoBloqueActual(tipo);
     sincronizarDesdeEditor();
     guardarSeleccionEditor();
@@ -786,6 +997,7 @@ export default function GuionScreen() {
   const insertarBloquesEnEditor = (html) => {
     const editor = editorRef.current;
     if (!editor) return;
+    capturarAntesDeEditar();
     restaurarFocoEnEditor();
     const actual = bloqueDeNodo(window.getSelection().anchorNode);
     const plantilla = document.createElement("div");
@@ -817,22 +1029,146 @@ export default function GuionScreen() {
     return Array.isArray(data.data) ? data.data : [];
   };
 
-  const abrirFormularioEscena = async (forzarCreacion = false) => {
+  const cargarHtmlEscenaOrigen = async (escena) => {
+    const respuestaGuion = await fetchWithProject(`${API_URL}/guiones/${escena.id_guion}`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    const guionData = await respuestaGuion.json();
+    if (!respuestaGuion.ok || !guionData.success) {
+      throw new Error(extraerMensajeError(guionData, "No se pudo consultar el guion de origen"));
+    }
+    const versionActual = guionData.data?.id_guion_version_actual;
+    if (!versionActual) throw new Error("El guion de origen no tiene una versión actual con texto para copiar.");
+
+    const respuestaVersiones = await fetchWithProject(`${API_URL}/guiones/${escena.id_guion}/versiones`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    const versionesData = await respuestaVersiones.json();
+    if (!respuestaVersiones.ok || !versionesData.success) {
+      throw new Error(extraerMensajeError(versionesData, "No se pudo cargar la versión actual del guion de origen"));
+    }
+    const version = (versionesData.data || []).find(
+      (item) => String(item.id_guion_version) === String(versionActual),
+    );
+    if (!version?.contenido) {
+      throw new Error("La versión actual del guion de origen no tiene texto editable para copiar.");
+    }
+    return version.contenido;
+  };
+
+  const insertarEscenaEnCursor = (html) => {
+    const editor = editorRef.current;
+    if (!editor) throw new Error("No se encontró el editor para insertar la escena.");
+    capturarAntesDeEditar();
+    restaurarFocoEnEditor();
+    const seleccion = window.getSelection();
+    const rango = seleccion?.rangeCount ? seleccion.getRangeAt(0).cloneRange() : document.createRange();
+    if (!rango.startContainer || !editor.contains(rango.startContainer)) {
+      rango.selectNodeContents(editor);
+      rango.collapse(false);
+    }
+    if (!rango.collapsed) {
+      rango.deleteContents();
+      rango.collapse(true);
+    }
+
+    const actual = bloqueDeNodo(rango.startContainer);
+    const plantilla = document.createElement("div");
+    plantilla.innerHTML = html;
+    const nuevos = Array.from(plantilla.children);
+    if (!nuevos.length) throw new Error("No se encontró texto de escena para insertar.");
+
+    const elementosEditor = Array.from(editor.children);
+    const indiceActual = actual ? elementosEditor.indexOf(actual) : elementosEditor.length;
+    const escenaActivaEnCursor = actual && tipoDeElemento(actual) === "escena"
+      ? actual
+      : elementosEditor.slice(0, indiceActual + 1)
+        .filter((bloque) => tipoDeElemento(bloque) === "escena")
+        .at(-1);
+    if (escenaActivaEnCursor) {
+      let siguienteEscena = escenaActivaEnCursor.nextElementSibling;
+      while (siguienteEscena && tipoDeElemento(siguienteEscena) !== "escena") {
+        siguienteEscena = siguienteEscena.nextElementSibling;
+      }
+      if (siguienteEscena) nuevos.forEach((bloque) => siguienteEscena.before(bloque));
+      else nuevos.forEach((bloque) => editor.appendChild(bloque));
+    } else if (actual) {
+      const cola = document.createRange();
+      cola.selectNodeContents(actual);
+      cola.setStart(rango.startContainer, rango.startOffset);
+      const sufijo = cola.extractContents();
+      const bloqueSufijo = actual.cloneNode(false);
+      bloqueSufijo.appendChild(sufijo);
+      actual.after(...nuevos);
+      if ((bloqueSufijo.textContent || "").trim() || bloqueSufijo.querySelector("*")) {
+        nuevos[nuevos.length - 1].after(bloqueSufijo);
+      }
+    } else {
+      nuevos.forEach((bloque) => editor.appendChild(bloque));
+    }
+
+    const ultimo = nuevos[nuevos.length - 1];
+    colocarCursor(ultimo, true);
+    sincronizarDesdeEditor();
+    return nuevos.find((bloque) => tipoDeElemento(bloque) === "escena");
+  };
+
+  const abrirSelectorEscenas = async () => {
+    if (!editorRef.current) {
+      setError("Abre el editor del guion antes de elegir una escena");
+      return;
+    }
+    guardarSeleccionEditor();
+    setEscenaCatalogoSeleccionada(null);
+    setBusquedaEscenas("");
+    setErrorEscenasCatalogo("");
+    setEscenasCatalogo([]);
+    setSelectorEscenasAbierto(true);
+    if (!projectId) {
+      setErrorEscenasCatalogo("No se identificó el proyecto activo.");
+      return;
+    }
+    setCargandoEscenasCatalogo(true);
+    try {
+      const response = await fetchWithProject(
+        `${API_URL}/projects/${encodeURIComponent(projectId)}/escenas`,
+        { headers: { Authorization: `Bearer ${getToken()}` } },
+      );
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(extraerMensajeError(data, "No se pudieron cargar las escenas del proyecto"));
+      }
+      if (String(localStorage.getItem("projectId") || "") !== String(projectId)) return;
+      setEscenasCatalogo(Array.isArray(data.data) ? data.data : []);
+    } catch (err) {
+      setErrorEscenasCatalogo(err.message || "No se pudieron cargar las escenas del proyecto");
+    } finally {
+      setCargandoEscenasCatalogo(false);
+    }
+  };
+
+  const abrirFormularioEscena = async (
+    forzarCreacion = false,
+    escenaCatalogo = null,
+    soloEdicion = false,
+    htmlEscenaOrigen = "",
+    indiceFragmentoOrigen = null,
+  ) => {
     const editor = editorRef.current;
     if (!editor) {
       setError("Abre el editor del guion antes de agregar una escena");
       return;
     }
     guardarSeleccionEditor();
+    restaurarFocoEnEditor();
     const seleccion = window.getSelection();
     const bloqueActual = bloqueDeNodo(seleccion?.anchorNode);
     const escenasEditor = Array.from(editor.children).filter((bloque) => tipoDeElemento(bloque) === "escena");
     const elementosEditor = Array.from(editor.children);
-    const indiceBloqueActual = elementosEditor.indexOf(bloqueActual);
-    const escenaAnterior = !forzarCreacion && bloqueActual && tipoDeElemento(bloqueActual) !== "escena"
-      ? elementosEditor.slice(0, indiceBloqueActual + 1).filter((bloque) => tipoDeElemento(bloque) === "escena").at(-1)
+    const escenaAnterior = !forzarCreacion && !escenaCatalogo && tipoDeElemento(bloqueActual) !== "escena"
+      ? encontrarEscenaEnRango(editor, seleccion?.rangeCount ? seleccion.getRangeAt(0) : null)
       : null;
-    const bloqueEscena = !forzarCreacion
+    const bloqueEscena = !forzarCreacion && !escenaCatalogo
       ? (tipoDeElemento(bloqueActual) === "escena"
         ? bloqueActual
         : (escenasActivo && escenasEditor.length === 1 ? escenasEditor[0] : escenaAnterior))
@@ -848,11 +1184,23 @@ export default function GuionScreen() {
       ? escenasBorrador.slice(0, escenaActivaIndex).reduce((total, escena) => total + extraerEscenas(escena.texto).length, 0)
       : 0;
     const indiceGlobal = escenasPrevias + escenasAntes;
-    const encabezadoActual = esEdicion ? bloqueEscena.textContent.trim() : "";
+    const encabezadoActual = escenaCatalogo?.encabezado || (esEdicion ? bloqueEscena.textContent.trim() : "");
+    const identidadBloque = bloqueEscena?.dataset?.escenaId
+      ? { id_escena: bloqueEscena.dataset.escenaId }
+      : bloqueEscena?.dataset?.escenaKey
+        ? { client_key: bloqueEscena.dataset.escenaKey }
+        : null;
+    const cambioPendiente = cambiosEscenaPendientes.find((cambio) => (
+      (identidadBloque?.id_escena && String(cambio.id_escena) === String(identidadBloque.id_escena))
+      || (identidadBloque?.client_key && String(cambio.client_key) === String(identidadBloque.client_key))
+    ));
+    const idGuionDestino = vista === "crear-version" || (vista === "lector" && editandoContenido)
+      ? guionActivo?.id_guion
+      : null;
     let escenasExistentes = [];
     try {
-      if (guionActivo?.id_guion) {
-        escenasExistentes = await cargarEscenasPersistidas(guionActivo.id_guion);
+      if (idGuionDestino) {
+        escenasExistentes = await cargarEscenasPersistidas(idGuionDestino);
       }
     } catch (err) {
       setError(err.message || "No se pudieron cargar las escenas del guion");
@@ -860,14 +1208,34 @@ export default function GuionScreen() {
     }
 
     let escenaGuardada = null;
-    if (esEdicion) {
-      const coincidencias = escenasExistentes.filter(
-        (escena) => String(escena.encabezado || "").trim().toLocaleUpperCase() === encabezadoActual.toLocaleUpperCase(),
+    const esMismaFicha = Boolean(
+      escenaCatalogo && idGuionDestino
+      && String(escenaCatalogo.id_guion) === String(idGuionDestino),
+    );
+    if (escenaCatalogo && esMismaFicha) {
+      escenaGuardada = escenasExistentes.find(
+        (escena) => String(escena.id_escena) === String(escenaCatalogo.id_escena),
       );
-      if (coincidencias.length === 1) escenaGuardada = coincidencias[0];
+      if (!escenaGuardada) {
+        setError("La ficha ya no pertenece al guion activo. Actualiza el selector e inténtalo de nuevo.");
+        return;
+      }
+    } else if (esEdicion && identidadBloque?.id_escena) {
+      escenaGuardada = escenasExistentes.find(
+        (escena) => String(escena.id_escena) === String(identidadBloque.id_escena),
+      );
     }
-    const cambioPendiente = cambiosEscenaPendientes.find((cambio) => cambio.indice === indiceGlobal);
-    const datosEscena = cambioPendiente?.form || escenaGuardada;
+    if (soloEdicion && (!esEdicion || (!escenaGuardada && !cambioPendiente))) {
+      setError("Este encabezado no tiene una ficha asociada de forma segura. Elige una ficha del proyecto o crea una nueva; no se usará la posición ni el encabezado para adivinar.");
+      return;
+    }
+    if (identidadBloque?.id_escena && !escenaGuardada) {
+      setError("La ficha vinculada ya no existe en este guion. El texto se conserva; elige una ficha válida o crea una ficha independiente.");
+      return;
+    }
+    const datosEscena = escenaCatalogo
+      ? (esMismaFicha ? escenaGuardada : escenaCatalogo)
+      : cambioPendiente?.form || escenaGuardada;
     const siguienteNumero = escenasExistentes.reduce(
       (maximo, escena) => Math.max(maximo, Number(escena.numero_de_escena) || 0),
       0,
@@ -881,26 +1249,42 @@ export default function GuionScreen() {
         ? indiceGlobal + 1
         : Math.max(siguienteNumero, indiceGlobal + 1, numeroBorrador)
     );
+    const numeroDestino = escenaCatalogo && !esMismaFicha
+      ? String(Math.max(siguienteNumero, indiceGlobal + 1, numeroBorrador))
+      : String(numero);
     const datosEncabezado = analizarEncabezadoEscena(encabezadoActual);
     const valores = {
       ...camposEscenaVacios(numero),
       ...datosEscena,
+      numero_de_escena: numeroDestino,
       encabezado: encabezadoActual || datosEscena?.encabezado || "",
       modo_vista: datosEscena?.modo_vista || datosEncabezado?.modo_vista || "",
       momento_dia: datosEscena?.momento_dia || datosEncabezado?.momento_dia || "",
       ciudad: datosEscena?.ciudad || "",
+      descripcion: datosEscena?.descripcion || "",
       pagina: datosEscena?.pagina ?? "",
       fecha_de_grabacion: datosEscena?.fecha_de_grabacion || "",
       dia_dramatico: datosEscena?.dia_dramatico ?? "",
       estado: datosEscena?.estado || "Pendiente",
     };
-    valores.encabezado = encabezadoDesdeCamposEscena(valores);
+    if (!escenaCatalogo) valores.encabezado = encabezadoDesdeCamposEscena(valores);
     setEscenaInicial(JSON.stringify(valores));
     setContextoEscena({
       esEdicion,
       indiceLocal,
       indiceGlobal,
-      id_escena: escenaGuardada?.id_escena || cambioPendiente?.id_escena || null,
+      id_escena: escenaCatalogo
+        ? (esMismaFicha ? escenaCatalogo.id_escena : null)
+        : escenaGuardada?.id_escena || identidadBloque?.id_escena || null,
+      client_key: escenaCatalogo && !esMismaFicha
+        ? nuevaClaveEscena()
+        : identidadBloque?.client_key || cambioPendiente?.client_key || (!escenaCatalogo && !escenaGuardada ? nuevaClaveEscena() : null),
+      reutilizar: Boolean(escenaCatalogo && esMismaFicha),
+      forzarCreacion: Boolean(escenaCatalogo && !esMismaFicha),
+      nombreGuionOrigen: escenaCatalogo?.nombre_guion || "",
+      id_escena_origen: escenaCatalogo?.id_escena || null,
+      htmlEscenaOrigen,
+      indiceFragmentoOrigen,
       encabezadoAnterior: encabezadoActual,
       insertarAlInicio: escenasActivo && !esEdicion && escenasEditor.length === 0,
     });
@@ -908,6 +1292,101 @@ export default function GuionScreen() {
     setFormEscena(valores);
     setErrorFormEscena("");
     setDialogoEscena(true);
+  };
+
+  const usarEscenaCatalogo = async () => {
+    const seleccionada = escenaCatalogoSeleccionada;
+    if (!seleccionada) return;
+    const idGuionDestino = vista === "crear-version" || (vista === "lector" && editandoContenido)
+      ? guionActivo?.id_guion
+      : null;
+    const esMismaFicha = Boolean(
+      idGuionDestino && String(seleccionada.id_guion) === String(idGuionDestino),
+    );
+    if (esMismaFicha) {
+      const bloques = Array.from(editorRef.current?.children || []);
+      const yaEnTexto = bloques.find(
+        (bloque) => String(bloque.dataset?.escenaId || "") === String(seleccionada.id_escena),
+      );
+      if (yaEnTexto) {
+        setErrorEscenasCatalogo("Esta ficha ya está vinculada en la versión. No se puede insertar dos veces la misma identidad.");
+        return;
+      }
+      const rangoGuardado = ultimaSeleccionRef.current;
+      const bloqueEnCursor = rangoGuardado?.startContainer
+        ? bloqueDeNodo(rangoGuardado.startContainer)
+        : null;
+      if (tipoDeElemento(bloqueEnCursor) === "escena" && !bloqueEnCursor.dataset.escenaId) {
+        const claveTemporal = bloqueEnCursor.dataset.escenaKey;
+        bloqueEnCursor.removeAttribute("data-escena-key");
+        bloqueEnCursor.dataset.escenaId = seleccionada.id_escena;
+        if (claveTemporal) {
+          setCambiosEscenaPendientes((actuales) => actuales.filter(
+            (cambio) => String(cambio.client_key || "") !== String(claveTemporal),
+          ));
+        }
+        sincronizarDesdeEditor();
+        setSelectorEscenasAbierto(false);
+        setErrorEscenasCatalogo("");
+        await abrirFormularioEscena(false, null, true);
+        return;
+      }
+    }
+    try {
+      const htmlOrigen = await cargarHtmlEscenaOrigen(seleccionada);
+      const fragmentos = extraerFragmentosEscena(htmlOrigen);
+      const coincidenciasVinculadas = fragmentos.filter(
+        (fragmento) => String(fragmento.id_escena || "") === String(seleccionada.id_escena),
+      );
+      if (coincidenciasVinculadas.length === 1 && !coincidenciasVinculadas[0].tieneTexto) {
+        setErrorEscenasCatalogo("La versión actual de origen tiene el encabezado vinculado, pero no contiene texto para copiar. No se inventó ni insertó contenido. Usa «Nueva escena» para redactar una escena nueva.");
+        return;
+      }
+      if (coincidenciasVinculadas.length !== 1) {
+        if (!fragmentos.some((fragmento) => fragmento.tieneTexto)) {
+          setErrorEscenasCatalogo("La versión de origen no contiene fragmentos de escena con texto. No se copió ni inventó contenido; vuelve al editor y usa «Nueva escena» para redactarlo.");
+          return;
+        }
+        setFragmentosOrigen(fragmentos);
+        setFragmentoOrigenSeleccionado(null);
+        setEscenaPendienteAsociacion(seleccionada);
+        setHtmlOrigenPendiente(htmlOrigen);
+        setSelectorEscenasAbierto(false);
+        setErrorEscenasCatalogo("");
+        setDialogoAsociacionOrigen(true);
+        return;
+      }
+      setSelectorEscenasAbierto(false);
+      setErrorEscenasCatalogo("");
+      await abrirFormularioEscena(false, seleccionada, false, htmlOrigen);
+    } catch (err) {
+      setErrorEscenasCatalogo(err.message || "No se pudo copiar el texto de la escena.");
+    }
+  };
+
+  const cancelarAsociacionOrigen = () => {
+    setDialogoAsociacionOrigen(false);
+    setFragmentosOrigen([]);
+    setFragmentoOrigenSeleccionado(null);
+    setEscenaPendienteAsociacion(null);
+    setHtmlOrigenPendiente("");
+  };
+
+  const confirmarAsociacionOrigen = async () => {
+    if (!escenaPendienteAsociacion || !Number.isInteger(fragmentoOrigenSeleccionado)) return;
+    const fragmento = fragmentosOrigen.find(
+      (item) => item.indice === fragmentoOrigenSeleccionado,
+    );
+    if (!fragmento?.tieneTexto) return;
+    const escena = escenaPendienteAsociacion;
+    const html = htmlOrigenPendiente;
+    const indice = fragmento.indice;
+    cancelarAsociacionOrigen();
+    try {
+      await abrirFormularioEscena(false, escena, false, html, indice);
+    } catch (err) {
+      setError(err.message || "No se pudo preparar la copia de la escena.");
+    }
   };
 
   const cerrarFormularioEscena = () => {
@@ -981,25 +1460,50 @@ export default function GuionScreen() {
       }
       bloque.textContent = encabezado.toLocaleUpperCase();
     } else {
+      let htmlEscena;
+      if (contextoEscena.htmlEscenaOrigen) {
+        try {
+          htmlEscena = crearHtmlCopiaEscena({
+            html: contextoEscena.htmlEscenaOrigen,
+            idEscena: contextoEscena.id_escena || contextoEscena.id_escena_origen,
+            clientKey: contextoEscena.client_key || nuevaClaveEscena(),
+            indiceFragmento: contextoEscena.indiceFragmentoOrigen,
+            confirmado: true,
+          });
+        } catch (error) {
+          setErrorFormEscena(error.message || "No se pudo copiar el texto completo de la escena.");
+          return;
+        }
+        const plantilla = document.createElement("div");
+        plantilla.innerHTML = htmlEscena;
+        const encabezadoClonado = plantilla.firstElementChild;
+        encabezadoClonado.textContent = encabezado.toLocaleUpperCase();
+        if (contextoEscena.id_escena) {
+          encabezadoClonado.removeAttribute("data-escena-key");
+          encabezadoClonado.dataset.escenaId = contextoEscena.id_escena;
+        } else {
+          encabezadoClonado.removeAttribute("data-escena-id");
+          encabezadoClonado.dataset.escenaKey = contextoEscena.client_key;
+        }
+        htmlEscena = plantilla.innerHTML;
+      } else {
+        const identidad = contextoEscena.id_escena
+          ? { id_escena: contextoEscena.id_escena }
+          : { client_key: contextoEscena.client_key };
+        htmlEscena = crearBloqueEscenaHtml(encabezado, identidad) + crearBloqueHtml("accion");
+      }
       let encabezadoInsertado;
       if (contextoEscena.insertarAlInicio) {
         const plantilla = document.createElement("div");
-        plantilla.innerHTML = crearBloqueHtml("escena", encabezado);
-        encabezadoInsertado = plantilla.firstElementChild;
-        editor.insertBefore(encabezadoInsertado, editor.firstChild);
-        if (editor.children.length === 1) {
-          editor.appendChild(document.createElement("p"));
-          editor.lastElementChild.className = claseBloque("accion");
-          editor.lastElementChild.appendChild(document.createElement("br"));
-        }
-        const siguienteBloque = encabezadoInsertado.nextElementSibling || encabezadoInsertado;
-        colocarCursor(siguienteBloque);
+        plantilla.innerHTML = htmlEscena;
+        const nuevos = Array.from(plantilla.children);
+        const ancla = editor.firstChild;
+        nuevos.forEach((bloque) => editor.insertBefore(bloque, ancla));
+        encabezadoInsertado = nuevos.find((bloque) => tipoDeElemento(bloque) === "escena");
+        colocarCursor(nuevos[nuevos.length - 1], true);
+        sincronizarDesdeEditor();
       } else {
-        const encabezadoHtml = crearBloqueHtml("escena", encabezado) + crearBloqueHtml("accion");
-        insertarBloquesEnEditor(encabezadoHtml);
-        const seleccionado = window.getSelection();
-        const bloqueAccion = bloqueDeNodo(seleccionado?.anchorNode);
-        encabezadoInsertado = bloqueAccion?.previousElementSibling;
+        encabezadoInsertado = insertarEscenaEnCursor(htmlEscena);
       }
       if (!encabezadoInsertado || tipoDeElemento(encabezadoInsertado) !== "escena") {
         setErrorFormEscena("No se pudo insertar el encabezado en el guion.");
@@ -1025,6 +1529,9 @@ export default function GuionScreen() {
         {
           indice: indiceGlobal,
           id_escena: contextoEscena.id_escena,
+          client_key: contextoEscena.client_key,
+          reutilizar: contextoEscena.reutilizar,
+          forzarCreacion: contextoEscena.forzarCreacion,
           form: { ...formEscena, encabezado: encabezado.toLocaleUpperCase() },
         },
       ];
@@ -1033,60 +1540,108 @@ export default function GuionScreen() {
     cerrarFormularioEscena();
   };
 
+  const quitarEscenaDeVersion = () => {
+    const editor = editorRef.current;
+    const rango = ultimaSeleccionRef.current;
+    if (!editor || !rango?.startContainer || !editor.contains(rango.startContainer)) {
+      setError("Ubica el cursor dentro de la escena que quieres quitar de esta versión.");
+      return;
+    }
+    const bloque = encontrarEscenaEnRango(editor, rango);
+    if (tipoDeElemento(bloque) !== "escena") {
+      setError("No se encontró un encabezado de escena en la posición del cursor. Si usas pestañas sin encabezado, crea la escena con «Nueva escena». No se quitó texto ni ficha.");
+      return;
+    }
+    const identidad = bloque.dataset.escenaId
+      ? { id_escena: bloque.dataset.escenaId }
+      : bloque.dataset.escenaKey
+        ? { client_key: bloque.dataset.escenaKey }
+        : null;
+    if (!identidad) {
+      setError("Esta escena no tiene una asociación segura. No se quitó texto ni ficha.");
+      return;
+    }
+    if (!window.confirm(
+      "Quitar escena de esta versión: se retirarán su encabezado y texto del borrador. La ficha y sus datos del proyecto se conservarán. La versión histórica seguirá intacta.",
+    )) return;
+    try {
+      const siguiente = quitarEscenaLocal(editor.innerHTML, identidad);
+      const indiceLocal = Array.from(editor.children)
+        .filter((elemento) => tipoDeElemento(elemento) === "escena").indexOf(bloque);
+      const escenasPrevias = escenasActivo
+        ? escenasBorrador.slice(0, escenaActivaIndex).reduce((total, escena) => total + extraerEscenas(escena.texto).length, 0)
+        : 0;
+      colaCatalogo.capturar(editor.innerHTML);
+      editor.innerHTML = siguiente;
+      setCambiosEscenaPendientes((actuales) => retirarCambioEscena(actuales, identidad, escenasPrevias + indiceLocal));
+      sincronizarDesdeEditor();
+      if (escenasActivo) {
+        setEscenasBorrador((actuales) => actuales.map((escena, indice) => (
+          indice === escenaActivaIndex
+            ? desvincularPestanaSinEncabezados(escena, siguiente)
+            : escena
+        )));
+      }
+      setError("");
+      setSuccess("Escena quitada solo del borrador; la ficha y los datos del proyecto se conservarán al guardar.");
+    } catch (error) {
+      setError(error.message || "No se pudo quitar la escena de esta versión.");
+    }
+  };
+
   const sincronizarEscenasPersistidas = async (idGuion, html, cambios = cambiosEscenaPendientes) => {
     const escenasDocumento = extraerEscenas(limpiarHtmlGuion(html));
-    if (!escenasDocumento.length) return { cantidad: 0, advertencias: [] };
     const persistidas = await cargarEscenasPersistidas(idGuion);
-    const plan = planificarSincronizacionEscenas(escenasDocumento, persistidas, cambios);
+    const plan = planificarAccionesVersionEscenas(escenasDocumento, persistidas, cambios);
     if (plan.errores.length) throw new Error(plan.errores.join(" "));
-
-    for (const accion of plan.acciones) {
-      const esEdicion = accion.tipo === "actualizar";
-      const url = esEdicion
-        ? `${API_URL}/escenas/${accion.id_escena}`
-        : `${API_URL}/escenas`;
-      const payload = esEdicion
-        ? accion.payload
-        : { ...accion.payload, id_guion: Number(idGuion) };
-      const response = await fetchWithProject(url, {
-        method: esEdicion ? "PATCH" : "POST",
+    if (plan.acciones.some((accion) => accion.tipo === "crear")) {
+      throw new Error("Este reintento antiguo no puede crear fichas sin guardar texto y escena en una sola operación. Vuelve al borrador y guarda la versión.");
+    }
+    if (plan.acciones.length) {
+      const response = await fetchWithProject(`${API_URL}/guiones/${idGuion}/escenas/sincronizar`, {
+        method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ acciones: plan.acciones }),
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
-        throw new Error(extraerMensajeError(
-          data,
-          `No se pudo ${esEdicion ? "actualizar" : "crear"} la escena ${payload.numero_de_escena}.`,
-        ));
+        throw new Error(extraerMensajeError(data, "No se pudieron sincronizar las escenas."));
       }
     }
-
-    const advertencias = [];
-    if (plan.noRelacionadas.length) {
-      advertencias.push(
-        `Se conservaron ${plan.noRelacionadas.length} escena(s) persistida(s) que no aparecen en esta versión; no se borró ningún dato.`,
-      );
-    }
-    return { cantidad: plan.acciones.length, advertencias };
+    return { cantidad: plan.acciones.length, advertencias: [] };
   };
 
-  const encolarSincronizacionEscenas = (tarea) => {
-    setSincronizacionesPendientes((pendientes) => [
-      ...pendientes.filter((pendiente) => String(pendiente.idGuion) !== String(tarea.idGuion)),
-      tarea,
-    ]);
+  const prepararContenidoYAccionesEscena = async (html, idGuion, nuevaCreacion = false) => {
+    let contenido = limpiarHtmlGuion(html);
+    if (nuevaCreacion) contenido = marcarEscenasNuevas(contenido);
+    const escenasDocumento = extraerEscenas(contenido);
+    const persistidas = idGuion ? await cargarEscenasPersistidas(idGuion) : [];
+    const plan = planificarAccionesVersionEscenas(
+      escenasDocumento,
+      persistidas,
+      cambiosEscenaPendientes,
+    );
+    if (plan.errores.length) throw new Error(plan.errores.join(" "));
+    return { contenido, acciones_escena: plan.acciones };
   };
 
   const limpiarSincronizacionEscenaPendiente = (idGuion) => {
-    setSincronizacionesPendientes((pendientes) =>
-      pendientes.filter((pendiente) => String(pendiente.idGuion) !== String(idGuion)),
+    const pendientes = sincronizacionesPendientes.filter((pendiente) =>
+        String(pendiente.idProject || projectId) !== String(projectId)
+        || String(pendiente.idGuion) !== String(idGuion),
     );
+    setSincronizacionesPendientes(pendientes);
+    if (!persistirSincronizacionesEscenas(projectId, pendientes)) {
+      setError("La sincronización terminó, pero no se pudo actualizar su estado guardado localmente.");
+    }
   };
 
   const reintentarSincronizacionEscenas = async () => {
     if (!sincronizacionesPendientes.length || sincronizandoEscenas) return;
-    const sincronizacionPendiente = sincronizacionesPendientes[0];
+    const sincronizacionPendiente = sincronizacionesPendientes.find(
+      (tarea) => String(tarea.idProject || projectId) === String(projectId),
+    );
+    if (!sincronizacionPendiente) return;
     setSincronizandoEscenas(true);
     setError("");
     try {
@@ -1106,10 +1661,19 @@ export default function GuionScreen() {
   };
 
   const manejarTeclaEditor = (event) => {
+    const seleccion = window.getSelection();
+    if (["Backspace", "Delete"].includes(event.key)
+      || (event.key.length === 1 && !event.ctrlKey && !event.metaKey && seleccion && !seleccion.isCollapsed)
+      || ((event.ctrlKey || event.metaKey) && ["z", "y", "x"].includes(event.key.toLowerCase()))) {
+      capturarAntesDeEditar();
+    } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && editorRef.current) {
+      colaCatalogo.antesDeEditar(editorRef.current.innerHTML);
+    }
     if (event.key !== "Enter" && event.key !== "Tab") return;
     if (event.key === "Enter" && event.shiftKey) return;
     if (event.key === "Tab" && (event.ctrlKey || event.metaKey || event.altKey)) return;
     event.preventDefault();
+    capturarAntesDeEditar();
     const bloque = asegurarBloqueActual();
     if (!bloque) return;
     const tipo = tipoDeElemento(bloque) || "accion";
@@ -1130,6 +1694,7 @@ export default function GuionScreen() {
     // Enter sobre un bloque vacío de diálogo/paréntesis vuelve a Acción
     const vacio = !(bloque.textContent || "").trim() && !(fragmento.textContent || "").trim();
     nuevo.className = claseBloque(vacio && ["dialogo", "parentesis", "personaje"].includes(tipo) ? "accion" : SIGUIENTE_ENTER[tipo]);
+    if (tipoDeElemento(nuevo) === "escena") nuevo.dataset.escenaKey = nuevaClaveEscena();
     nuevo.appendChild(fragmento);
     if (!(nuevo.textContent || "").trim() && !nuevo.querySelector("br")) nuevo.appendChild(document.createElement("br"));
     if (!(bloque.textContent || "").trim() && !bloque.querySelector("br")) bloque.appendChild(document.createElement("br"));
@@ -1142,6 +1707,7 @@ export default function GuionScreen() {
   // Pegar siempre como texto plano (evita HTML sucio de Word / web)
   const manejarPegadoEditor = (event) => {
     event.preventDefault();
+    capturarAntesDeEditar();
     const texto = event.clipboardData.getData("text/plain");
     document.execCommand("insertText", false, texto);
     sincronizarDesdeEditor();
@@ -1170,6 +1736,7 @@ export default function GuionScreen() {
   // no se insertan simbolos como "**" en el texto.
   const ejecutarComandoEditor = (comando, valor = null) => {
     if (!editorRef.current) return;
+    capturarAntesDeEditar();
     restaurarFocoEnEditor();
     document.execCommand(comando, false, valor);
     sincronizarDesdeEditor();
@@ -1201,10 +1768,19 @@ export default function GuionScreen() {
           {...base}
           className="guion-editor-scene-button"
           onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }}
-          onClick={() => abrirFormularioEscena()}
-          title="Crear una escena o editar el encabezado seleccionado"
+          onClick={abrirSelectorEscenas}
+          title="Buscar y seleccionar una ficha de escena del proyecto"
         >
           <Clapperboard size={15} /> Escena
+        </button>
+        <button
+          {...base}
+          className="guion-editor-scene-button"
+          onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }}
+          onClick={() => abrirFormularioEscena(false, null, true)}
+          title="Editar la ficha asociada al encabezado de escena actual"
+        >
+          <PenLine size={14} /> Editar ficha
         </button>
         <button
           {...base}
@@ -1215,8 +1791,18 @@ export default function GuionScreen() {
         >
           <Plus size={14} /> Nueva escena
         </button>
+        <button
+          {...base}
+          className="guion-editor-scene-button"
+          onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }}
+          onClick={quitarEscenaDeVersion}
+          title="Quitar el texto de esta escena solo de la versión en edición"
+        >
+          <Trash2 size={14} /> Quitar de versión
+        </button>
         <button {...base} className="guion-editor-scene-button" onClick={() => insertarBloquesEnEditor(crearBloqueHtml("personaje", "PERSONAJE") + crearBloqueHtml("dialogo"))} title="Insertar personaje con diálogo"><MessageSquare size={15} /> Diálogo</button>
-        <button {...base} className="guion-editor-scene-button" onClick={() => insertarBloquesEnEditor(crearBloqueHtml("transicion", "CORTE A:") + crearBloqueHtml("escena", "INT. LOCACIÓN - DÍA"))} title="Insertar transición"><ArrowRightToLine size={15} /> Transición</button>
+        <button {...base} className="guion-editor-scene-button" onClick={() => insertarBloquesEnEditor(crearBloqueHtml("transicion", "CORTE A:") + crearBloqueEscenaHtml("INT. LOCACIÓN - DÍA", { client_key: nuevaClaveEscena() }))} title="Insertar transición"><ArrowRightToLine size={15} /> Transición</button>
+        <button {...base} className="guion-editor-catalog-button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => { colaCatalogo.vaciar(); setBloquesCatalogo([]); setBloqueSeleccionado(null); setSelectorBloques(true); }} title="Buscar bloques reutilizables del proyecto"><FolderOpen size={15} /> Catálogo de bloques</button>
       </>
     );
   };
@@ -1282,6 +1868,12 @@ export default function GuionScreen() {
     setGalleryPickerType(tipo);
     setGallerySearch("");
     setGalleryError("");
+    setPersonajes([]);
+    setEscenarios([]);
+    setGalleryItems([]);
+    fetchPersonajes();
+    fetchEscenarios();
+    fetchGalleryItems();
   };
 
   const confirmarInsercionLugar = () => {
@@ -1583,20 +2175,16 @@ export default function GuionScreen() {
       setError("Escribe contenido en al menos una escena antes de crear el guion");
       return;
     }
-    if (escenasActivo && escenasBorrador.some((escena) => extraerEscenas(escena.texto).length === 0)) {
-      setError("Cada escena del modo por escenas necesita un encabezado. Usa el botón «Escena» para completarlo antes de guardar.");
-      return;
-    }
-
     // El texto completo que se guarda como version del guion. En modo
     // escenas se unen los bloques de cada escena (cada una trae su propio
     // encabezado INT./EXT. como bloque "escena", sin rótulos "ESCENA N").
-    const contenidoParaVersion = limpiarHtmlGuion(
-      escenasActivo ? escenasBorrador.map((esc) => esc.texto).join("") : contenidoInicial,
-    );
-
     setGuardandoEdicion(true);
     try {
+      const { contenido, acciones_escena } = await prepararContenidoYAccionesEscena(
+        escenasActivo ? htmlDesdePestanas(escenasBorrador) : contenidoInicial,
+        null,
+        true,
+      );
       const token = getToken();
       const response = await fetchWithProject(`${API_URL}/guiones/texto`, {
         method: "POST",
@@ -1605,7 +2193,8 @@ export default function GuionScreen() {
           nombre: ceroForm.nombre,
           descripcion: ceroForm.descripcion,
           id_project: projectId,
-          contenido: contenidoParaVersion,
+          contenido,
+          acciones_escena,
           fecha_de_emision: new Date().toISOString().slice(0, 10),
           estado: "Borrador",
         }),
@@ -1613,39 +2202,6 @@ export default function GuionScreen() {
       const data = await response.json();
       if (!response.ok || !data.success) {
         throw new Error(extraerMensajeError(data, "No se pudo crear el guion"));
-      }
-
-      // Cada escena (bloque "escena" del guion) se guarda también como fila
-      // real en la tabla escenas, ligada al guion recién creado, para usarla
-      // en Desglose, Rodaje y Continuidad. Las filas guardan texto plano porque
-      // otras pantallas muestran esta descripción tal cual.
-      let idGuionNuevo = data.data?.id_guion;
-      {
-        let escenasParaCrear = extraerEscenas(contenidoParaVersion);
-        if (escenasParaCrear.length === 0 && escenasActivo) {
-          // Modo escenas sin encabezados INT./EXT.: una escena por pestaña
-          escenasParaCrear = escenasBorrador.map((esc) => {
-            const textoPlano = htmlATextoPlano(esc.texto);
-            const primeraLinea = textoPlano.split("\n").map((l) => l.trim()).find((l) => l.length > 0);
-            return { numero: esc.numero, encabezado: primeraLinea || `ESCENA ${esc.numero}`, descripcion: textoPlano };
-          });
-        }
-        for (const esc of escenasParaCrear) {
-          try {
-            await fetchWithProject(`${API_URL}/escenas`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-              body: JSON.stringify({
-                id_guion: idGuionNuevo,
-                numero_de_escena: String(esc.numero),
-                encabezado: (esc.encabezado || `ESCENA ${esc.numero}`).slice(0, 250),
-                descripcion: esc.descripcion,
-              }),
-            });
-          } catch {
-            // si una escena puntual falla, seguimos con las demas: el guion ya quedo creado
-          }
-        }
       }
 
       setSuccess("Guion creado correctamente");
@@ -1657,26 +2213,6 @@ export default function GuionScreen() {
       setCambiosEscenaPendientes([]);
       setVista("lista");
       await fetchGuiones();
-      if (idGuionNuevo) {
-        try {
-          const resultado = await sincronizarEscenasPersistidas(
-            idGuionNuevo,
-            contenidoParaVersion,
-            cambiosEscenaPendientes,
-          );
-          limpiarSincronizacionEscenaPendiente(idGuionNuevo);
-          setSuccess(`Guion creado correctamente.${resultado.advertencias.length ? ` ${resultado.advertencias.join(" ")}` : ""}`);
-        } catch (syncError) {
-          encolarSincronizacionEscenas({
-            idGuion: idGuionNuevo,
-            html: contenidoParaVersion,
-            cambios: cambiosEscenaPendientes,
-          });
-          setError(`El guion se creó, pero no se completó la sincronización de escenas: ${syncError.message}`);
-        }
-      } else {
-        setError("El guion se creó, pero la respuesta no incluyó el identificador necesario para sincronizar sus escenas.");
-      }
     } catch (err) {
       setError(err.message || "No se pudo crear el guion");
     } finally {
@@ -1697,14 +2233,19 @@ export default function GuionScreen() {
         return;
       }
       try {
+        const { contenido, acciones_escena } = await prepararContenidoYAccionesEscena(
+          contenidoVersionTexto,
+          guionActivo.id_guion,
+        );
         const response = await fetchWithProject(`${API_URL}/guiones/${guionActivo.id_guion}/versiones/texto`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({
-            contenido: contenidoVersionTexto,
+            contenido,
             fecha_de_emision: versionForm.fecha_de_emision,
             estado: versionForm.estado,
             comentario_cambio: versionForm.comentario_cambio || "",
+            acciones_escena,
           }),
         });
         const data = await response.json();
@@ -1763,14 +2304,8 @@ export default function GuionScreen() {
     event.preventDefault();
     if (!guionActivo) return;
 
-    if (escenasActivo && escenasBorrador.some((escena) => extraerEscenas(escena.texto).length === 0)) {
-      setError("Cada escena del modo por escenas necesita un encabezado. Usa el botón «Escena» para completarlo antes de guardar.");
-      return;
-    }
-    const contenido = escenasActivo
-      ? escenasBorrador.map((esc) => esc.texto).join("")
-      : contenidoInicial;
-    if (!htmlATextoPlano(contenido).trim()) {
+    const borrador = escenasActivo ? htmlDesdePestanas(escenasBorrador) : contenidoInicial;
+    if (!htmlATextoPlano(borrador).trim()) {
       setError("Escribe el contenido de esta versión antes de guardarla");
       return;
     }
@@ -1779,6 +2314,10 @@ export default function GuionScreen() {
     setSuccess("");
     setGuardandoEdicion(true);
     try {
+      const { contenido, acciones_escena } = await prepararContenidoYAccionesEscena(
+        borrador,
+        guionActivo.id_guion,
+      );
       const response = await fetchWithProject(`${API_URL}/guiones/${guionActivo.id_guion}/versiones/texto`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
@@ -1787,6 +2326,7 @@ export default function GuionScreen() {
           fecha_de_emision: versionForm.fecha_de_emision,
           estado: versionForm.estado,
           comentario_cambio: versionForm.comentario_cambio || "",
+          acciones_escena,
         }),
       });
       const data = await response.json();
@@ -1794,7 +2334,6 @@ export default function GuionScreen() {
         throw new Error(extraerMensajeError(data, "No se pudo guardar la versión"));
       }
 
-      const contenidoGuardado = limpiarHtmlGuion(contenido);
       setGuionActivo((actual) => ({ ...actual, id_guion_version_actual: data.data.id_guion_version }));
       setVersionLectorId(data.data.id_guion_version);
       setContenidoInicial("");
@@ -1805,26 +2344,8 @@ export default function GuionScreen() {
       setVista("detalle");
       setTabDetalle("versiones");
       setSuccess("Nueva versión escrita y guardada correctamente");
+      setCambiosEscenaPendientes([]);
       await Promise.all([fetchVersiones(guionActivo.id_guion), fetchGuiones()]);
-      try {
-        const resultado = await sincronizarEscenasPersistidas(
-          guionActivo.id_guion,
-          contenidoGuardado,
-          cambiosEscenaPendientes,
-        );
-        limpiarSincronizacionEscenaPendiente(guionActivo.id_guion);
-        setCambiosEscenaPendientes([]);
-        if (resultado.advertencias.length) {
-          setSuccess(`Nueva versión guardada. ${resultado.advertencias.join(" ")}`);
-        }
-      } catch (syncError) {
-        encolarSincronizacionEscenas({
-          idGuion: guionActivo.id_guion,
-          html: contenidoGuardado,
-          cambios: cambiosEscenaPendientes,
-        });
-        setError(`La versión se guardó, pero no se completó la sincronización de escenas: ${syncError.message}`);
-      }
     } catch (err) {
       setError(err.message || "No se pudo guardar la versión");
     } finally {
@@ -1856,14 +2377,19 @@ export default function GuionScreen() {
     setGuardandoEdicion(true);
     const token = getToken();
     try {
+      const { contenido, acciones_escena } = await prepararContenidoYAccionesEscena(
+        contenidoEditado,
+        guionActivo.id_guion,
+      );
       const response = await fetchWithProject(`${API_URL}/guiones/${guionActivo.id_guion}/versiones/texto`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          contenido: limpiarHtmlGuion(contenidoEditado),
+          contenido,
           fecha_de_emision: new Date().toISOString().slice(0, 10),
           estado: versionSeleccionadaParaLector.estado || "Borrador",
           comentario_cambio: `Edición de la versión ${versionSeleccionadaParaLector.numero_de_version}`,
+          acciones_escena,
         }),
       });
       const data = await response.json();
@@ -1877,28 +2403,9 @@ export default function GuionScreen() {
       }));
       setVersionLectorId(data.data.id_guion_version);
       setEditandoContenido(false);
+      setCambiosEscenaPendientes([]);
       setSuccess("Edición guardada como una nueva versión");
       await Promise.all([fetchVersiones(guionActivo.id_guion), fetchGuiones()]);
-      const contenidoGuardado = limpiarHtmlGuion(contenidoEditado);
-      try {
-        const resultado = await sincronizarEscenasPersistidas(
-          guionActivo.id_guion,
-          contenidoGuardado,
-          cambiosEscenaPendientes,
-        );
-        limpiarSincronizacionEscenaPendiente(guionActivo.id_guion);
-        setCambiosEscenaPendientes([]);
-        if (resultado.advertencias.length) {
-          setSuccess(`Edición guardada como nueva versión. ${resultado.advertencias.join(" ")}`);
-        }
-      } catch (syncError) {
-        encolarSincronizacionEscenas({
-          idGuion: guionActivo.id_guion,
-          html: contenidoGuardado,
-          cambios: cambiosEscenaPendientes,
-        });
-        setError(`La nueva versión quedó guardada, pero no se completó la sincronización de escenas: ${syncError.message}`);
-      }
     } catch (err) {
       setError(err.message || "No se pudo guardar la edición");
     } finally {
@@ -1980,10 +2487,32 @@ export default function GuionScreen() {
     const busqueda = gallerySearch.trim().toLocaleLowerCase();
     return coincideTipo && (!busqueda || `${item.nombre} ${item.categoria || ""} ${item.descripcion || ""}`.toLocaleLowerCase().includes(busqueda));
   });
+  const escenasCatalogoFiltradas = escenasCatalogo.filter((escena) => {
+    const busqueda = busquedaEscenas.trim().toLocaleLowerCase();
+    const texto = [
+      escena.numero_de_escena,
+      escena.encabezado,
+      escena.descripcion,
+      escena.ciudad,
+      escena.nombre_guion,
+    ].filter(Boolean).join(" ").toLocaleLowerCase();
+    return !busqueda || texto.includes(busqueda);
+  });
+  const bloquesDelProyecto = bloquesCatalogo.filter((bloque) => String(bloque.id_project) === String(projectId));
+  const bloqueVisible = bloqueSeleccionado && String(bloqueSeleccionado.id_project) === String(projectId)
+    ? bloqueSeleccionado : null;
 
   return (
     <div className={`guion-page ${esAdmin ? "module-role-admin" : "module-role-user"}`}>
       <main className={`guion-main guion-main--single ${vista === "lector" || vista === "crear-cero" || vista === "crear-version" ? "guion-main--writing" : ""}`}>
+        {(estadoCatalogoActual.error || estadoCatalogoActual.pendientes > 0) && (
+          <div className={`guion-message ${estadoCatalogoActual.error ? "guion-message--error" : ""}`} role={estadoCatalogoActual.error ? "alert" : "status"}>
+            {estadoCatalogoActual.error
+              ? `Catálogo: ${estadoCatalogoActual.error} Los bloques pendientes no están confirmados; salir puede perderlos.`
+              : "Guardando bloques en el catálogo…"}
+            {estadoCatalogoActual.error && <button className="guion-message__retry" type="button" onClick={() => colaCatalogo.reintentar()}>Reintentar</button>}
+          </div>
+        )}
         {(error || success) && (
           <div className={`guion-message ${error ? "guion-message--error" : "guion-message--success"}`}>
             {error || success}
@@ -1999,6 +2528,21 @@ export default function GuionScreen() {
                   : `Reintentar sincronización (${sincronizacionesPendientes.length})`}
               </button>
             )}
+          </div>
+        )}
+        {!error && !success && sincronizacionesPendientes.some(
+          (tarea) => String(tarea.idProject || projectId) === String(projectId),
+        ) && (
+          <div className="guion-message guion-message--error" role="status">
+            Hay una sincronización de escenas pendiente guardada en este navegador.
+            <button
+              type="button"
+              className="guion-message__retry"
+              onClick={reintentarSincronizacionEscenas}
+              disabled={sincronizandoEscenas}
+            >
+              {sincronizandoEscenas ? "Sincronizando…" : "Reintentar sincronización"}
+            </button>
           </div>
         )}
 
@@ -2196,6 +2740,10 @@ export default function GuionScreen() {
                     aria-label="Editor del guion"
                     aria-multiline="true"
                     onInput={sincronizarDesdeEditor}
+                    onBeforeInput={manejarAntesDeInput}
+                    onCut={capturarAntesDeEditar}
+                    onDrop={capturarAntesDeEditar}
+                    onBlur={manejarBlurEditor}
                     onKeyDown={manejarTeclaEditor}
                     onPaste={manejarPegadoEditor}
                     onMouseUp={guardarSeleccionEditor}
@@ -2638,11 +3186,14 @@ export default function GuionScreen() {
                       aria-multiline="true"
                       data-placeholder="Escribe aquí el guion..."
                       onInput={sincronizarDesdeEditor}
+                      onBeforeInput={manejarAntesDeInput}
+                      onCut={capturarAntesDeEditar}
+                      onDrop={capturarAntesDeEditar}
                       onKeyDown={manejarTeclaEditor}
                       onPaste={manejarPegadoEditor}
                       onKeyUp={guardarSeleccionEditor}
                       onMouseUp={guardarSeleccionEditor}
-                      onBlur={sincronizarDesdeEditor}
+                      onBlur={manejarBlurEditor}
                     />
                   </div>
                   <div>
@@ -3112,6 +3663,265 @@ export default function GuionScreen() {
         </div>
       )}
 
+      {selectorEscenasAbierto && (
+        <div
+          className="guion-modal-overlay guion-gallery-picker-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSelectorEscenasAbierto(false);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setSelectorEscenasAbierto(false);
+          }}
+        >
+          <section
+            className="guion-modal guion-gallery-picker guion-scene-picker"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="guion-scene-picker-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="guion-modal__header">
+              <div>
+                <span className="guion-gallery-picker__eyebrow">CATÁLOGO DEL PROYECTO</span>
+                <h3 id="guion-scene-picker-title">Seleccionar escena</h3>
+              </div>
+              <button
+                className="guion-modal__close"
+                type="button"
+                onClick={() => setSelectorEscenasAbierto(false)}
+                aria-label="Cerrar selector de escenas"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="guion-modal__subtitle">
+              Elige una ficha de cualquier guion del proyecto. Las escenas del guion activo se reutilizan; las demás se copiarán sin compartir su identidad ni vínculos.
+            </p>
+            <label className="guion-gallery-picker__search">
+              <Search size={17} />
+              <input
+                autoFocus
+                value={busquedaEscenas}
+                onChange={(event) => setBusquedaEscenas(event.target.value)}
+                placeholder="Buscar por número, encabezado, contenido o guion"
+                aria-label="Buscar escenas del proyecto"
+              />
+            </label>
+            {errorEscenasCatalogo && (
+              <div className="guion-gallery-picker__error" role="alert">
+                {errorEscenasCatalogo}
+                <button type="button" onClick={abrirSelectorEscenas}>Reintentar</button>
+              </div>
+            )}
+            {cargandoEscenasCatalogo ? (
+              <div className="guion-gallery-picker__empty">
+                <span className="guion-gallery-picker__spinner" /> Cargando escenas del proyecto…
+              </div>
+            ) : errorEscenasCatalogo ? null : escenasCatalogoFiltradas.length ? (
+              <div className="guion-scene-picker__layout">
+                <div className="guion-scene-picker__list" role="listbox" aria-label="Escenas disponibles">
+                  {escenasCatalogoFiltradas.map((escena) => (
+                    <button
+                      key={escena.id_escena}
+                      type="button"
+                      role="option"
+                      aria-selected={escenaCatalogoSeleccionada?.id_escena === escena.id_escena}
+                      className={`guion-scene-picker__item ${escenaCatalogoSeleccionada?.id_escena === escena.id_escena ? "is-selected" : ""}`}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => setEscenaCatalogoSeleccionada(escena)}
+                    >
+                      <strong>{escena.numero_de_escena}. {escena.encabezado}</strong>
+                      <small>Guion: {escena.nombre_guion || `#${escena.id_guion}`}</small>
+                      {escena.descripcion && <span>{escena.descripcion}</span>}
+                    </button>
+                  ))}
+                </div>
+                {escenaCatalogoSeleccionada ? (
+                  <aside className="guion-scene-picker__detail" aria-label="Ficha de escena seleccionada">
+                    <span className="guion-gallery-picker__eyebrow">FICHA DE ESCENA</span>
+                    <h4>{escenaCatalogoSeleccionada.numero_de_escena}. {escenaCatalogoSeleccionada.encabezado}</h4>
+                    <p><strong>Guion de origen:</strong> {escenaCatalogoSeleccionada.nombre_guion || `#${escenaCatalogoSeleccionada.id_guion}`}</p>
+                    {escenaCatalogoSeleccionada.descripcion && <p><strong>Descripción:</strong> {escenaCatalogoSeleccionada.descripcion}</p>}
+                    <dl>
+                      {[
+                        ["Interior / exterior", escenaCatalogoSeleccionada.modo_vista],
+                        ["Momento", escenaCatalogoSeleccionada.momento_dia],
+                        ["Ciudad", escenaCatalogoSeleccionada.ciudad],
+                        ["Página", escenaCatalogoSeleccionada.pagina],
+                        ["Día dramático", escenaCatalogoSeleccionada.dia_dramatico],
+                        ["Estado", escenaCatalogoSeleccionada.estado],
+                      ].filter(([, valor]) => valor !== null && valor !== undefined && valor !== "").map(([etiqueta, valor]) => (
+                        <div key={etiqueta}><dt>{etiqueta}</dt><dd>{valor}</dd></div>
+                      ))}
+                    </dl>
+                    <p className="guion-scene-picker__copy-note">
+                      {String(escenaCatalogoSeleccionada.id_guion) === String(
+                        vista === "crear-version" || (vista === "lector" && editandoContenido)
+                          ? guionActivo?.id_guion
+                          : "",
+                      )
+                        ? "Pertenece a este guion: se conservará su misma ficha."
+                        : "Pertenece a otro guion: se creará una ficha independiente al guardar."}
+                    </p>
+                    {errorEscenasCatalogo && <p className="guion-scene-picker__inline-error" role="alert">{errorEscenasCatalogo}</p>}
+                    <button
+                      className="guion-reader__action guion-reader__action--primary"
+                      type="button"
+                      onClick={usarEscenaCatalogo}
+                    >
+                      <Plus size={16} />
+                      {String(escenaCatalogoSeleccionada.id_guion) === String(
+                        vista === "crear-version" || (vista === "lector" && editandoContenido)
+                          ? guionActivo?.id_guion
+                          : "",
+                      ) ? "Usar esta ficha" : "Copiar al guion"}
+                    </button>
+                  </aside>
+                ) : (
+                  <div className="guion-gallery-picker__empty">Selecciona una escena para consultar su ficha completa.</div>
+                )}
+              </div>
+            ) : (
+              <div className="guion-gallery-picker__empty">
+                {escenasCatalogo.length
+                  ? "No hay escenas que coincidan con la búsqueda."
+                  : "Este proyecto aún no tiene fichas de escena. Usa «Nueva escena» para crear una."}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {dialogoAsociacionOrigen && (
+        <div
+          className="guion-modal-overlay guion-gallery-picker-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) cancelarAsociacionOrigen();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") cancelarAsociacionOrigen();
+          }}
+        >
+          <section
+            className="guion-modal guion-gallery-picker guion-scene-picker"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="guion-source-fragment-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="guion-modal__header">
+              <div>
+                <span className="guion-gallery-picker__eyebrow">VERSIÓN DE ORIGEN</span>
+                <h3 id="guion-source-fragment-title">Elegir el texto de esta escena</h3>
+              </div>
+              <button
+                className="guion-modal__close"
+                type="button"
+                onClick={cancelarAsociacionOrigen}
+                aria-label="Cancelar selección del fragmento"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="guion-modal__subtitle">
+              {cantidadVinculosOrigen > 1
+                ? "La identidad de esta ficha aparece repetida en la versión. Elige cuál fragmento corresponde y revisa la vista previa."
+                : "La versión antigua no conserva un vínculo único entre la ficha y el texto. Elige manualmente el fragmento que corresponde y revisa la vista previa."} No se elegirá por encabezado ni por posición.
+            </p>
+            {escenaPendienteAsociacion && (
+              <p className="guion-scene-picker__copy-note">
+                Ficha elegida: {escenaPendienteAsociacion.numero_de_escena}. {escenaPendienteAsociacion.encabezado}
+              </p>
+            )}
+            <div className="guion-scene-picker__layout guion-source-fragment__layout">
+              <div className="guion-scene-picker__list" role="listbox" aria-label="Fragmentos encontrados en la versión">
+                {fragmentosOrigen.map((fragmento) => (
+                  <button
+                    key={fragmento.indice}
+                    type="button"
+                    role="option"
+                    aria-selected={fragmentoOrigenSeleccionado === fragmento.indice}
+                    aria-disabled={!fragmento.tieneTexto}
+                    disabled={!fragmento.tieneTexto}
+                    className={`guion-scene-picker__item ${fragmentoOrigenSeleccionado === fragmento.indice ? "is-selected" : ""}`}
+                    onClick={() => setFragmentoOrigenSeleccionado(fragmento.indice)}
+                  >
+                    <strong>Fragmento {fragmento.indice + 1}: {fragmento.encabezado || "Encabezado sin texto"}</strong>
+                    <span>{fragmento.tieneTexto ? fragmento.texto.slice(0, 180) : "Sin texto de escena; no se puede copiar."}</span>
+                    {String(fragmento.id_escena || "") === String(escenaPendienteAsociacion?.id_escena || "")
+                      && <small>La versión conserva el vínculo técnico de esta ficha en este fragmento.</small>}
+                  </button>
+                ))}
+              </div>
+              {fragmentoOrigenSeleccionado !== null ? (
+                <aside className="guion-scene-picker__detail" aria-label="Vista previa del fragmento elegido">
+                  <span className="guion-gallery-picker__eyebrow">VISTA PREVIA · FRAGMENTO {fragmentoOrigenSeleccionado + 1}</span>
+                  <h4>{fragmentosOrigen[fragmentoOrigenSeleccionado]?.encabezado}</h4>
+                  <div
+                    className="guion-pagina guion-source-fragment__preview"
+                    dangerouslySetInnerHTML={{ __html: fragmentosOrigen[fragmentoOrigenSeleccionado]?.html || "" }}
+                  />
+                </aside>
+              ) : (
+                <div className="guion-gallery-picker__empty">Elige un fragmento con texto para revisar su formato antes de copiar.</div>
+              )}
+            </div>
+            <div className="guion-source-fragment__actions">
+              <button type="button" className="guion-reader__action" onClick={cancelarAsociacionOrigen}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="guion-reader__action guion-reader__action--primary"
+                onClick={confirmarAsociacionOrigen}
+                disabled={!Number.isInteger(fragmentoOrigenSeleccionado)}
+              >
+                <Check size={16} /> Usar este fragmento
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {selectorBloques && (
+        <div className="guion-modal-overlay" onMouseDown={() => setSelectorBloques(false)} onKeyDown={(event) => { if (event.key === "Escape") setSelectorBloques(false); }}>
+          <section className="guion-modal guion-gallery-picker guion-scene-picker" role="dialog" aria-modal="true" aria-labelledby="catalogo-bloques-titulo" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="guion-modal__header">
+              <div><span className="guion-gallery-picker__eyebrow">CATÁLOGO DEL PROYECTO</span><h3 id="catalogo-bloques-titulo">Bloques reutilizables</h3></div>
+              <button className="guion-modal__close" type="button" onClick={() => setSelectorBloques(false)} aria-label="Cerrar catálogo de bloques"><X size={18} /></button>
+            </div>
+            <p className="guion-modal__subtitle">Busca y selecciona un bloque para ver su formato e insertarlo en el guion.</p>
+            {estadoCatalogoActual.error && <div className="guion-gallery-picker__error" role="alert">Hay bloques sin confirmar: {estadoCatalogoActual.error} <button type="button" onClick={() => colaCatalogo.reintentar()}>Reintentar guardado</button></div>}
+            <label>Tipo
+              <select value={tipoCatalogo} onChange={(event) => { setTipoCatalogo(event.target.value); setBloquesCatalogo([]); setBloqueSeleccionado(null); }}>
+                <option value="">Todos</option>
+                {TIPOS_BLOQUE.filter((tipo) => TIPOS_CATALOGO.includes(tipo.id)).map((tipo) => <option key={tipo.id} value={tipo.id}>{tipo.etiqueta}</option>)}
+              </select>
+            </label>
+            <label className="guion-gallery-picker__search"><Search size={17} /><input autoFocus aria-label="Buscar bloques" value={busquedaBloques} onChange={(event) => { setBusquedaBloques(event.target.value); setBloquesCatalogo([]); setBloqueSeleccionado(null); }} placeholder="Buscar contenido" /></label>
+            {errorBloques && <div className="guion-gallery-picker__error" role="alert">{errorBloques} <button type="button" onClick={() => setRecargaBloques((n) => n + 1)}>Reintentar</button></div>}
+            {cargandoBloques ? <p role="status">Cargando bloques…</p> : !errorBloques && (
+              <div className="guion-scene-picker__layout">
+                <div className="guion-scene-picker__list" role="listbox" aria-label="Bloques disponibles">
+                  {bloquesDelProyecto.map((bloque) => <button key={bloque.id_catalogo_bloque} type="button" role="option" aria-selected={bloqueVisible?.id_catalogo_bloque === bloque.id_catalogo_bloque} className="guion-scene-picker__item" onClick={() => setBloqueSeleccionado(bloque)}><strong>{TIPOS_BLOQUE.find((tipo) => tipo.id === bloque.tipo)?.etiqueta}</strong><span>{bloque.texto}</span></button>)}
+                  {!bloquesDelProyecto.length && <p>No hay bloques disponibles para esta búsqueda.</p>}
+                </div>
+                {bloqueVisible && <aside className="guion-scene-picker__detail" aria-label="Vista del bloque seleccionado">
+                  <strong>{TIPOS_BLOQUE.find((tipo) => tipo.id === bloqueVisible.tipo)?.etiqueta}</strong>
+                  <div className="guion-pagina" dangerouslySetInnerHTML={{ __html: bloqueVisible.html }} />
+                  <button type="button" className="guion-reader__action guion-reader__action--primary" onClick={() => {
+                    const seguro = bloqueCatalogoSeguro(bloqueVisible, projectId);
+                    if (!seguro) { setErrorBloques("El bloque ya no pertenece al proyecto o no es válido."); return; }
+                    setSelectorBloques(false);
+                    insertarBloquesEnEditor(seguro.html);
+                  }}><Plus size={16} /> Insertar bloque</button>
+                </aside>}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
       {dialogoEscena && (
         <div
           className="guion-modal-overlay"
@@ -3146,7 +3956,11 @@ export default function GuionScreen() {
               </button>
             </div>
             <p className="guion-modal__subtitle">
-              Los cambios se aplican primero al borrador del guion. Al guardarlo, se sincronizarán con la ficha de escena; el contenido de acción y diálogo se conserva.
+              {contextoEscena?.forzarCreacion
+                ? `Copia independiente desde «${contextoEscena.nombreGuionOrigen || "otro guion"}». Se propone el número ${formEscena.numero_de_escena}; puedes ajustarlo. No se copian vínculos de rodaje o desglose.`
+                : contextoEscena?.reutilizar
+                  ? "La ficha seleccionada ya pertenece a este guion y conservará su identidad."
+                  : "Los cambios se aplican primero al borrador del guion. Al guardarlo, se sincronizarán con la ficha de escena; el contenido de acción y diálogo se conserva."}
             </p>
             {errorFormEscena && <p className="guion-gallery-picker__error" role="alert">{errorFormEscena}</p>}
             <div className="guion-scene-form__grid">

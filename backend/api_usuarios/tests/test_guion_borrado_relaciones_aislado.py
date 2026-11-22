@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 with patch("dotenv.load_dotenv"), patch("sqlalchemy.create_engine", return_value=MagicMock()):
     from app.config.database import Base
     from app.controllers.guion_controller import delete_guion
+    from app.controllers.escena_controller import delete_escena
     from app.models.project_model import Project
     from app.models.user_model import User
     from app.models.rodaje_model import Rodaje
@@ -98,7 +99,8 @@ class GuionBorradoRelacionesTests(unittest.TestCase):
         ])
         db.flush()
         db.add(GuionVersion(id_guion_version=11, id_guion=1,
-                            numero_de_version=1, fecha_de_emision=date(2026, 1, 1)))
+                            numero_de_version=1, fecha_de_emision=date(2026, 1, 1),
+                            contenido='<p class="gb gb-escena" data-escena-id="e1">Uno</p>'))
         db.add_all([Desglose(id_desglose=x) for x in ("exclusivo", "compartido", "ajeno")])
         db.flush()
         db.query(Guion).filter_by(id_guion=1).update({"id_guion_version_actual": 11})
@@ -215,6 +217,48 @@ class GuionBorradoRelacionesTests(unittest.TestCase):
         self.assertIsNotNone(self.db.get(EscenaGaleriaItem, ("e1", 31)))
         self.assertEqual(self.db.get(GaleriaVersion, 41).id_guion, 1)
         self.assertEqual(self.db.query(codigos_entidad).count(), 4)
+
+    def test_eliminar_ficha_y_relaciones_conserva_texto_historico_y_recursos_compartidos(self):
+        resultado = delete_escena("e1", "propio", self.db)
+
+        self.assertTrue(resultado["success"])
+        self.db.expire_all()
+        self.assertIsNone(self.db.get(Escena, "e1"))
+        self.assertIsNone(self.db.get(EscenaVersion, 21))
+        self.assertIsNone(self.db.get(ContinuidadFoto, 22))
+        self.assertIsNone(self.db.get(EscenaGaleriaItem, ("e1", 31)))
+        self.assertIsNotNone(self.db.get(Guion, 1))
+        self.assertEqual(
+            self.db.get(GuionVersion, 11).contenido,
+            '<p class="gb gb-escena" data-escena-id="e1">Uno</p>',
+        )
+        self.assertIsNone(self.db.get(Desglose, "exclusivo"))
+        self.assertIsNotNone(self.db.get(Desglose, "compartido"))
+        self.assertIsNotNone(self.db.get(GaleriaItem, 31))
+        self.assertIsNone(self.db.get(GaleriaItem, 31).id_escena)
+        self.assertIsNotNone(self.db.get(GaleriaVersion, 41))
+        self.assertIsNone(self.db.get(GaleriaVersion, 41).id_escena)
+        self.assertIsNotNone(self.db.get(GaleriaVersionFoto, 51))
+        self.assertIsNotNone(self.db.get(Escena, "e3"))
+        self.assertEqual(
+            self.db.query(codigos_entidad).filter_by(tipo="ESC", entidad_id="e1").count(),
+            0,
+        )
+
+    def test_error_al_limpiar_codigo_revierte_el_borrado_global_de_escena(self):
+        error = OperationalError("inspección", {}, Exception("fallo simulado"))
+        with patch("app.controllers.escena_controller.inspect", side_effect=error):
+            with self.assertRaises(OperationalError):
+                delete_escena("e1", "propio", self.db)
+        self.db.expire_all()
+        self.assertIsNotNone(self.db.get(Escena, "e1"))
+        self.assertIsNotNone(self.db.get(EscenaVersion, 21))
+        self.assertIsNotNone(self.db.get(ContinuidadFoto, 22))
+        self.assertIsNotNone(self.db.get(EscenaGaleriaItem, ("e1", 31)))
+        self.assertEqual(
+            self.db.query(codigos_entidad).filter_by(tipo="ESC", entidad_id="e1").count(),
+            1,
+        )
 
     def test_error_al_comprobar_tabla_revierte_todo(self):
         error = OperationalError("inspección", {}, Exception("fallo simulado"))

@@ -30,6 +30,10 @@ from app.models.galeria_lugar_personaje_model import GaleriaLugarPersonaje
  
 # CREATE TABLES
 Base.metadata.create_all(bind=engine)
+
+# Esta tabla requiere la migración coordinada; no crearla automáticamente al
+# iniciar el servidor (en particular, no modificar Aiven implícitamente).
+from app.routes.catalogo_bloque_routes import router as catalogo_bloque_router
  
 # FASTAPI
  
@@ -78,6 +82,7 @@ app.include_router(escenario_router)
 app.include_router(desglose_router)
 app.include_router(galeria_router)
 app.include_router(codigo_router)
+app.include_router(catalogo_bloque_router)
 
 # ARCHIVOS ESTATICOS
 # Sirve lo guardado por app/utils/file_storage.py (guiones subidos,
