@@ -3,10 +3,10 @@
 foccus-web agrega aquí cada cambio relevante (arriba lo más nuevo). foccus-mobile los adapta cuando el usuario lo pida y cambia el estado a `hecho en móvil`.
 
 ## 2026-11-22 – Catálogo de bloques aplicado en Aiven
-- BD: `catalogo_bloques` creada en `foccus`; catálogo inicialmente vacío,
-  sin backfill. Contrato verificado y reversa en `bd/ESQUEMA.md` y
-  `bd/MIGRACIONES.md`. Esta entrada actualiza el estado de la propuesta del
-  2026-11-21.
+- BD: `catalogo_bloques` creada en `foccus`, sin backfill. El contrato de la
+  tabla está en `scripts/migracion_20261122_catalogo_aiven.py`. Los registros
+  detallados de BD permanecen locales por contener información operativa.
+  Esta entrada actualiza el estado de la propuesta del 2026-11-21.
 - API y pantallas: sin modificaciones en este seguimiento; no se comprobó
   despliegue ni flujo HTTP de la aplicación.
 - Estado para móvil: pendiente; no se modificó Flutter.
