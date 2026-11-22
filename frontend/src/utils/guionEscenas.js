@@ -1,8 +1,8 @@
 const PREFIJOS_ESCENA = [
-  [/^INT\.?\s*\/\s*EXT\.?\s*/i, "Int/Ext"],
-  [/^EXT\.?\s*\/\s*INT\.?\s*/i, "Ext/Int"],
-  [/^INT\.?\s*/i, "Int"],
-  [/^EXT\.?\s*/i, "Ext"],
+  [/^INT\.?\s*\/\s*EXT(?:\.\s*|(?=\s|$)\s*)/i, "Int/Ext"],
+  [/^EXT\.?\s*\/\s*INT(?:\.\s*|(?=\s|$)\s*)/i, "Ext/Int"],
+  [/^INT(?:\.\s*|(?=\s|$)\s*)/i, "Int"],
+  [/^EXT(?:\.\s*|(?=\s|$)\s*)/i, "Ext"],
 ];
 const MOMENTOS = ["DÍA", "DIA", "NOCHE", "AMANECER", "ATARDECER", "MAÑANA", "MANANA", "TARDE"];
 
