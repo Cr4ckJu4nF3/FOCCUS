@@ -2,6 +2,7 @@
 
 Un informe por tema, con el nombre `AAAA-MM-DD-tema.md`. Agrega aquí una línea por informe (lo más nuevo arriba).
 
+- [2026-11-24 · Espacio de escritura del guion](2026-11-24-espacio-editor-guion.md) — editor compacto y datos del guion al guardar.
 - [2026-11-22 · Galería de bloques reutilizables desde el dashboard](2026-11-22-galeria-bloques-dashboard.md) — acceso fuera del editor, existencia actual, UX propuesta, permisos y ambigüedades esenciales.
 - [2026-11-21 · Lista de chequeo T6 para FOCCUS](2026-11-21-lista-chequeo-t6.md) — viabilidad, evidencias existentes y pendientes de los puntos asignados al equipo.
 - [2026-11-21 · Catálogo de fichas reutilizables en el guion](2026-11-21-catalogo-fichas-guion.md) — escenas del proyecto, conservación de fichas y copia independiente entre guiones.

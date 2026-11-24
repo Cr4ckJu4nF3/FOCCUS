@@ -2973,6 +2973,89 @@ html[data-theme] .guion-page .guion-composer--new :is(
   color: #718096;
 }
 
+/* Más escritorio para ambas formas de escribir, sin alterar la hoja impresa. */
+.guion-main--writing {
+  max-width: none;
+  padding: 0.6rem clamp(0.5rem, 1.5vw, 1.5rem) 2rem;
+}
+
+.guion-composer .guion-form-card,
+.guion-reader__page--editing {
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: clamp(0.5rem, 1vw, 0.9rem);
+}
+
+.guion-composer .guion-editor-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.guion-composer .guion-editor-shell,
+.guion-sidebar-disclosure {
+  width: 100%;
+  min-width: 0;
+}
+
+.guion-sidebar-disclosure > summary {
+  width: fit-content;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--theme-border, #aab9c9);
+  border-radius: 0.5rem;
+  color: var(--theme-foreground, #26384d);
+  background: var(--theme-surface-raised, #fff);
+  cursor: pointer;
+}
+
+.guion-sidebar-disclosure .guion-sidebar {
+  position: static;
+  margin-top: 0.6rem;
+}
+
+.guion-writing-save { margin-left: auto; }
+
+.guion-reader__page--editing .guion-reader__edit-surface {
+  width: 60ch;
+  min-height: 11in;
+  margin: 1.5rem auto;
+}
+
+.guion-create-dialog {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  margin: auto;
+  width: min(32rem, calc(100% - 2rem));
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  color: var(--theme-foreground, #f8fafc);
+  background: var(--theme-surface, #1d2a3d);
+}
+
+.guion-create-dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
+.guion-create-dialog .guion-form label,
+.guion-create-dialog .guion-modal__close { color: var(--theme-foreground, #f8fafc); }
+.guion-create-dialog .guion-form :is(input, textarea) {
+  color: var(--theme-foreground, #f8fafc);
+  background: var(--theme-surface-raised, #1c2330);
+  border-color: var(--theme-border, #94a3b8);
+}
+.guion-create-dialog__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.6rem; }
+.guion-create-dialog__error { color: #ffb4a9; font-weight: 600; }
+html[data-theme="light"] .guion-create-dialog__error { color: #9c2520; }
+
+@media (max-width: 900px) {
+  .guion-reader__page--editing .guion-reader__edit-surface {
+    width: auto;
+    min-height: 60vh;
+    margin: 1rem auto;
+  }
+}
+
 .guion-notas {
   margin: 1.5rem auto;
   padding: 1.25rem;

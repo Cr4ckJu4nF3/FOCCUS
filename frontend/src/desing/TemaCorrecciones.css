@@ -1,0 +1,258 @@
+/* Acciones de escena: el panel participa en el flujo para no quedar recortado
+   por el contenedor del editor ni salirse de la pantalla en móvil. */
+.guion-editor-toolbar .guion-scene-menu {
+  min-width: 0;
+}
+
+.guion-editor-toolbar .guion-scene-menu[open] {
+  flex-basis: 100%;
+}
+
+.guion-scene-menu summary {
+  display: inline-flex;
+  min-height: 2.2rem;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--theme-border);
+  border-radius: 0.5rem;
+  color: var(--theme-foreground);
+  background: var(--theme-surface-raised);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.guion-scene-menu summary::-webkit-details-marker { display: none; }
+.guion-scene-menu[open] summary > svg:last-child { transform: rotate(180deg); }
+
+.guion-scene-menu__panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  max-width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.7rem;
+  border: 1px solid var(--theme-border);
+  border-radius: 0.65rem;
+  background: var(--theme-surface);
+  color: var(--theme-foreground);
+}
+
+.guion-editor-toolbar .guion-scene-menu__panel p {
+  flex-basis: 100%;
+  margin: 0 0 0.2rem;
+  color: var(--theme-muted);
+  font-size: 0.78rem;
+}
+
+.guion-editor-toolbar .guion-scene-menu__panel button {
+  width: auto;
+  gap: 0.35rem;
+  padding: 0 0.65rem;
+  color: var(--theme-foreground);
+  border-color: var(--theme-border);
+  background: var(--theme-surface-raised);
+  font-size: 0.75rem;
+}
+
+/* La hoja .guion-pagina y las previsualizaciones impresas siguen siendo papel;
+   los controles, metadatos y paneles que la rodean sí siguen el selector. */
+html[data-theme="dark"] .guion-page :is(.guion-composer, .guion-reader__page--editing) {
+  color: var(--theme-foreground);
+  border-color: var(--theme-border);
+  background: var(--theme-surface);
+}
+
+html[data-theme="dark"] .guion-page :is(
+  .guion-composer--new .guion-titlebar,
+  .guion-composer--new .guion-sidebar__block,
+  .guion-composer .guion-editor-shell,
+  .guion-reader__editor-shell
+) {
+  color: var(--theme-foreground);
+  border-color: var(--theme-border);
+  background: var(--theme-surface-raised);
+}
+
+html[data-theme="dark"] .guion-page .guion-composer--new :is(
+  .guion-form-card, .guion-sidebar__header, .guion-sidebar__object-block p
+) { color: var(--theme-foreground); }
+
+html[data-theme="dark"] .guion-page .guion-composer--new :is(
+  .guion-titlebar__title, .guion-titlebar__desc,
+  .guion-sidebar__add input, .guion-sidebar__row--editing input
+) {
+  color: var(--theme-foreground);
+  border-color: var(--theme-border);
+  background: var(--theme-surface);
+}
+
+html[data-theme="dark"] .guion-page .guion-composer--new :is(
+  .guion-titlebar__title, .guion-titlebar__desc,
+  .guion-sidebar__add input, .guion-sidebar__row--editing input
+)::placeholder { color: var(--theme-muted); }
+
+html[data-theme="dark"] .guion-page .guion-composer--new :is(
+  .guion-sidebar__item, .guion-sidebar__row > button:not(.guion-sidebar__item),
+  .guion-sidebar__choose, .guion-sidebar__object-create
+) {
+  color: var(--theme-foreground);
+  border-color: var(--theme-border);
+  background: var(--theme-surface);
+}
+
+html[data-theme="dark"] .guion-page .guion-composer--new .guion-sidebar__empty {
+  color: var(--theme-muted);
+}
+
+html[data-theme="dark"] .guion-page :is(.guion-editor-toolbar, .guion-escenas-tabs) {
+  color: var(--theme-foreground);
+  border-color: var(--theme-border);
+  background: var(--theme-surface);
+}
+
+html[data-theme="dark"] .guion-page :is(
+  .guion-editor-toolbar button, .guion-editor-toolbar select,
+  .guion-escena-tab, .guion-escena-tab--add
+) {
+  color: var(--theme-foreground);
+  border-color: var(--theme-border);
+  background: var(--theme-surface-raised);
+}
+
+html[data-theme="dark"] .guion-page .guion-editor-toolbar .guion-escenas-toggle {
+  color: var(--theme-foreground) !important;
+}
+
+html[data-theme="dark"] .guion-page :is(
+  .guion-escena-tab button, .guion-reader__editor-shell .guion-editor-toolbar-toggle,
+  .guion-reader__editor > p
+) { color: var(--theme-foreground); }
+
+html[data-theme="dark"] .guion-page :is(
+  .guion-editor-toolbar button:hover, .guion-composer--new .guion-sidebar__item:hover,
+  .guion-composer--new .guion-sidebar__choose:hover
+) {
+  color: var(--theme-foreground);
+  background: #30455f;
+}
+
+html[data-theme="dark"] .guion-page :is(
+  .guion-escena-tab.is-active, .guion-editor-toolbar .guion-escenas-toggle.is-active
+) {
+  border-color: var(--color-accent);
+  background: #53392f !important;
+}
+
+html[data-theme="dark"] .guion-page .guion-escena-tab.is-active button {
+  color: #ffd1c2;
+}
+
+html[data-theme="dark"] .guion-page .guion-reader__editor .guion-reader__action:not(.guion-reader__action--primary) {
+  border-color: var(--theme-border);
+  color: var(--theme-foreground);
+  background: var(--theme-surface-raised);
+}
+
+/* Superficies claras fijas del menú de administrador y estados secundarios. */
+html[data-theme="dark"] .admin-dashboard :is(
+  .admin-profile__trigger, .admin-profile__menu,
+  .admin-project-empty__actions button:not(:last-child)
+) {
+  color: var(--admin-text);
+  border-color: var(--admin-border);
+  background: var(--admin-surface-raised, var(--admin-surface-muted));
+}
+
+html[data-theme="dark"] .admin-dashboard :is(
+  .admin-profile__summary strong, .admin-profile__menu > button
+) { color: var(--admin-text); }
+
+html[data-theme="dark"] .admin-dashboard .admin-profile__summary {
+  border-color: var(--admin-border);
+}
+
+html[data-theme="dark"] .admin-dashboard .admin-profile__menu > button:hover {
+  color: var(--admin-text);
+  background: var(--admin-surface-muted);
+}
+
+html[data-theme="dark"] .admin-dashboard :is(.admin-breakdown__track, .admin-kpi__progress) {
+  background: var(--admin-track);
+}
+
+/* La previsualización de un bloque no es una página impresa de guion. */
+html[data-theme="dark"] .acciones-page .acciones-preview {
+  color: var(--theme-foreground);
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
+  border-radius: var(--radius-md);
+}
+
+html[data-theme="dark"] .acciones-page .acciones-preview p {
+  color: inherit;
+}
+
+/* El resumen de desglose puede aparecer con datos aunque el panel vacío ya
+   siga el tema; no es una superficie de papel. */
+html[data-theme="dark"] .admin-dashboard .admin-breakdown__summary > div {
+  color: var(--admin-text);
+  border-color: var(--admin-border);
+  background: var(--admin-surface-muted);
+}
+
+html[data-theme="dark"] .admin-dashboard :is(
+  .admin-breakdown__summary strong, .admin-breakdown__department-heading strong
+) { color: var(--admin-text); }
+
+html[data-theme="dark"] .admin-dashboard :is(
+  .admin-breakdown__summary span, .admin-breakdown__department-heading span
+) { color: var(--admin-text-secondary); }
+
+html[data-theme="dark"] .guion-page .guion-reader__notice {
+  color: #f3d9a1;
+  border-color: #896f42;
+  background: #403626;
+}
+
+/* Textos secundarios sobre vidrio oscuro: los grises antiguos tenían poco
+   contraste, en particular en selección de proyecto y estados vacíos. */
+html[data-theme="dark"] :is(
+  .pss-heading-subtitle, .pss-action-subtitle, .pss-list-header-count,
+  .pss-list-state-text, .pss-list-item-meta, .pss-modal-cancel,
+  .rs-header-project-name, .rs-list-header-count, .rs-list-state-text, .rs-table-head,
+  .rs-user-mail, .rs-editable-cell--empty, .rs-list-footnote,
+  .rs-modal-hint, .rs-modal-cancel, .rdj-empty, .dsg-empty,
+  .ds-card-subtitle, .prf-password-requirements-title,
+  .prf-password-requirement--invalid, .prf-password-toggle
+) {
+  color: var(--theme-muted);
+}
+
+html[data-theme="dark"] .prf-page .prf-card {
+  color: var(--theme-foreground);
+}
+
+html[data-theme="dark"] .prf-page .prf-input--disabled {
+  color: var(--theme-muted);
+  background: var(--theme-surface-raised);
+  -webkit-text-fill-color: var(--theme-muted);
+}
+
+html[data-theme="dark"] :is(.login-page, .auth-page) :is(
+  .login-tab:not(.login-tab--active), .field__toggle, .field__hint,
+  .login-forgot__btn, .login-invited-note, .password-requirements__title,
+  .requirement:not(.requirement--valid), .terms__label, .auth-success-text__subtitle
+) {
+  color: var(--theme-muted);
+}
+
+html[data-theme="dark"] :is(.login-page, .auth-page) .field__input::placeholder {
+  color: var(--theme-muted);
+}
+
+html[data-theme="dark"] :is(.login-card, .auth-card) {
+  color: var(--theme-foreground);
+}

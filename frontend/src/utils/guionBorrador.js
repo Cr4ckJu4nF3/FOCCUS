@@ -2,7 +2,7 @@
 // no solo texto visible.
 export function hayCambiosGuion({
   vista, editandoContenido, contenidoInicial, escenasActivo, escenasBorrador,
-  ceroForm, versionForm, versionInicial, contenidoEditado, contenidoOriginal,
+  ceroForm, nombreInicialCero = "", versionForm, versionInicial, contenidoEditado, contenidoOriginal,
   cambiosEscenaPendientes, dialogoEscena, formEscena, escenaInicial,
 }) {
   const escenaSinAplicar = dialogoEscena && JSON.stringify(formEscena) !== escenaInicial;
@@ -12,7 +12,7 @@ export function hayCambiosGuion({
       ? escenasBorrador.some((escena) => Boolean(escena.texto))
       : Boolean(contenidoInicial);
     const metadatosModificados = vista === "crear-cero"
-      ? Boolean(ceroForm.nombre || ceroForm.descripcion)
+      ? Boolean(ceroForm.nombre !== nombreInicialCero || ceroForm.descripcion)
       : JSON.stringify(versionForm) !== versionInicial;
     return textoModificado || metadatosModificados || escenasPendientes || escenaSinAplicar;
   }

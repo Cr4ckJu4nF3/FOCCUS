@@ -6,6 +6,7 @@ import App from './App.jsx'
 import './desing/VidrioExperimental.css'
 import './desing/Interacciones.css'
 import './desing/VidrioUsuario.css'
+import './desing/TemaCorrecciones.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
