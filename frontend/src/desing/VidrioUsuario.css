@@ -1,0 +1,208 @@
+/*
+ * Superficies del recorrido de usuario. El guion solo recibe este fondo en
+ * listas/detalle: la escritura y la hoja conservan sus estilos originales.
+ */
+html[data-theme="dark"] :is(
+  .module-role-user:is(.escena-page, .rdj-page, .dsg-page, .gallery-page),
+  .module-role-user.guion-page:not(:has(.guion-main--writing)),
+  .prf-page
+) {
+  background-color: #101c30;
+  background-image:
+    radial-gradient(ellipse at 12% 18%, rgba(52, 126, 201, 0.38), transparent 42%),
+    radial-gradient(ellipse at 88% 55%, rgba(136, 76, 182, 0.32), transparent 44%),
+    linear-gradient(135deg, #101c30, #171827 58%, #12253a);
+  background-size: auto;
+  background-attachment: scroll;
+}
+
+html[data-theme="light"] :is(
+  .module-role-user:is(.escena-page, .rdj-page, .dsg-page, .gallery-page),
+  .module-role-user.guion-page:not(:has(.guion-main--writing)),
+  .prf-page
+) {
+  background-color: #e1eef7;
+  background-image:
+    radial-gradient(ellipse at 14% 20%, rgba(89, 164, 220, 0.33), transparent 43%),
+    radial-gradient(ellipse at 86% 54%, rgba(158, 127, 214, 0.28), transparent 44%),
+    linear-gradient(135deg, #e1eef7, #f3effa 55%, #deedf6);
+  background-size: auto;
+  background-attachment: scroll;
+}
+
+/* Alternativas opacas que también funcionan sin soporte para desenfoque. */
+html[data-theme="dark"] :is(
+  .module-role-user :is(.escena-panel, .rdj-panel, .dsg-panel, .gallery-empty, .escena-modal, .rdj-modal, .dsg-modal, .gallery-modal),
+  .module-role-user .guion-main:not(.guion-main--writing) .guion-panel,
+  .prf-page .prf-card
+) {
+  background: #192b40;
+  border-color: rgba(210, 230, 255, 0.28);
+  box-shadow: 0 16px 38px rgba(4, 12, 28, 0.25), inset 0 1px rgba(255, 255, 255, 0.18);
+}
+
+html[data-theme="light"] :is(
+  .module-role-user :is(.escena-panel, .rdj-panel, .dsg-panel, .gallery-empty, .escena-modal, .rdj-modal, .dsg-modal, .gallery-modal),
+  .module-role-user .guion-main:not(.guion-main--writing) .guion-panel,
+  .prf-page .prf-card
+) {
+  background: #f7fbff;
+  border-color: #d7e3ef;
+  box-shadow: 0 16px 38px rgba(50, 77, 116, 0.15), inset 0 1px #fff;
+}
+
+/* Se desenfocan solo superficies principales, no cada fila ni campo. */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-theme="dark"] :is(
+    .module-role-user :is(.escena-panel, .rdj-panel, .dsg-panel, .gallery-empty, .escena-modal, .rdj-modal, .dsg-modal, .gallery-modal),
+    .module-role-user .guion-main:not(.guion-main--writing) .guion-panel,
+    .prf-page .prf-card
+  ) {
+    background: linear-gradient(145deg, rgba(42, 67, 94, 0.94), rgba(21, 33, 54, 0.94));
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+
+  html[data-theme="light"] :is(
+    .module-role-user :is(.escena-panel, .rdj-panel, .dsg-panel, .gallery-empty, .escena-modal, .rdj-modal, .dsg-modal, .gallery-modal),
+    .module-role-user .guion-main:not(.guion-main--writing) .guion-panel,
+    .prf-page .prf-card
+  ) {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(230, 241, 252, 0.92));
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+  }
+}
+
+/* El borde rojo sigue distinguiendo la sección destructiva del perfil. */
+html[data-theme] .prf-page .prf-danger-zone {
+  border-color: rgba(229, 72, 77, 0.6);
+}
+
+/* Las tarjetas de galería pueden ser numerosas: sin filtros por tarjeta. */
+html[data-theme="dark"] .module-role-user.gallery-page .gallery-card {
+  background: #1d3046;
+  border-color: rgba(210, 230, 255, 0.25);
+}
+
+html[data-theme="light"] .module-role-user.gallery-page .gallery-card {
+  background: #f7fbff;
+  border-color: #d7e3ef;
+}
+
+html[data-theme="dark"] :is(.module-role-user :is(.escena-header, .rdj-header, .dsg-header, .gallery-header), .prf-page .prf-header) {
+  background: rgba(20, 34, 53, 0.96);
+  border-color: rgba(210, 230, 255, 0.22);
+}
+
+html[data-theme="light"] :is(.module-role-user :is(.escena-header, .rdj-header, .dsg-header, .gallery-header), .prf-page .prf-header) {
+  background: rgba(248, 251, 255, 0.96);
+  border-color: #d7e3ef;
+}
+
+html[data-theme="light"] .module-role-user :is(
+  .escena-header__badge, .rdj-header__badge, .dsg-header__badge,
+  .escena-panel__header span, .rdj-panel__title-row span,
+  .dsg-panel__title-row span, .guion-panel__header span
+) {
+  color: #40546d;
+}
+
+html[data-theme="light"] .module-role-user .gallery-eyebrow {
+  color: #205d8b;
+}
+
+.module-role-user.gallery-page .gallery-card:focus-within {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  :is(
+    .module-role-user :is(.escena-row, .rdj-day-card, .dsg-scene-row, .gallery-card),
+    .module-role-user .guion-main:not(.guion-main--writing) .guion-card,
+    .pss-page .pss-list-item
+  ) {
+    transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  }
+
+  .module-role-user .gallery-card {
+    /* El transform final de la entrada no debe bloquear el hover. */
+    animation-fill-mode: backwards;
+  }
+
+  :is(
+    .module-role-user :is(.escena-row, .rdj-day-card, .dsg-scene-row, .gallery-card),
+    .module-role-user .guion-main:not(.guion-main--writing) .guion-card,
+    .pss-page .pss-list-item
+  ):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(9, 25, 48, 0.2);
+  }
+
+  :is(
+    .module-role-user :is(.escena-back, .rdj-back, .dsg-back, .gallery-back, .gallery-filter, .gallery-button),
+    .pds-page :is(.pds-menu-toggle, .pds-profile-button),
+    .prf-page :is(.prf-back-button, .prf-submit-button, .prf-password-submit-button)
+  ):not(:disabled) {
+    transition: transform 180ms ease, color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+  }
+
+  :is(
+    .module-role-user :is(.escena-back, .rdj-back, .dsg-back, .gallery-back, .gallery-filter, .gallery-button),
+    .pds-page :is(.pds-menu-toggle, .pds-profile-button),
+    .prf-page :is(.prf-back-button, .prf-submit-button, .prf-password-submit-button)
+  ):not(:disabled):hover {
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    .module-role-user :is(.escena-row, .rdj-day-card, .dsg-scene-row, .gallery-card, .escena-back, .rdj-back, .dsg-back, .gallery-back, .gallery-filter, .gallery-button),
+    .module-role-user .guion-main:not(.guion-main--writing) .guion-card,
+    .pss-page .pss-list-item,
+    .pds-page :is(.pds-menu-toggle, .pds-profile-button),
+    .prf-page :is(.prf-back-button, .prf-submit-button, .prf-password-submit-button)
+  ) {
+    transition: none;
+  }
+
+  :is(
+    .module-role-user :is(.escena-row, .rdj-day-card, .dsg-scene-row, .gallery-card, .escena-back, .rdj-back, .dsg-back, .gallery-back, .gallery-filter, .gallery-button),
+    .module-role-user .guion-main:not(.guion-main--writing) .guion-card,
+    .pss-page .pss-list-item,
+    .pds-page :is(.pds-menu-toggle, .pds-profile-button),
+    .prf-page :is(.prf-back-button, .prf-submit-button, .prf-password-submit-button)
+  ):hover,
+  .module-role-user .gallery-card:hover .gallery-card__image-button img {
+    transform: none;
+  }
+
+  .module-role-user .gallery-card,
+  .module-role-user .gallery-hero {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  html[data-theme="dark"] :is(
+    .module-role-user :is(.escena-panel, .rdj-panel, .dsg-panel, .gallery-empty, .escena-modal, .rdj-modal, .dsg-modal, .gallery-modal),
+    .module-role-user .guion-main:not(.guion-main--writing) .guion-panel,
+    .prf-page .prf-card
+  ) {
+    background: #192b40;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  html[data-theme="light"] :is(
+    .module-role-user :is(.escena-panel, .rdj-panel, .dsg-panel, .gallery-empty, .escena-modal, .rdj-modal, .dsg-modal, .gallery-modal),
+    .module-role-user .guion-main:not(.guion-main--writing) .guion-panel,
+    .prf-page .prf-card
+  ) {
+    background: #f7fbff;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}

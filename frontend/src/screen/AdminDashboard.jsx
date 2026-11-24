@@ -27,6 +27,7 @@ import logo from "../assets/FoccusNB_White.png";
 import { apiFetch, clearSession, getActiveRole, setActiveProject as persistActiveProject } from "../api";
 import CodigoChip from "../componentes/CodigoChip";
 import EditProjectModal from "../componentes/EditProjectModal";
+import SeccionDesplegable from "../componentes/SeccionDesplegable";
 import "../desing/AdminDashboard.css";
 
 const formatOptions = [
@@ -513,6 +514,9 @@ export default function AdminDashboardScreen() {
           <button className="admin-navigation__item" disabled={!projectId} onClick={() => navigateToModule("/galeria")} type="button">
             <Camera size={18} /> Galería
           </button>
+          <button className="admin-navigation__item" disabled={!projectId} onClick={() => navigateToModule("/bloques-accion")} type="button">
+            <FileText size={18} /> Bloques de acción
+          </button>
           <button className="admin-navigation__item" disabled={!projectId} onClick={() => navigateToModule("/roles")} type="button">
             <Users size={18} /> Equipo y roles
           </button>
@@ -770,6 +774,7 @@ export default function AdminDashboardScreen() {
                     <div><p className="admin-eyebrow">SEGUIMIENTO</p><h2>Avance por área</h2></div>
                     <span>Según estado de los elementos</span>
                   </div>
+                  <SeccionDesplegable titulo="avance por área">
                   <div className="admin-area-list">
                     {metrics.areas.map((area) => {
                       const Icon = area.icon;
@@ -787,12 +792,14 @@ export default function AdminDashboardScreen() {
                       );
                     })}
                   </div>
+                  </SeccionDesplegable>
                 </article>
 
                 <article className="admin-panel admin-panel--status">
                   <div className="admin-panel__heading">
                     <div><p className="admin-eyebrow">DISTRIBUCIÓN</p><h2>Estado del trabajo</h2></div>
                   </div>
+                  <SeccionDesplegable titulo="estado del trabajo">
                   <div className="admin-status-chart" aria-label="Cantidad de elementos por estado">
                     {statusSummary.map((status) => {
                       const maxCount = Math.max(...statusSummary.map((item) => item.count), 1);
@@ -807,6 +814,7 @@ export default function AdminDashboardScreen() {
                     })}
                   </div>
                   <p className="admin-chart-caption">Elementos agrupados por su estado actual.</p>
+                  </SeccionDesplegable>
                 </article>
               </section>
 
@@ -820,6 +828,7 @@ export default function AdminDashboardScreen() {
                     Ver desglose <ArrowLeft size={15} />
                   </button>
                 </div>
+                <SeccionDesplegable titulo="estadísticas del desglose">
                 <div className="admin-breakdown__summary">
                   <div><strong>{dashboardData.breakdownScenes.length}</strong><span>Escenas revisadas</span></div>
                   <div><strong>{breakdownStats.coveredScenes}</strong><span>Con requerimientos</span></div>
@@ -847,6 +856,7 @@ export default function AdminDashboardScreen() {
                 ) : (
                   <p className="admin-recent__empty">Aún no hay requerimientos de desglose registrados en las escenas.</p>
                 )}
+                </SeccionDesplegable>
               </section>
 
               <section className="admin-panel admin-recent">
@@ -854,6 +864,7 @@ export default function AdminDashboardScreen() {
                   <div><p className="admin-eyebrow">ACTIVIDAD DEL PROYECTO</p><h2>Elementos recientes</h2></div>
                   <button type="button" onClick={() => navigateToModule("/rodaje")}>Ver plan de rodaje <ArrowLeft size={15} /></button>
                 </div>
+                <SeccionDesplegable titulo="elementos recientes">
                 {recentItems.length ? (
                   <div className="admin-recent__list">
                     {recentItems.map((item) => {
@@ -872,6 +883,7 @@ export default function AdminDashboardScreen() {
                 ) : (
                   <p className="admin-recent__empty">Todavía no hay actividad registrada para mostrar.</p>
                 )}
+                </SeccionDesplegable>
               </section>
             </>
           )}

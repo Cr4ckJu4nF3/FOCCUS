@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { JSDOM } from "jsdom";
-import { bloqueCatalogoSeguro, bloquesParaCatalogo } from "./catalogoBloques.js";
+import { accionesDelCatalogo, bloqueCatalogoSeguro, bloquesParaCatalogo } from "./catalogoBloques.js";
 
 const dom = new JSDOM("");
 globalThis.document = dom.window.document;
@@ -36,4 +36,23 @@ test("mantiene la alineación del párrafo al guardar y volver a insertar", () =
   assert.match(bloque.html, /style="text-align: center;"/);
   const recuperado = bloqueCatalogoSeguro({ ...bloque, id_project: 1 }, 1);
   assert.equal(recuperado.html, bloque.html);
+});
+
+test("galería muestra solo acciones válidas del proyecto y conserva el formato seguro", () => {
+  const accion = { id_catalogo_bloque: 1, id_project: "p1", tipo: "accion", html: '<p class="gb gb-accion">Salta <strong>alto</strong><script>malicioso()</script></p>' };
+  const resultado = accionesDelCatalogo([
+    accion,
+    { ...accion, id_catalogo_bloque: 2, id_project: "p2" },
+    { ...accion, id_catalogo_bloque: 3, tipo: "dialogo", html: '<p class="gb gb-dialogo">Texto</p>' },
+    { ...accion, id_catalogo_bloque: 4, html: `${accion.html}${accion.html}` },
+  ], "p1");
+  assert.equal(resultado.acciones.length, 1);
+  assert.equal(resultado.invalidos, 2);
+  assert.match(resultado.acciones[0].html, /<strong>alto<\/strong>/);
+  assert.doesNotMatch(resultado.acciones[0].html, /script|malicioso/);
+});
+
+test("galería distingue respuesta inválida de catálogo vacío", () => {
+  assert.deepEqual(accionesDelCatalogo([], "p1"), { acciones: [], invalidos: 0 });
+  assert.throws(() => accionesDelCatalogo({ data: [] }, "p1"), /respuesta del catálogo no es válida/);
 });

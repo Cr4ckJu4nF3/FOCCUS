@@ -27,6 +27,20 @@ export function bloqueCatalogoSeguro(item, projectId) {
   return { ...item, html, texto: bloques[0].texto };
 }
 
+// La galería externa solo muestra acciones válidas del proyecto solicitado.
+export function accionesDelCatalogo(items, projectId) {
+  if (!Array.isArray(items)) throw new Error("La respuesta del catálogo no es válida.");
+  let invalidos = 0;
+  const acciones = [];
+  for (const item of items) {
+    if (item?.tipo !== "accion") continue;
+    const seguro = bloqueCatalogoSeguro(item, projectId);
+    if (seguro) acciones.push(seguro);
+    else invalidos += 1;
+  }
+  return { acciones, invalidos };
+}
+
 // Una cola por proyecto: deduplica únicamente confirmaciones y mantiene fallos
 // para reintento. Los snapshots programados agrupan la escritura con debounce.
 export function crearColaCatalogo({ extraer, enviar, notificar, demora = 1200 }) {

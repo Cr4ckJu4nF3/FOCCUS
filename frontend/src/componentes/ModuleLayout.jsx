@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Navigate, NavLink, Outlet } from "react-router-dom";
+import { Link, Navigate, NavLink, Outlet } from "react-router-dom";
 import {
   CalendarDays,
   Camera,
@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { getActiveRole } from "../api";
+import logo from "../assets/FoccusNB_White.png";
 import "../desing/ModuleLayout.css";
 
 const enlacesBase = [
@@ -22,6 +23,7 @@ const enlacesBase = [
   { to: "/rodaje", label: "Plan de rodaje", Icon: CalendarDays },
   { to: "/desglose", label: "Desglose", Icon: ClipboardList },
   { to: "/galeria", label: "Galería", Icon: Camera },
+  { to: "/bloques-accion", label: "Bloques de acción", Icon: FileText },
 ];
 
 export default function ModuleLayout() {
@@ -86,7 +88,15 @@ export default function ModuleLayout() {
 
       <aside className={`module-layout__sidebar ${menuAbierto ? "is-open" : ""}`}>
         <div className="module-layout__brand">
-          <strong>FOCCUS</strong>
+          <Link
+            to={rutaPanel}
+            state={{ projectName, projectId }}
+            className="module-layout__brand-link"
+            aria-label={`FOCCUS: volver al ${esAdmin ? "panel de administración" : "panel del proyecto"} ${projectName}`}
+            onClick={cerrarMenu}
+          >
+            <img src={logo} alt="" />
+          </Link>
           <span title={projectName}>{projectName}</span>
         </div>
         <nav

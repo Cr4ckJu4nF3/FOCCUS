@@ -66,7 +66,8 @@ export default function FoccusLanding() {
     const target = document.getElementById(sectionId);
     if (target) {
       const navbarHeight = navbarRef.current?.offsetHeight || 0;
-      window.scrollTo({ top: target.offsetTop - navbarHeight, behavior: "smooth" });
+      const reducirMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: target.offsetTop - navbarHeight, behavior: reducirMovimiento ? "auto" : "smooth" });
     }
     setMenuOpen(false);
   };

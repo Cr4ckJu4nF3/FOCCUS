@@ -1,0 +1,48 @@
+/* Solo controles y tarjetas de navegación; nunca campos de escritura. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  :is(.module-layout__brand-link, .module-layout__link, .module-layout__toggle,
+      .admin-navigation__item, .pds-sidebar-item, .pss-action-card,
+      .seccion-desplegable__toggle) {
+    transition: transform 180ms ease, color 180ms ease, background-color 180ms ease,
+      border-color 180ms ease, box-shadow 180ms ease;
+  }
+
+  :is(.module-layout__brand-link, .module-layout__link, .module-layout__toggle,
+      .admin-navigation__item, .pds-sidebar-item, .pss-action-card,
+      .seccion-desplegable__toggle):not(:disabled):hover {
+    transform: translateY(-2px);
+  }
+
+  html[data-theme] .pds-page .pds-module-card {
+    transition: transform 180ms ease, box-shadow 180ms ease;
+    /* No conservar el transform de la animación de entrada sobre el hover. */
+    animation-fill-mode: backwards;
+  }
+
+  html[data-theme] .pds-page .pds-module-card:hover {
+    transform: translateY(-3px);
+  }
+}
+
+/* La tarjeta también se reconoce cuando su botón recibe foco por teclado. */
+html[data-theme] .pds-page .pds-module-card:focus-within {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.module-layout__brand-link, .module-layout__link, .module-layout__toggle,
+      .admin-navigation__item, .pds-sidebar-item, .pss-action-card,
+      .seccion-desplegable__toggle) {
+    transition: none;
+  }
+
+  :is(.module-layout__brand-link, .module-layout__link, .module-layout__toggle,
+      .admin-navigation__item, .pds-sidebar-item, .pss-action-card,
+      .seccion-desplegable__toggle):hover,
+  html[data-theme] .pds-page .pds-module-card:hover,
+  .pds-module-card:hover :is(.pds-module-icon-wrapper, .pds-module-button),
+  .pss-action-card:hover :is(.pss-action-icon-wrapper, .pss-action-icon) {
+    transform: none;
+  }
+}

@@ -31,10 +31,25 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.module-layout__brand strong {
-  color: #fff;
-  font-size: 1.15rem;
-  letter-spacing: 0.12em;
+.module-layout__brand-link {
+  display: flex;
+  width: 160px;
+  max-width: 100%;
+  height: 44px;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.module-layout__brand-link img {
+  width: 160px;
+  max-width: none;
+  flex: 0 0 auto;
+}
+
+.module-layout__brand-link:focus-visible {
+  outline: 3px solid #75b9ef !important;
+  outline-offset: 3px !important;
 }
 
 .module-layout__brand span {

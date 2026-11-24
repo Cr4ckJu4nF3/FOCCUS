@@ -1,0 +1,270 @@
+/* Superficies opacas como alternativa cuando no hay desenfoque disponible. */
+.module-layout__sidebar,
+.module-layout__mobile-header {
+  border-color: rgba(167, 200, 237, 0.18);
+  box-shadow: 8px 0 32px rgba(5, 13, 26, 0.16);
+}
+
+.module-layout__link {
+  border-radius: 12px;
+  transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.module-layout__link.is-active {
+  box-shadow: inset 3px 0 #75c4fa, inset 0 0 0 1px rgba(133, 195, 247, 0.16);
+}
+
+html[data-theme] .admin-dashboard {
+  background-image: radial-gradient(ellipse at 75% 0, rgba(91, 145, 210, 0.13), transparent 50%);
+}
+
+html[data-theme] .admin-dashboard :is(.admin-panel, .admin-kpi),
+html[data-theme] .pds-page :is(.pds-module-card, .pds-updates),
+.acciones-page .acciones-card {
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(8, 20, 38, 0.12), inset 0 1px rgba(255, 255, 255, 0.13);
+}
+
+html[data-theme="dark"] .admin-dashboard :is(.admin-panel, .admin-kpi) {
+  background: #192738;
+  border-color: rgba(171, 204, 239, 0.18);
+}
+
+html[data-theme="light"] .admin-dashboard :is(.admin-panel, .admin-kpi) {
+  background: #f9fbfe;
+  border-color: #d7e3ef;
+}
+
+.acciones-page {
+  background-image: radial-gradient(ellipse at 80% 0, rgba(93, 150, 210, 0.14), transparent 48%);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .module-layout__sidebar,
+  .module-layout__mobile-header {
+    background-color: rgba(23, 35, 55, 0.93);
+    backdrop-filter: blur(18px) saturate(115%);
+  }
+
+  html[data-theme="dark"] .admin-dashboard :is(.admin-panel, .admin-kpi) {
+    background: rgba(25, 39, 56, 0.92);
+    backdrop-filter: blur(16px);
+  }
+
+  html[data-theme="light"] .admin-dashboard :is(.admin-panel, .admin-kpi) {
+    background: rgba(249, 251, 254, 0.92);
+    backdrop-filter: blur(16px);
+  }
+
+  html[data-theme] .pds-page :is(.pds-module-card, .pds-updates),
+  .acciones-page .acciones-card {
+    backdrop-filter: blur(14px);
+  }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  html[data-theme] .admin-dashboard .admin-kpi:hover,
+  html[data-theme] .pds-page .pds-module-card:hover {
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .module-layout__link {
+    transition: none;
+  }
+}
+
+/*
+ * Vidrio compartido: el color vive en el fondo de la página, no en el texto.
+ * Las superficies sólidas anteriores quedan como alternativa sin backdrop-filter.
+ * No se aplica al papel del guion, al editor ni a las filas de las tablas.
+ */
+html[data-theme="dark"] :is(.admin-dashboard, .pds-page, .pss-page, .acciones-page) {
+  background-image:
+    radial-gradient(ellipse at 12% 18%, rgba(52, 126, 201, 0.38), transparent 42%),
+    radial-gradient(ellipse at 88% 55%, rgba(136, 76, 182, 0.32), transparent 44%),
+    linear-gradient(135deg, #101c30, #171827 58%, #12253a);
+}
+
+html[data-theme="light"] :is(.admin-dashboard, .pds-page, .pss-page, .acciones-page) {
+  background-image:
+    radial-gradient(ellipse at 14% 20%, rgba(89, 164, 220, 0.33), transparent 43%),
+    radial-gradient(ellipse at 86% 54%, rgba(158, 127, 214, 0.28), transparent 44%),
+    linear-gradient(135deg, #e1eef7, #f3effa 55%, #deedf6);
+}
+
+.root {
+  background-image:
+    radial-gradient(ellipse at 13% 40%, rgba(36, 105, 179, 0.35), transparent 35%),
+    radial-gradient(ellipse at 88% 65%, rgba(122, 76, 172, 0.32), transparent 38%);
+}
+
+.root .section--dark {
+  background:
+    radial-gradient(ellipse at 18% 30%, rgba(38, 107, 178, 0.32), transparent 45%),
+    radial-gradient(ellipse at 84% 60%, rgba(124, 69, 158, 0.27), transparent 46%),
+    #0d111e;
+}
+
+.root .hero-content {
+  width: min(780px, calc(100% - 32px));
+  padding: clamp(24px, 4vw, 42px) 24px;
+  border: 1px solid rgba(220, 235, 255, 0.25);
+  border-radius: 28px;
+  background: #192536;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3), inset 0 1px rgba(255, 255, 255, 0.24);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :is(.module-layout__sidebar, .module-layout__mobile-header, .admin-dashboard .admin-sidebar, html[data-theme="light"] .admin-dashboard .admin-sidebar) {
+    background: linear-gradient(145deg, rgba(43, 76, 111, 0.78), rgba(18, 30, 52, 0.88));
+    border-color: rgba(209, 230, 255, 0.25);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    backdrop-filter: blur(24px) saturate(150%);
+    box-shadow: inset -1px 0 rgba(255, 255, 255, 0.12), 10px 0 35px rgba(4, 12, 27, 0.23);
+  }
+
+  .root :is(.nav, .mobile-menu) {
+    background: linear-gradient(135deg, rgba(36, 54, 80, 0.68), rgba(15, 20, 38, 0.78));
+    border-color: rgba(220, 235, 255, 0.25);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    backdrop-filter: blur(24px) saturate(160%);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25), inset 0 1px rgba(255, 255, 255, 0.18);
+  }
+
+  .root .hero-content {
+    background: linear-gradient(135deg, rgba(53, 80, 111, 0.38), rgba(15, 23, 39, 0.62));
+    -webkit-backdrop-filter: blur(22px) saturate(155%);
+    backdrop-filter: blur(22px) saturate(155%);
+  }
+
+  .root :is(.valor-card, .card, .location-card) {
+    background: linear-gradient(145deg, rgba(83, 117, 153, 0.30), rgba(25, 30, 52, 0.60));
+    border: 1px solid rgba(222, 237, 255, 0.24);
+    -webkit-backdrop-filter: blur(18px) saturate(145%);
+    backdrop-filter: blur(18px) saturate(145%);
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.24), inset 0 1px rgba(255, 255, 255, 0.25);
+  }
+
+  .login-page__overlay {
+    background: linear-gradient(135deg, rgba(8, 18, 32, 0.66), rgba(10, 10, 18, 0.7));
+  }
+
+  .login-page .login-card {
+    background: linear-gradient(145deg, rgba(39, 61, 83, 0.78), rgba(17, 22, 38, 0.84));
+    border-color: rgba(225, 238, 255, 0.3);
+    -webkit-backdrop-filter: blur(26px) saturate(150%);
+    backdrop-filter: blur(26px) saturate(150%);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.42), inset 0 1px rgba(255, 255, 255, 0.24);
+  }
+
+  .login-page .login-tabs,
+  .login-page .login-tab:not(.login-tab--active) {
+    background: rgba(11, 19, 32, 0.55);
+    color: #d7e1ef;
+  }
+
+  html[data-theme="dark"] :is(.admin-dashboard, .pds-page, .pss-page, .acciones-page) :is(
+    .admin-panel, .admin-kpi, .pds-module-card, .pds-updates, .pds-sidebar,
+    .pss-action-card, .pss-list-card, .acciones-card
+  ) {
+    background: linear-gradient(145deg, rgba(61, 88, 117, 0.65), rgba(21, 33, 54, 0.80));
+    border: 1px solid rgba(210, 230, 255, 0.24);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    backdrop-filter: blur(20px) saturate(150%);
+    box-shadow: 0 16px 38px rgba(4, 12, 28, 0.25), inset 0 1px rgba(255, 255, 255, 0.22);
+  }
+
+  html[data-theme="light"] :is(.admin-dashboard, .pds-page, .pss-page, .acciones-page) :is(
+    .admin-panel, .admin-kpi, .pds-module-card, .pds-updates, .pds-sidebar,
+    .pss-action-card, .pss-list-card, .acciones-card
+  ) {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.82), rgba(230, 241, 252, 0.70));
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    backdrop-filter: blur(20px) saturate(150%);
+    box-shadow: 0 16px 38px rgba(50, 77, 116, 0.15), inset 0 1px rgba(255, 255, 255, 0.95);
+  }
+
+  /* Solo el marco del diálogo, no sus controles ni la hoja del guion. */
+  html[data-theme="dark"] :is(.admin-project-modal__dialog, .clients-modal, .escena-modal, .dsg-modal, .rdj-modal, .guion-modal, .gallery-modal, .pss-modal, .rs-modal) {
+    background: linear-gradient(145deg, rgba(51, 72, 98, 0.91), rgba(19, 29, 46, 0.94));
+    border: 1px solid rgba(216, 233, 255, 0.27);
+    -webkit-backdrop-filter: blur(24px) saturate(145%);
+    backdrop-filter: blur(24px) saturate(145%);
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.4), inset 0 1px rgba(255, 255, 255, 0.25);
+  }
+
+  html[data-theme="light"] :is(.admin-project-modal__dialog, .clients-modal, .escena-modal, .dsg-modal, .rdj-modal, .guion-modal, .gallery-modal, .pss-modal, .rs-modal) {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(231, 240, 250, 0.93));
+    border: 1px solid rgba(255, 255, 255, 0.95);
+    -webkit-backdrop-filter: blur(24px) saturate(145%);
+    backdrop-filter: blur(24px) saturate(145%);
+    box-shadow: 0 28px 80px rgba(12, 28, 50, 0.26), inset 0 1px #fff;
+  }
+}
+
+@keyframes vidrio-apertura {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes vidrio-contenido {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* La lectura no debe competir con fondos decorativos en movimiento. */
+.login-page .login-page__bg,
+.root .hero::after {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :is(.admin-project-modal__dialog, .clients-modal, .escena-modal, .dsg-modal, .rdj-modal, .guion-modal, .gallery-modal, .pss-modal, .rs-modal),
+  .root .mobile-menu {
+    animation: vidrio-apertura 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  :is(.escena-info-grid, .escena-continuidad, .rdj-detalle-body, .login-form, .register-form),
+  .seccion-desplegable__content:not([hidden]) {
+    animation: vidrio-contenido 220ms ease-out both;
+  }
+
+  :is(.escena-tabs__tab, .rdj-tabs__tab, .guion-tabs__tab, .login-tab) {
+    transition: color 200ms ease, background-color 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.admin-project-modal__dialog, .clients-modal, .escena-modal, .dsg-modal, .rdj-modal, .guion-modal, .gallery-modal, .pss-modal, .rs-modal),
+  :is(.escena-info-grid, .escena-continuidad, .rdj-detalle-body, .login-form, .register-form),
+  .root .mobile-menu,
+  .seccion-desplegable__content:not([hidden]) {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  html[data-theme="dark"] :is(.admin-dashboard, .pds-page, .pss-page, .acciones-page) :is(.admin-panel, .admin-kpi, .pds-module-card, .pds-updates, .pds-sidebar, .pss-action-card, .pss-list-card, .acciones-card),
+  html[data-theme="dark"] :is(.admin-project-modal__dialog, .clients-modal, .escena-modal, .dsg-modal, .rdj-modal, .guion-modal, .gallery-modal, .pss-modal, .rs-modal) {
+    background: #192738;
+    backdrop-filter: none;
+  }
+  html[data-theme="light"] :is(.admin-dashboard, .pds-page, .pss-page, .acciones-page) :is(.admin-panel, .admin-kpi, .pds-module-card, .pds-updates, .pds-sidebar, .pss-action-card, .pss-list-card, .acciones-card),
+  html[data-theme="light"] :is(.admin-project-modal__dialog, .clients-modal, .escena-modal, .dsg-modal, .rdj-modal, .guion-modal, .gallery-modal, .pss-modal, .rs-modal) {
+    background: #f9fbfe;
+    backdrop-filter: none;
+  }
+  .root :is(.nav, .mobile-menu, .hero-content, .valor-card, .card, .location-card),
+  .login-page .login-card {
+    background: #182536;
+    backdrop-filter: none;
+  }
+  :is(.module-layout__sidebar, .module-layout__mobile-header, .admin-dashboard .admin-sidebar, html[data-theme="light"] .admin-dashboard .admin-sidebar) {
+    background: #172337;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}

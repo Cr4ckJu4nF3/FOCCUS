@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Menu, User, LogOut, Trash2, ChartNoAxesCombined, FolderOpen } from "lucide-react";
 import logo from "../assets/FoccusNB_White.png";
 import { apiFetch, clearSession, getActiveRole, setActiveProject } from "../api";
+import SeccionDesplegable from "../componentes/SeccionDesplegable";
 import "../desing/ProjectDashboard.css";
 
 const modules = [
@@ -40,6 +41,7 @@ function ProjectDashboardScreen() {
   const [updatesLoading, setUpdatesLoading] = useState(false);
   const [updatesError, setUpdatesError] = useState("");
   const menuRef = useRef(null);
+  const sidebarRef = useRef(null);
   const profileRef = useRef(null);
 
   useEffect(() => {
@@ -103,7 +105,7 @@ function ProjectDashboardScreen() {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+      if (menuRef.current && !menuRef.current.contains(event.target) && !sidebarRef.current?.contains(event.target)) {
         setIsMenuOpen(false);
       }
       if (profileRef.current && !profileRef.current.contains(event.target)) {
@@ -191,6 +193,7 @@ function ProjectDashboardScreen() {
     "Plan de Rodaje",
     "Desglose",
     "Galería",
+    "Bloques de acción",
     ...(esAdmin ? ["Roles"] : []),
   ];
 
@@ -223,6 +226,9 @@ function ProjectDashboardScreen() {
 
     if (option === "Galería") {
       navigate("/galeria", { state: { projectName, projectId } });
+    }
+    if (option === "Bloques de acción") {
+      navigate("/bloques-accion", { state: { projectName, projectId } });
     }
   };
 
@@ -302,12 +308,16 @@ function ProjectDashboardScreen() {
               <button
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                 className="pds-profile-button"
+                type="button"
+                aria-label="Menú de perfil"
+                aria-expanded={isProfileMenuOpen}
+                aria-controls="pds-profile-menu"
               >
                 <User className="pds-profile-icon" />
               </button>
 
               {isProfileMenuOpen && (
-                <div className="pds-profile-dropdown">
+                <div id="pds-profile-menu" className="pds-profile-dropdown">
                   {/* Nombre en móvil */}
                   <div className="pds-profile-dropdown-header">
                     <p className="pds-profile-dropdown-name">{nombre} {apellido}</p>
@@ -384,7 +394,9 @@ function ProjectDashboardScreen() {
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="pds-menu-toggle"
+              type="button"
               aria-expanded={isMenuOpen}
+              aria-controls="pds-module-menu"
             >
               <Menu className="pds-menu-toggle-icon" />
               <span className="pds-menu-toggle-label">Menú</span>
@@ -397,7 +409,7 @@ function ProjectDashboardScreen() {
         <div className="pds-content">
           {/* Menu Sidebar */}
           {isMenuOpen && (
-            <div ref={menuRef} className="pds-sidebar">
+            <div id="pds-module-menu" ref={sidebarRef} className="pds-sidebar">
               {menuOptions.map((option) => (
                 <button
                   key={option}
@@ -438,7 +450,7 @@ function ProjectDashboardScreen() {
                 }`}>
                   {module.name}
                 </h3>
-                <button className="pds-module-button">
+                <button type="button" className="pds-module-button" aria-label={`Ver ${module.name}`}>
                   Ver más
                 </button>
               </div>
@@ -455,6 +467,7 @@ function ProjectDashboardScreen() {
             <span className="pds-updates-total">{latestUpdates.length} registros</span>
           </div>
 
+          <SeccionDesplegable titulo="actividad reciente">
           {updatesLoading ? (
             <p className="pds-update-empty">Cargando actividad...</p>
           ) : updatesError ? (
@@ -494,6 +507,7 @@ function ProjectDashboardScreen() {
               })}
             </div>
           )}
+          </SeccionDesplegable>
         </section>
 
       </main>

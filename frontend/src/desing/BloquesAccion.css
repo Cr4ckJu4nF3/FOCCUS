@@ -1,0 +1,37 @@
+.acciones-page {
+  --acciones-bg: #172337;
+  --acciones-text: #eef3fa;
+  --acciones-muted: #c1ccda;
+  --acciones-surface: #202f43;
+  min-height: 100vh;
+  color: var(--acciones-text);
+  background: var(--acciones-bg);
+}
+
+html[data-theme="light"] .acciones-page {
+  --acciones-bg: #f4f6fa;
+  --acciones-text: #263449;
+  --acciones-muted: #4b5c72;
+  --acciones-surface: #fff;
+}
+
+.acciones-main { width: min(1200px, 100%); margin: auto; padding: 40px 28px 64px; }
+.acciones-main h1 { color: var(--acciones-text); font-size: clamp(1.6rem, 3vw, 2rem); }
+.acciones-main > p { color: var(--acciones-muted); line-height: 1.6; }
+.acciones-eyebrow { display: flex; align-items: center; gap: 8px; font-size: .75rem; font-weight: 700; }
+.acciones-link { display: inline-block; margin: 8px 0 24px; color: var(--acciones-text); text-decoration: underline; }
+.acciones-search { display: grid; gap: 8px; max-width: 430px; margin-bottom: 28px; font-weight: 600; }
+.acciones-search input {
+  padding: 10px 12px;
+  border: 1px solid #8797aa;
+  border-radius: 8px;
+  background: var(--acciones-surface);
+  color: var(--acciones-text);
+}
+.acciones-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.acciones-card { min-width: 0; padding: 16px; border: 1px solid #8797aa; border-radius: 12px; background: var(--acciones-surface); }
+.acciones-card h2 { margin: 0 0 12px; color: var(--acciones-text); font-size: .9rem; }
+.acciones-preview { padding: 18px; background: white; color: #111827; font: 1rem/1.45 "Courier New", monospace; overflow-wrap: anywhere; }
+.acciones-preview p { margin: 0; white-space: pre-wrap; }
+.acciones-notice { padding: 16px; border: 1px solid #d87c69; border-radius: 8px; }
+.acciones-notice button { text-decoration: underline; cursor: pointer; }

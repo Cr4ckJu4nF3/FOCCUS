@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMemo } from "react";
 import { useBlocker, useSearchParams } from "react-router-dom";
 import CodigoChip from "../componentes/CodigoChip";
+import SeccionDesplegable from "../componentes/SeccionDesplegable";
 import {
   ArrowLeft,
   FileText,
@@ -2762,6 +2763,7 @@ export default function GuionScreen() {
                       <Users size={16} /> Personajes
                       <button className="guion-sidebar__choose" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("personaje")}>Elegir</button>
                     </div>
+                    <SeccionDesplegable titulo="personajes">
                     {esAdmin && <div className="guion-sidebar__add">
                       <input
                         value={nuevoPersonaje}
@@ -2820,6 +2822,7 @@ export default function GuionScreen() {
                         )
                       )}
                     </div>
+                    </SeccionDesplegable>
                   </div>
 
                   <div className="guion-sidebar__block">
@@ -2827,6 +2830,7 @@ export default function GuionScreen() {
                       <MapPin size={16} /> Escenarios
                       <button className="guion-sidebar__choose" type="button" onMouseDown={(event) => { guardarSeleccionEditor(); event.preventDefault(); }} onClick={() => abrirSelectorGaleria("lugar")}>Elegir</button>
                     </div>
+                    <SeccionDesplegable titulo="escenarios">
                     {esAdmin && <div className="guion-sidebar__add">
                       <input
                         value={nuevoEscenario}
@@ -2889,6 +2893,7 @@ export default function GuionScreen() {
                         )
                       )}
                     </div>
+                    </SeccionDesplegable>
                   </div>
                   <div className="guion-sidebar__block guion-sidebar__object-block">
                     <div className="guion-sidebar__header"><Package size={16} /> Utilería y objetos</div>

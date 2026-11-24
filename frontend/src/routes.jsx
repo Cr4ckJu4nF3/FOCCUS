@@ -16,6 +16,7 @@ import Escena from "./screen/Escena";
 import Rodaje from "./screen/Rodaje";
 import Desglose from "./screen/Desglose";
 import Galeria from "./screen/Galeria";
+import BloquesAccion from "./screen/BloquesAccion";
 import BuscarCodigo from "./screen/BuscarCodigo";
 import ProtectedRoute from "./screen/ProtectedRoute";
 import ModuleLayout from "./componentes/ModuleLayout";
@@ -82,6 +83,7 @@ export const router = createBrowserRouter([
       { path: "/desglose", element: <Desglose /> },
       { path: "/buscar-codigo", element: <BuscarCodigo /> },
       { path: "/galeria", element: <Galeria /> },
+      { path: "/bloques-accion", element: <BloquesAccion /> },
     ],
   },
 ]);
